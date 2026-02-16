@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.0',
+      date: '2026-02-16',
+      notes: <String>[
+        '应用品牌升级为“粮仓”，首页标题与桌面窗口名同步调整',
+        '新增深色模式（跟随系统/浅色/深色）并支持在设置页切换',
+        '链接标题抓取失败时，列表中会显示错误提示并提供处理入口',
+        '优化圆角阴影样式，卡片阴影与圆角边界保持一致',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.3.5',
       date: '2026-02-17',
       notes: <String>[
@@ -115,7 +125,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.3.5';
+        _versionLabel = 'v0.4.0';
       });
     }
   }

@@ -5,6 +5,7 @@ import 'app/export/export_service.dart';
 import 'app/local/bookmark_repository.dart';
 import 'app/local/local_database.dart';
 import 'app/maintenance/maintenance_service.dart';
+import 'app/settings/app_settings.dart';
 import 'app/settings/settings_store.dart';
 import 'app/ui/home_page.dart';
 import 'core/metadata/metadata_fetch_service.dart';
@@ -24,6 +25,18 @@ class BookmarkApp extends StatefulWidget {
 class _BookmarkAppState extends State<BookmarkApp> {
   AppController? _controller;
   Object? _bootstrapError;
+  AppThemePreference _themePreference = AppThemePreference.system;
+
+  void _onControllerChanged() {
+    final AppController? controller = _controller;
+    if (controller == null) return;
+    final AppThemePreference next = controller.settings.themePreference;
+    if (next == _themePreference) return;
+    if (!mounted) return;
+    setState(() {
+      _themePreference = next;
+    });
+  }
 
   @override
   void initState() {
@@ -50,10 +63,12 @@ class _BookmarkAppState extends State<BookmarkApp> {
         maintenanceService: MaintenanceService(db: db),
       );
       await controller.initialize();
+      controller.addListener(_onControllerChanged);
 
       if (!mounted) return;
       setState(() {
         _controller = controller;
+        _themePreference = controller.settings.themePreference;
       });
     } catch (e) {
       if (!mounted) return;
@@ -65,71 +80,86 @@ class _BookmarkAppState extends State<BookmarkApp> {
 
   @override
   void dispose() {
+    _controller?.removeListener(_onControllerChanged);
     _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF0E8A86),
-      brightness: Brightness.light,
-    );
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '链接收藏',
-      theme: ThemeData(
-        colorScheme: colorScheme,
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF4F7F8),
-        appBarTheme: AppBarTheme(
-          backgroundColor: colorScheme.surface,
-          foregroundColor: colorScheme.onSurface,
-          surfaceTintColor: Colors.transparent,
-        ),
-        cardTheme: CardThemeData(
-          color: colorScheme.surface,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: colorScheme.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outlineVariant),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: colorScheme.primary,
-              width: 1.4,
+      title: '粮仓',
+      themeMode: _themePreference.themeMode,
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      home: _buildHome(),
+    );
+  }
+
+  ThemeData _buildTheme(Brightness brightness) {
+    final ColorScheme colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF0E8A86),
+      brightness: brightness,
+    );
+    final bool isDark = brightness == Brightness.dark;
+
+    return ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      scaffoldBackgroundColor:
+          isDark ? const Color(0xFF12191A) : const Color(0xFFF4F7F8),
+      appBarTheme: AppBarTheme(
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: CardThemeData(
+        color: colorScheme.surface,
+        elevation: 3,
+        shadowColor: colorScheme.shadow.withValues(alpha: isDark ? 0.45 : 0.14),
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(
+              alpha: isDark ? 0.6 : 1,
             ),
           ),
         ),
-        tabBarTheme: TabBarThemeData(
-          indicator: UnderlineTabIndicator(
-            borderSide: BorderSide(color: colorScheme.primary, width: 2),
-          ),
-          labelColor: colorScheme.primary,
-          unselectedLabelColor: colorScheme.onSurfaceVariant,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: colorScheme.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: colorScheme.primary,
+            width: 1.4,
           ),
         ),
       ),
-      home: _buildHome(),
+      tabBarTheme: TabBarThemeData(
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        ),
+        labelColor: colorScheme.primary,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 

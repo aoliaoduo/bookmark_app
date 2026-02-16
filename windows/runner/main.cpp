@@ -161,7 +161,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   const InitialWindowState initial_state = LoadInitialWindowState();
   const Win32Window::Point origin = initial_state.origin;
   const Win32Window::Size size = initial_state.size;
-  if (!window.Create(L"bookmark_app", origin, size)) {
+  if (!window.Create(L"粮仓", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

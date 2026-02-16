@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/domain/bookmark.dart';
 import '../../core/metadata/metadata_fetch_service.dart';
+import '../../core/metadata/title_fetch_note.dart';
 import '../../core/sync/sync_engine.dart';
 import '../../core/sync/sync_types.dart';
 
@@ -99,18 +100,47 @@ class BookmarkRepository implements LocalStore {
   Future<Bookmark?> refreshTitle(String bookmarkId) async {
     final Bookmark? bookmark = await findById(bookmarkId);
     if (bookmark == null || bookmark.isDeleted) return null;
-
-    final UrlMetadata metadata = await _metadataService.fetchTitle(
-      bookmark.url,
-    );
     final DateTime now = DateTime.now().toUtc();
+    try {
+      final UrlMetadata metadata = await _metadataService.fetchTitle(
+        bookmark.url,
+      );
+      final Bookmark updated = bookmark.copyWith(
+        title: metadata.title ?? bookmark.title,
+        note: null,
+        titleUpdatedAt: now,
+        updatedAt: now,
+      );
 
-    final Bookmark updated = bookmark.copyWith(
-      title: metadata.title ?? bookmark.title,
-      titleUpdatedAt: now,
-      updatedAt: now,
-    );
+      await _upsertBookmarkLocal(updated);
+      await _enqueueOp(SyncOpType.upsert, updated);
+      return updated;
+    } on MetadataFetchException catch (e) {
+      final Bookmark failed = bookmark.copyWith(
+        note: buildTitleFetchFailureNote(e.message),
+        titleUpdatedAt: now,
+        updatedAt: now,
+      );
+      await _upsertBookmarkLocal(failed);
+      await _enqueueOp(SyncOpType.upsert, failed);
+      return failed;
+    } catch (_) {
+      final Bookmark failed = bookmark.copyWith(
+        note: buildTitleFetchFailureNote('无法连接该链接，请检查是否可访问'),
+        titleUpdatedAt: now,
+        updatedAt: now,
+      );
+      await _upsertBookmarkLocal(failed);
+      await _enqueueOp(SyncOpType.upsert, failed);
+      return failed;
+    }
+  }
 
+  Future<Bookmark?> clearNote(String bookmarkId) async {
+    final Bookmark? bookmark = await findById(bookmarkId);
+    if (bookmark == null || bookmark.isDeleted) return null;
+    final DateTime now = DateTime.now().toUtc();
+    final Bookmark updated = bookmark.copyWith(note: null, updatedAt: now);
     await _upsertBookmarkLocal(updated);
     await _enqueueOp(SyncOpType.upsert, updated);
     return updated;
@@ -570,14 +600,31 @@ class BookmarkRepository implements LocalStore {
           final DateTime now = DateTime.now().toUtc();
           final Bookmark updated = target.copyWith(
             title: metadata.title ?? target.title,
+            note: null,
             titleUpdatedAt: now,
             updatedAt: now,
           );
           await _upsertBookmarkLocal(updated);
           await _enqueueOp(SyncOpType.upsert, updated);
           updatedCount += 1;
+        } on MetadataFetchException catch (e) {
+          final DateTime now = DateTime.now().toUtc();
+          final Bookmark failed = target.copyWith(
+            note: buildTitleFetchFailureNote(e.message),
+            titleUpdatedAt: now,
+            updatedAt: now,
+          );
+          await _upsertBookmarkLocal(failed);
+          await _enqueueOp(SyncOpType.upsert, failed);
         } catch (_) {
-          // 网络波动或目标站异常时，跳过单条继续处理剩余任务。
+          final DateTime now = DateTime.now().toUtc();
+          final Bookmark failed = target.copyWith(
+            note: buildTitleFetchFailureNote('无法连接该链接，请检查是否可访问'),
+            titleUpdatedAt: now,
+            updatedAt: now,
+          );
+          await _upsertBookmarkLocal(failed);
+          await _enqueueOp(SyncOpType.upsert, failed);
         }
 
         processedCount += 1;
@@ -641,8 +688,8 @@ class BookmarkRepository implements LocalStore {
     final String scheme = uri.scheme.toLowerCase();
     final String host = uri.host.toLowerCase();
     final int? port = uri.hasPort ? uri.port : null;
-    final bool isDefaultPort = (scheme == 'http' && port == 80) ||
-        (scheme == 'https' && port == 443);
+    final bool isDefaultPort =
+        (scheme == 'http' && port == 80) || (scheme == 'https' && port == 443);
     final String portPart =
         (port == null || isDefaultPort) ? '' : ':${port.toString()}';
 
@@ -705,26 +752,26 @@ class BookmarkRepository implements LocalStore {
     final String firstPath = pathSegments.isEmpty ? '/' : pathSegments.first;
     final Set<String> pathTokens = _urlTokens(path);
 
-    final List<MapEntry<String, String>> nonTrackingQuery =
-        uri.queryParametersAll.entries
-            .where((MapEntry<String, List<String>> e) =>
-                !_trackingQueryKeys.contains(e.key.toLowerCase()))
-            .expand(
-              (MapEntry<String, List<String>> e) => e.value.isEmpty
-                  ? <MapEntry<String, String>>[
-                      MapEntry<String, String>(e.key.toLowerCase(), ''),
-                    ]
-                  : e.value.map(
-                      (String v) =>
-                          MapEntry<String, String>(e.key.toLowerCase(), v),
-                    ),
-            )
-            .toList()
-          ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
-            final int keyCmp = a.key.compareTo(b.key);
-            if (keyCmp != 0) return keyCmp;
-            return a.value.compareTo(b.value);
-          });
+    final List<MapEntry<String, String>> nonTrackingQuery = uri
+        .queryParametersAll.entries
+        .where((MapEntry<String, List<String>> e) =>
+            !_trackingQueryKeys.contains(e.key.toLowerCase()))
+        .expand(
+          (MapEntry<String, List<String>> e) => e.value.isEmpty
+              ? <MapEntry<String, String>>[
+                  MapEntry<String, String>(e.key.toLowerCase(), ''),
+                ]
+              : e.value.map(
+                  (String v) =>
+                      MapEntry<String, String>(e.key.toLowerCase(), v),
+                ),
+        )
+        .toList()
+      ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+        final int keyCmp = a.key.compareTo(b.key);
+        if (keyCmp != 0) return keyCmp;
+        return a.value.compareTo(b.value);
+      });
 
     final String queryPart = nonTrackingQuery.isEmpty
         ? ''
@@ -748,7 +795,8 @@ class BookmarkRepository implements LocalStore {
 
     if (a.canonical.length >= 12 &&
         b.canonical.length >= 12 &&
-        (a.canonical.contains(b.canonical) || b.canonical.contains(a.canonical))) {
+        (a.canonical.contains(b.canonical) ||
+            b.canonical.contains(a.canonical))) {
       return true;
     }
 

@@ -105,6 +105,19 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> clearBookmarkNote(String bookmarkId) async {
+    _setLoading(true);
+    try {
+      await _repository.clearNote(bookmarkId);
+      await reloadBookmarks();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<int> refreshStaleTitles() async {
     _setLoading(true);
     _beginBatchRefresh();

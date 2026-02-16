@@ -20,6 +20,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   late bool _webDavEnabled;
   late bool _autoRefreshOnLaunch;
+  late AppThemePreference _themePreference;
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _passwordController = TextEditingController(text: s.webDavPassword);
     _webDavEnabled = s.webDavEnabled;
     _autoRefreshOnLaunch = s.autoRefreshOnLaunch;
+    _themePreference = s.themePreference;
   }
 
   @override
@@ -74,6 +76,28 @@ class _SettingsPageState extends State<SettingsPage> {
                     decoration: const InputDecoration(
                       labelText: '标题自动更新周期（天）',
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<AppThemePreference>(
+                    initialValue: _themePreference,
+                    decoration: const InputDecoration(
+                      labelText: '外观模式',
+                    ),
+                    items: AppThemePreference.values
+                        .map(
+                          (AppThemePreference mode) =>
+                              DropdownMenuItem<AppThemePreference>(
+                            value: mode,
+                            child: Text(mode.label),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (AppThemePreference? value) {
+                      if (value == null) return;
+                      setState(() {
+                        _themePreference = value;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -142,6 +166,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final AppSettings next = widget.settings.copyWith(
       titleRefreshDays: days < 1 ? 1 : days,
       autoRefreshOnLaunch: _autoRefreshOnLaunch,
+      themePreference: _themePreference,
       webDavEnabled: _webDavEnabled,
       webDavBaseUrl: _baseUrlController.text.trim(),
       webDavUserId: _userIdController.text.trim(),

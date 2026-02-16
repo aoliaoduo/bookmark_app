@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/domain/bookmark.dart';
+import '../../core/metadata/title_fetch_note.dart';
 import '../app_controller.dart';
 import '../export/export_service.dart';
 import '../maintenance/maintenance_service.dart';
@@ -68,7 +69,7 @@ class _HomePageState extends State<HomePage> {
             title: Text(
               _selectionMode
                   ? '已选择 ${_selectedIds.length} 条'
-                  : (_showTrash ? '回收站' : '链接收藏'),
+                  : (_showTrash ? '回收站' : '粮仓'),
             ),
             actions: _selectionMode
                 ? _buildSelectionActions(controller, currentItems)
@@ -365,6 +366,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildSearchArea() {
+    final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
       child: Container(
@@ -372,9 +374,18 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
+            color: theme.colorScheme.outlineVariant,
           ),
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: theme.colorScheme.shadow.withValues(
+                alpha: theme.brightness == Brightness.dark ? 0.24 : 0.08,
+              ),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          color: theme.colorScheme.surface.withValues(alpha: 0.9),
         ),
         padding: const EdgeInsets.only(left: 10),
         child: Row(
@@ -382,7 +393,7 @@ class _HomePageState extends State<HomePage> {
             Icon(
               Icons.search,
               size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -462,6 +473,10 @@ class _HomePageState extends State<HomePage> {
       itemCount: bookmarks.length,
       itemBuilder: (BuildContext context, int index) {
         final Bookmark item = bookmarks[index];
+        final String? issue = parseTitleFetchFailureNote(item.note);
+        final String titleText = item.title?.trim().isNotEmpty == true
+            ? item.title!
+            : (issue == null ? '(未获取标题)' : '(标题抓取失败)');
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: ListTile(
@@ -471,10 +486,65 @@ class _HomePageState extends State<HomePage> {
                     onChanged: (_) => _toggleSelected(item.id),
                   )
                 : null,
-            title: Text(
-              item.title?.trim().isNotEmpty == true ? item.title! : '(未获取标题)',
+            title: Text(titleText),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(item.url),
+                if (issue != null) ...<Widget>[
+                  const SizedBox(height: 6),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => _showTitleIssueActions(item, issue),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .errorContainer
+                            .withValues(alpha: 0.72),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.error_outline,
+                            size: 16,
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '标题获取失败：$issue',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '处理',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-            subtitle: Text(item.url),
+            isThreeLine: issue != null,
             onTap: () {
               if (_selectionMode) {
                 _toggleSelected(item.id);
@@ -634,6 +704,50 @@ class _HomePageState extends State<HomePage> {
         _selectedIds.addAll(ids);
       }
     });
+  }
+
+  Future<void> _showTitleIssueActions(Bookmark item, String issue) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.error_outline),
+                title: const Text('无法自动获取标题'),
+                subtitle: Text(issue),
+              ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('重试获取标题'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await widget.controller.refreshTitle(item.id);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.open_in_new),
+                title: const Text('打开链接手动确认'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await _openUrl(item.url);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined),
+                title: const Text('保留网址并隐藏提醒'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await widget.controller.clearBookmarkNote(item.id);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openUrl(String raw) async {

@@ -39,6 +39,7 @@ class SettingsStore {
   static const String _deviceIdKey = 'device_id';
   static const String _titleRefreshDaysKey = 'title_refresh_days';
   static const String _autoRefreshOnLaunchKey = 'auto_refresh_on_launch';
+  static const String _themePreferenceKey = 'theme_preference';
   static const String _webDavEnabledKey = 'webdav_enabled';
   static const String _webDavBaseUrlKey = 'webdav_base_url';
   static const String _webDavUserIdKey = 'webdav_user_id';
@@ -56,6 +57,9 @@ class SettingsStore {
       deviceId: deviceId,
       titleRefreshDays: prefs.getInt(_titleRefreshDaysKey) ?? 7,
       autoRefreshOnLaunch: prefs.getBool(_autoRefreshOnLaunchKey) ?? true,
+      themePreference: AppThemePreference.fromStorage(
+        prefs.getString(_themePreferenceKey),
+      ),
       webDavEnabled: prefs.getBool(_webDavEnabledKey) ?? false,
       webDavBaseUrl: prefs.getString(_webDavBaseUrlKey) ?? '',
       webDavUserId: prefs.getString(_webDavUserIdKey) ?? 'default',
@@ -69,6 +73,7 @@ class SettingsStore {
     await prefs.setString(_deviceIdKey, settings.deviceId);
     await prefs.setInt(_titleRefreshDaysKey, settings.titleRefreshDays);
     await prefs.setBool(_autoRefreshOnLaunchKey, settings.autoRefreshOnLaunch);
+    await prefs.setString(_themePreferenceKey, settings.themePreference.name);
     await prefs.setBool(_webDavEnabledKey, settings.webDavEnabled);
     await prefs.setString(_webDavBaseUrlKey, settings.webDavBaseUrl);
     await prefs.setString(_webDavUserIdKey, settings.webDavUserId);

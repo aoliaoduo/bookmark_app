@@ -20,6 +20,7 @@ void main() {
     final AppSettings settings = await store.load();
 
     expect(settings.webDavPassword, 'legacy-secret');
+    expect(settings.themePreference, AppThemePreference.system);
     expect(secretStore.readSync('webdav_password'), 'legacy-secret');
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('webdav_password'), isNull);
@@ -33,6 +34,7 @@ void main() {
       deviceId: 'd1',
       titleRefreshDays: 7,
       autoRefreshOnLaunch: true,
+      themePreference: AppThemePreference.dark,
       webDavEnabled: true,
       webDavBaseUrl: 'https://dav.example.com',
       webDavUserId: 'u1',
@@ -44,6 +46,7 @@ void main() {
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('webdav_password'), isNull);
+    expect(prefs.getString('theme_preference'), 'dark');
     expect(secretStore.readSync('webdav_password'), 'secret-1');
 
     await store.save(settings.copyWith(webDavPassword: ''));
