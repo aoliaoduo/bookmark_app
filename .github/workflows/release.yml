@@ -25,7 +25,6 @@ jobs:
         with:
           flutter-version: "3.41.1"
           channel: stable
-          cache: true
 
       - name: Flutter Pub Get
         run: flutter pub get
@@ -57,7 +56,6 @@ jobs:
         with:
           flutter-version: "3.41.1"
           channel: stable
-          cache: true
 
       - name: Flutter Pub Get
         run: flutter pub get
