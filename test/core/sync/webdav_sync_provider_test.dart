@@ -198,6 +198,77 @@ void main() {
     expect(pulled.length, 1);
     expect(pulled.single.cursorAt, since);
   });
+
+  test('pullOpsSince strips base path from href and avoids duplicated /dav',
+      () async {
+    final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
+    final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
+
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      final String url = request.url.toString();
+      if (request.method == 'PROPFIND') {
+        if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/devA/ops/')) {
+          return _xmlResponse(
+            _opsPropfindXml(
+              fileModified,
+              prefix: '/dav/BookmarksApp/users',
+            ),
+          );
+        }
+        if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/devA/')) {
+          return _xmlResponse(
+            _devicePropfindXml(prefix: '/dav/BookmarksApp/users'),
+          );
+        }
+        if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/')) {
+          return _xmlResponse(
+            _devicesPropfindXml(prefix: '/dav/BookmarksApp/users'),
+          );
+        }
+        if (url.contains('/dav/BookmarksApp/ussers/u%2F1/devices/')) {
+          return _response(404);
+        }
+      }
+      if (request.method == 'GET' &&
+          url.contains(
+              '/dav/BookmarksApp/users/u%2F1/devices/devA/ops/op1.json')) {
+        return _jsonResponse(<String, dynamic>{
+          'deviceId': 'devA',
+          'createdAt': '2020-01-01T00:00:00.000Z',
+          'ops': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'opId': 'op-1',
+              'type': 'upsert',
+              'bookmark': _bookmark('b-1').toJson(),
+              'occurredAt': '2026-02-16T11:30:00.000Z',
+              'deviceId': 'devA',
+            },
+          ],
+        });
+      }
+      return _response(404);
+    });
+
+    final WebDavSyncProvider provider = WebDavSyncProvider(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com/dav',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
+    expect(pulled.length, 1);
+    final List<String> allUrls = client.requests
+        .map((http.BaseRequest request) => request.url.toString())
+        .toList();
+    for (final String url in allUrls) {
+      expect(url, isNot(contains('/dav/dav/')));
+    }
+  });
 }
 
 class _RecordingHttpClient extends http.BaseClient {

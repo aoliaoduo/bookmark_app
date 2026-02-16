@@ -22,10 +22,12 @@ class WebDavConfig {
 class WebDavSyncProvider implements SyncProvider {
   WebDavSyncProvider({required WebDavConfig config, http.Client? client})
       : _config = config,
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        _baseUri = _parseBaseUri(config.baseUrl);
 
   final WebDavConfig _config;
   final http.Client _client;
+  final Uri _baseUri;
 
   @override
   Future<void> pushOps({
@@ -56,7 +58,7 @@ class WebDavSyncProvider implements SyncProvider {
     await _mkcol('/BookmarksApp/users/$encodedUserId/devices/$encodedDeviceId');
     await _mkcol(opsDir);
 
-    final Uri uri = Uri.parse('${_config.baseUrl}$path');
+    final Uri uri = _buildUri(path);
     final http.Response response = await _client.put(
       uri,
       headers: _headers(contentType: 'application/json'),
@@ -100,7 +102,7 @@ class WebDavSyncProvider implements SyncProvider {
         continue;
       }
 
-      final Uri uri = Uri.parse('${_config.baseUrl}$relativePath');
+      final Uri uri = _buildUri(relativePath);
       final http.Response response = await _client.get(
         uri,
         headers: _headers(),
@@ -139,7 +141,7 @@ class WebDavSyncProvider implements SyncProvider {
   }
 
   Future<void> _mkcol(String path) async {
-    final Uri uri = Uri.parse('${_config.baseUrl}$path');
+    final Uri uri = _buildUri(path);
     final http.Request request = http.Request('MKCOL', uri);
     request.headers.addAll(_headers());
     final http.StreamedResponse response = await _client.send(request);
@@ -176,7 +178,7 @@ class WebDavSyncProvider implements SyncProvider {
   }
 
   Future<List<_DavEntry>> _propfind(String path) async {
-    final Uri uri = Uri.parse('${_config.baseUrl}${_normalizePath(path)}');
+    final Uri uri = _buildUri(path);
     final http.Request request = http.Request('PROPFIND', uri);
     request.headers.addAll(
       _headers(contentType: 'application/xml')
@@ -252,9 +254,9 @@ class WebDavSyncProvider implements SyncProvider {
   String _pathFromHref(String href) {
     final Uri? uri = Uri.tryParse(href);
     if (uri != null && uri.hasAuthority) {
-      return _normalizePath(uri.path);
+      return _toDavRelativePath(uri.path);
     }
-    return _normalizePath(href);
+    return _toDavRelativePath(href);
   }
 
   bool _samePath(String a, String b) {
@@ -265,6 +267,51 @@ class WebDavSyncProvider implements SyncProvider {
   String _normalizePath(String path) {
     final String withLeading = path.startsWith('/') ? path : '/$path';
     return withLeading.replaceAll(RegExp(r'/{2,}'), '/');
+  }
+
+  String _normalizedBasePath() {
+    final String normalized =
+        _normalizePath(_baseUri.path).replaceFirst(RegExp(r'/+$'), '');
+    if (normalized == '/') {
+      return '';
+    }
+    return normalized;
+  }
+
+  String _toDavRelativePath(String rawPath) {
+    final String normalized = _normalizePath(rawPath);
+    final String basePath = _normalizedBasePath();
+    if (basePath.isEmpty) {
+      return normalized;
+    }
+    if (normalized == basePath) {
+      return '/';
+    }
+    if (normalized.startsWith('$basePath/')) {
+      return normalized.substring(basePath.length);
+    }
+    return normalized;
+  }
+
+  Uri _buildUri(String path) {
+    final String normalized = _normalizePath(path);
+    final String basePath = _normalizedBasePath();
+    final String requestPath;
+    if (basePath.isEmpty) {
+      requestPath = normalized;
+    } else if (normalized == basePath || normalized.startsWith('$basePath/')) {
+      requestPath = normalized;
+    } else {
+      requestPath = _normalizePath('$basePath$normalized');
+    }
+    return _baseUri.replace(path: requestPath);
+  }
+
+  static Uri _parseBaseUri(String rawBaseUrl) {
+    final Uri uri = Uri.parse(rawBaseUrl.trim());
+    final String normalizedPath =
+        uri.path.isEmpty ? '' : uri.path.replaceFirst(RegExp(r'/+$'), '');
+    return uri.replace(path: normalizedPath, query: null, fragment: null);
   }
 
   Iterable<XmlElement> _findAllByLocalName(XmlNode node, String localName) {

@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.7',
+      date: '2026-02-17',
+      notes: <String>[
+        '修复 WebDAV Base URL 含 /dav 时拉取路径重复拼接导致“同步无报错但拉不到数据”',
+        '同步拉取新增路径规范化，自动去除服务端 href 的 basePath 前缀',
+        '补充回归测试，覆盖 /dav 前缀场景并防止出现 /dav/dav 重复路径',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.6',
       date: '2026-02-17',
       notes: <String>[
@@ -178,7 +187,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.6';
+        _versionLabel = 'v0.4.7';
       });
     }
   }
