@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.9',
+      date: '2026-02-17',
+      notes: <String>[
+        '修复手机端“瘦身清理”执行 WAL checkpoint 报错导致流程中断',
+        '数据库维护改为按能力执行：PRAGMA 统一走 rawQuery，非 WAL 场景自动跳过 checkpoint',
+        '即使个别维护指令失败也会降级继续，避免用户一键瘦身直接失败',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.8',
       date: '2026-02-17',
       notes: <String>[
@@ -196,7 +205,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.8';
+        _versionLabel = 'v0.4.9';
       });
     }
   }

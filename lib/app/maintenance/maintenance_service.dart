@@ -51,9 +51,7 @@ class MaintenanceService {
       where: "trim(url) = '' OR trim(normalized_url) = ''",
     );
 
-    await _db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
-    await _db.execute('VACUUM');
-    await _db.execute('PRAGMA optimize');
+    await _runMaintenancePragmas();
 
     final int dbBytesAfter = await _safeDbSize();
 
@@ -64,6 +62,39 @@ class MaintenanceService {
       dbBytesBefore: dbBytesBefore,
       dbBytesAfter: dbBytesAfter,
     );
+  }
+
+  Future<void> _runMaintenancePragmas() async {
+    final bool walEnabled = await _isWalEnabled();
+    if (walEnabled) {
+      // 某些 Android SQLite 版本在 wal 文件不存在时会抛异常，这里降级忽略。
+      await _tryRawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+    }
+
+    await _tryExecute('VACUUM');
+    await _tryRawQuery('PRAGMA optimize');
+  }
+
+  Future<bool> _isWalEnabled() async {
+    final List<Map<String, Object?>> rows =
+        await _tryRawQuery('PRAGMA journal_mode');
+    if (rows.isEmpty) return false;
+    final Object? value = rows.first['journal_mode'] ?? rows.first.values.first;
+    return value?.toString().toLowerCase() == 'wal';
+  }
+
+  Future<List<Map<String, Object?>>> _tryRawQuery(String sql) async {
+    try {
+      return await _db.rawQuery(sql);
+    } catch (_) {
+      return <Map<String, Object?>>[];
+    }
+  }
+
+  Future<void> _tryExecute(String sql) async {
+    try {
+      await _db.execute(sql);
+    } catch (_) {}
   }
 
   Future<int> _safeDbSize() async {
