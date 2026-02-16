@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.3.1',
+      date: '2026-02-17',
+      notes: <String>[
+        '搜索区域改为默认收起，视觉权重下调，避免干扰主操作',
+        '回收站不再单独占用 Tab，改为主页内模式切换',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.3.0',
       date: '2026-02-17',
       notes: <String>[
@@ -76,7 +84,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.3.0';
+        _versionLabel = 'v0.3.1';
       });
     }
   }
