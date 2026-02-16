@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app_controller.dart';
@@ -105,10 +106,21 @@ class _BookmarkAppState extends State<BookmarkApp> {
       brightness: brightness,
     );
     final bool isDark = brightness == Brightness.dark;
+    final String? appFontFamily = _fontFamilyForPlatform();
+    final TextTheme baseTextTheme = ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+    ).textTheme;
+    final TextTheme textTheme = appFontFamily == null
+        ? baseTextTheme
+        : baseTextTheme.apply(fontFamily: appFontFamily);
 
     return ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
+      fontFamily: appFontFamily,
+      textTheme: textTheme,
+      primaryTextTheme: textTheme,
       scaffoldBackgroundColor:
           isDark ? const Color(0xFF12191A) : const Color(0xFFF4F7F8),
       appBarTheme: AppBarTheme(
@@ -162,7 +174,31 @@ class _BookmarkAppState extends State<BookmarkApp> {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          textStyle: WidgetStatePropertyAll<TextStyle?>(
+            textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
+  }
+
+  String? _fontFamilyForPlatform() {
+    if (kIsWeb) {
+      return null;
+    }
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return 'Microsoft YaHei';
+    }
+    return null;
   }
 
   Widget _buildHome() {

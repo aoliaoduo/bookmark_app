@@ -95,12 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             (AppThemePreference mode) =>
                                 ButtonSegment<AppThemePreference>(
                               value: mode,
-                              label: Text(
-                                mode.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              label: Text(mode.label),
                             ),
                           )
                           .toList(),

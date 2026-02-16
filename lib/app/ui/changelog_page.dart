@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.3',
+      date: '2026-02-16',
+      notes: <String>[
+        '修复 Windows 中文文字深浅不一致问题，统一中文字体渲染',
+        '统一“外观模式”与主按钮文字样式，避免局部样式混用造成观感差异',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.2',
       date: '2026-02-16',
       notes: <String>[
@@ -143,7 +151,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.2';
+        _versionLabel = 'v0.4.3';
       });
     }
   }
