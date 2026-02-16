@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:charset/charset.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
@@ -108,8 +109,7 @@ class WebDavSyncProvider implements SyncProvider {
         headers: _headers(),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final Map<String, dynamic> json =
-            jsonDecode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> json = _decodeJsonObject(response);
         final SyncBatch batch = SyncBatch.fromJson(json);
         result.add(
           PulledSyncBatch(
@@ -198,7 +198,7 @@ class WebDavSyncProvider implements SyncProvider {
       throw Exception('PROPFIND failed: ${response.statusCode} for $path');
     }
 
-    final XmlDocument doc = XmlDocument.parse(response.body);
+    final XmlDocument doc = XmlDocument.parse(_decodeResponseBody(response));
     final List<_DavEntry> entries = <_DavEntry>[];
 
     for (final XmlElement element in _findAllByLocalName(doc, 'response')) {
@@ -326,6 +326,57 @@ class WebDavSyncProvider implements SyncProvider {
       throw ArgumentError('WebDAV path segment cannot be empty');
     }
     return Uri.encodeComponent(trimmed);
+  }
+
+  Map<String, dynamic> _decodeJsonObject(http.Response response) {
+    final dynamic decoded = jsonDecode(_decodeResponseBody(response));
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('WebDAV JSON payload must be an object');
+    }
+    return decoded;
+  }
+
+  String _decodeResponseBody(http.Response response) {
+    final List<int> bytes = response.bodyBytes;
+    if (bytes.isEmpty) {
+      return '';
+    }
+
+    final String? declaredCharset = _extractCharset(response);
+    if (declaredCharset != null) {
+      final Encoding? declared = Charset.getByName(declaredCharset);
+      if (declared != null) {
+        try {
+          return declared.decode(bytes);
+        } catch (_) {}
+      }
+    }
+
+    try {
+      return utf8.decode(bytes);
+    } catch (_) {}
+
+    final Encoding? detected = Charset.detect(bytes, defaultEncoding: latin1);
+    if (detected != null) {
+      try {
+        return detected.decode(bytes);
+      } catch (_) {}
+    }
+
+    return latin1.decode(bytes);
+  }
+
+  String? _extractCharset(http.Response response) {
+    final String contentType = response.headers['content-type'] ?? '';
+    final Match? match = RegExp(
+      r'''charset\s*=\s*["']?([A-Za-z0-9._\-]+)''',
+      caseSensitive: false,
+    ).firstMatch(contentType);
+    final String? charset = match?.group(1)?.trim();
+    if (charset == null || charset.isEmpty) {
+      return null;
+    }
+    return charset;
   }
 }
 

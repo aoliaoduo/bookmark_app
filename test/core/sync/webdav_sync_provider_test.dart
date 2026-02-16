@@ -269,6 +269,73 @@ void main() {
       expect(url, isNot(contains('/dav/dav/')));
     }
   });
+
+  test('pullOpsSince decodes utf8 json bytes for Chinese text', () async {
+    final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
+    final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
+
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      final String url = request.url.toString();
+      if (request.method == 'PROPFIND') {
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/devA/ops/')) {
+          return _xmlResponse(_opsPropfindXml(fileModified));
+        }
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/devA/')) {
+          return _xmlResponse(_devicePropfindXml());
+        }
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/')) {
+          return _xmlResponse(_devicesPropfindXml());
+        }
+      }
+      if (request.method == 'GET' &&
+          url.contains('/BookmarksApp/users/u%2F1/devices/devA/ops/op1.json')) {
+        final Bookmark chinese = Bookmark(
+          id: 'zh-1',
+          url: 'https://example.com/zh',
+          normalizedUrl: 'https://example.com/zh',
+          title: '中文标题',
+          note: '中文备注',
+          createdAt: DateTime.utc(2026, 2, 16, 11, 0, 0),
+          updatedAt: DateTime.utc(2026, 2, 16, 11, 0, 0),
+        );
+        return _response(
+          200,
+          body: jsonEncode(<String, dynamic>{
+            'deviceId': 'devA',
+            'createdAt': '2020-01-01T00:00:00.000Z',
+            'ops': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'opId': 'op-zh',
+                'type': 'upsert',
+                'bookmark': chinese.toJson(),
+                'occurredAt': '2026-02-16T11:30:00.000Z',
+                'deviceId': 'devA',
+              },
+            ],
+          }),
+          headers: <String, String>{'content-type': 'text/plain'},
+        );
+      }
+      return _response(404);
+    });
+
+    final WebDavSyncProvider provider = WebDavSyncProvider(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
+    expect(pulled.length, 1);
+    final Bookmark bookmark = pulled.single.batch.ops.single.bookmark;
+    expect(bookmark.title, '中文标题');
+    expect(bookmark.note, '中文备注');
+  });
 }
 
 class _RecordingHttpClient extends http.BaseClient {

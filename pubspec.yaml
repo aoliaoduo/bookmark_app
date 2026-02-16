@@ -1,7 +1,7 @@
 name: bookmark_app
 description: Local-first bookmark app with WebDAV backup/sync.
 publish_to: none
-version: 0.4.7
+version: 0.4.8
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -22,6 +22,7 @@ dependencies:
   url_launcher: ^6.3.1
   uuid: ^4.5.1
   xml: ^6.5.0
+  charset: ^2.0.1
 
 dev_dependencies:
   flutter_test:

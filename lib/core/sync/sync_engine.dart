@@ -25,14 +25,24 @@ class SyncEngine {
 
   Future<void> syncOnce() async {
     final List<SyncOp> localOps = await localStore.loadPendingOps();
-    if (localOps.isNotEmpty) {
+    final List<SyncOp> ignoredLocalOps =
+        localOps.where((SyncOp op) => !_shouldSync(op)).toList(growable: false);
+    if (ignoredLocalOps.isNotEmpty) {
+      await localStore.markOpsAsPushed(
+        ignoredLocalOps.map((SyncOp e) => e.opId).toList(),
+      );
+    }
+
+    final List<SyncOp> syncableLocalOps =
+        localOps.where(_shouldSync).toList(growable: false);
+    if (syncableLocalOps.isNotEmpty) {
       await syncProvider.pushOps(
         userId: userId,
         deviceId: deviceId,
-        ops: localOps,
+        ops: syncableLocalOps,
       );
       await localStore.markOpsAsPushed(
-        localOps.map((SyncOp e) => e.opId).toList(),
+        syncableLocalOps.map((SyncOp e) => e.opId).toList(),
       );
     }
 
@@ -45,6 +55,9 @@ class SyncEngine {
     DateTime maxPulled = since;
     for (final PulledSyncBatch pulled in remoteBatches) {
       for (final SyncOp op in pulled.batch.ops) {
+        if (!_shouldSync(op)) {
+          continue;
+        }
         await localStore.upsertBookmark(_applyMergePolicy(op.bookmark));
       }
       if (pulled.cursorAt.isAfter(maxPulled)) {
@@ -57,5 +70,9 @@ class SyncEngine {
   Bookmark _applyMergePolicy(Bookmark incoming) {
     // MVP：此处仅做透传。实际需要与本地记录比较 updatedAt/deletedAt 后再决定。
     return incoming;
+  }
+
+  bool _shouldSync(SyncOp op) {
+    return op.type == SyncOpType.upsert && !op.bookmark.isDeleted;
   }
 }

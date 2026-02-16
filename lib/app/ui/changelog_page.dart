@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.8',
+      date: '2026-02-17',
+      notes: <String>[
+        '回收站改为本地状态：删除/恢复不再参与云同步',
+        '同步拉取 JSON 改为按字节+编码解码，修复手机端中文字段（标题/备注等）乱码',
+        '网页标题抓取新增 charset 识别（含 GBK/GB2312），提升中文站点标题识别准确性',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.7',
       date: '2026-02-17',
       notes: <String>[
@@ -187,7 +196,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.7';
+        _versionLabel = 'v0.4.8';
       });
     }
   }

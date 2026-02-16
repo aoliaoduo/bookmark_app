@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:charset/charset.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 
@@ -77,11 +78,59 @@ class MetadataFetchService {
   }
 
   String _decodeBody(http.Response response) {
-    // 尽量按字节解码，避免中文网站标题乱码。
-    try {
-      return utf8.decode(response.bodyBytes);
-    } catch (_) {
-      return response.body;
+    final List<int> bytes = response.bodyBytes;
+    if (bytes.isEmpty) {
+      return '';
     }
+
+    final String? declaredCharset = _extractCharset(response);
+    if (declaredCharset != null) {
+      final Encoding? declared = Charset.getByName(declaredCharset);
+      if (declared != null) {
+        try {
+          return declared.decode(bytes);
+        } catch (_) {}
+      }
+    }
+
+    try {
+      return utf8.decode(bytes);
+    } catch (_) {
+      final Encoding? detected = Charset.detect(bytes, defaultEncoding: latin1);
+      if (detected != null) {
+        try {
+          return detected.decode(bytes);
+        } catch (_) {}
+      }
+      return latin1.decode(bytes);
+    }
+  }
+
+  String? _extractCharset(http.Response response) {
+    final String contentType = response.headers['content-type'] ?? '';
+    final Match? headerMatch = RegExp(
+      r'''charset\s*=\s*["']?([A-Za-z0-9._\-]+)''',
+      caseSensitive: false,
+    ).firstMatch(contentType);
+    final String? headerCharset = headerMatch?.group(1)?.trim();
+    if (headerCharset != null && headerCharset.isNotEmpty) {
+      return headerCharset;
+    }
+
+    final List<int> bytes = response.bodyBytes;
+    if (bytes.isEmpty) {
+      return null;
+    }
+    final int inspectLength = bytes.length < 4096 ? bytes.length : 4096;
+    final String head = latin1.decode(bytes.sublist(0, inspectLength));
+    final Match? metaMatch = RegExp(
+      r'''charset\s*=\s*["']?\s*([A-Za-z0-9._\-]+)''',
+      caseSensitive: false,
+    ).firstMatch(head);
+    final String? metaCharset = metaMatch?.group(1)?.trim();
+    if (metaCharset == null || metaCharset.isEmpty) {
+      return null;
+    }
+    return metaCharset;
   }
 }

@@ -41,8 +41,73 @@ void main() {
     await engine.syncOnce();
 
     expect(local.savedCursor, serverCursor);
+    expect(local.markedOpIds, isEmpty);
     expect(local.upserted.length, 1);
     expect(local.upserted.single.id, 'b-1');
+  });
+
+  test('syncOnce skips trash ops for push and pull', () async {
+    final DateTime now = DateTime.utc(2026, 2, 16, 12, 0, 0);
+    final _FakeLocalStore local = _FakeLocalStore(
+      pendingOps: <SyncOp>[
+        SyncOp(
+          opId: 'op-local-delete',
+          type: SyncOpType.delete,
+          bookmark: _bookmark('local-trash').copyWith(deletedAt: now),
+          occurredAt: now,
+          deviceId: 'local-device',
+        ),
+        SyncOp(
+          opId: 'op-local-upsert',
+          type: SyncOpType.upsert,
+          bookmark: _bookmark('local-keep'),
+          occurredAt: now,
+          deviceId: 'local-device',
+        ),
+      ],
+      lastPulled: DateTime.utc(2026, 2, 16, 11, 0, 0),
+    );
+
+    final SyncBatch batch = SyncBatch(
+      deviceId: 'remote-device',
+      createdAt: now,
+      ops: <SyncOp>[
+        SyncOp(
+          opId: 'op-remote-delete',
+          type: SyncOpType.delete,
+          bookmark: _bookmark('remote-trash').copyWith(deletedAt: now),
+          occurredAt: now,
+          deviceId: 'remote-device',
+        ),
+        SyncOp(
+          opId: 'op-remote-upsert',
+          type: SyncOpType.upsert,
+          bookmark: _bookmark('remote-keep'),
+          occurredAt: now,
+          deviceId: 'remote-device',
+        ),
+      ],
+    );
+    final _FakeSyncProvider provider = _FakeSyncProvider(
+      pulled: <PulledSyncBatch>[
+        PulledSyncBatch(batch: batch, cursorAt: DateTime.utc(2026, 2, 16, 13)),
+      ],
+    );
+
+    final SyncEngine engine = SyncEngine(
+      localStore: local,
+      syncProvider: provider,
+      userId: 'u1',
+      deviceId: 'd1',
+    );
+
+    await engine.syncOnce();
+
+    expect(provider.pushedOps.length, 1);
+    expect(provider.pushedOps.single.opId, 'op-local-upsert');
+    expect(local.markedOpIds, <String>['op-local-delete', 'op-local-upsert']);
+    expect(local.upserted.length, 1);
+    expect(local.upserted.single.id, 'remote-keep');
   });
 }
 
@@ -56,6 +121,7 @@ class _FakeLocalStore implements LocalStore {
   final List<SyncOp> _pendingOps;
   final DateTime _lastPulled;
   final List<Bookmark> upserted = <Bookmark>[];
+  final List<String> markedOpIds = <String>[];
   DateTime? savedCursor;
 
   @override
@@ -65,7 +131,9 @@ class _FakeLocalStore implements LocalStore {
   Future<List<SyncOp>> loadPendingOps() async => _pendingOps;
 
   @override
-  Future<void> markOpsAsPushed(List<String> opIds) async {}
+  Future<void> markOpsAsPushed(List<String> opIds) async {
+    markedOpIds.addAll(opIds);
+  }
 
   @override
   Future<void> saveLastPulledAt(DateTime timestamp) async {
@@ -82,6 +150,7 @@ class _FakeSyncProvider implements SyncProvider {
   _FakeSyncProvider({required this.pulled});
 
   final List<PulledSyncBatch> pulled;
+  final List<SyncOp> pushedOps = <SyncOp>[];
 
   @override
   Future<List<PulledSyncBatch>> pullOpsSince({
@@ -96,7 +165,9 @@ class _FakeSyncProvider implements SyncProvider {
     required String userId,
     required String deviceId,
     required List<SyncOp> ops,
-  }) async {}
+  }) async {
+    pushedOps.addAll(ops);
+  }
 }
 
 Bookmark _bookmark(String id) {
