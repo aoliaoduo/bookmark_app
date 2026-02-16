@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.5',
+      date: '2026-02-17',
+      notes: <String>[
+        '修复 Android release 包缺少网络权限导致的云同步/备份域名解析失败',
+        '主清单补充 INTERNET 权限，手机端同步与备份可正常访问 WebDAV',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.4',
       date: '2026-02-16',
       notes: <String>[
@@ -160,7 +168,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.4';
+        _versionLabel = 'v0.4.5';
       });
     }
   }
