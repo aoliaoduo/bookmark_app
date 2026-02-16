@@ -33,32 +33,17 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  late final TabController _tabController;
 
+  bool _showTrash = false;
+  bool _searchExpanded = false;
   bool _selectionMode = false;
   final Set<String> _selectedIds = <String>{};
 
-  bool get _onTrashTab => _tabController.index == 1;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this)
-      ..addListener(() {
-        if (!_tabController.indexIsChanging) {
-          _clearSelection();
-          setState(() {});
-        }
-      });
-  }
-
   @override
   void dispose() {
-    _tabController.dispose();
     _urlController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -75,29 +60,29 @@ class _HomePageState extends State<HomePage>
 
         final List<Bookmark> bookmarks = _applySearch(allBookmarks);
         final List<Bookmark> trash = _applySearch(allTrash);
-        final List<Bookmark> currentTabItems = _onTrashTab ? trash : bookmarks;
+        final List<Bookmark> currentItems = _showTrash ? trash : bookmarks;
 
         _pruneSelection(allBookmarks, allTrash);
 
         return Scaffold(
           appBar: AppBar(
-            title:
-                Text(_selectionMode ? '已选择 ${_selectedIds.length} 条' : '网址收藏'),
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: <Widget>[
-                Tab(text: '收藏 (${bookmarks.length})'),
-                Tab(text: '回收站 (${trash.length})'),
-              ],
+            title: Text(
+              _selectionMode
+                  ? '已选择 ${_selectedIds.length} 条'
+                  : (_showTrash ? '回收站' : '网址收藏'),
             ),
             actions: _selectionMode
-                ? _buildSelectionActions(controller, currentTabItems)
-                : _buildNormalActions(controller, trash, currentTabItems),
+                ? _buildSelectionActions(controller, currentItems)
+                : _buildNormalActions(controller, trash, currentItems),
           ),
           body: Column(
             children: <Widget>[
-              _buildInputArea(controller),
-              _buildSearchArea(),
+              if (!_showTrash)
+                _buildInputArea(controller)
+              else
+                _buildTrashHint(),
+              if (_searchExpanded || _searchController.text.isNotEmpty)
+                _buildSearchArea(),
               if (controller.batchRefreshing)
                 _buildBatchProgress(controller)
               else if (controller.loading)
@@ -116,20 +101,20 @@ class _HomePageState extends State<HomePage>
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 child: Row(
                   children: <Widget>[
-                    Text('自动更新周期: 每 ${controller.settings.titleRefreshDays} 天'),
+                    Text(
+                      _showTrash
+                          ? '回收站模式'
+                          : '自动更新周期: 每 ${controller.settings.titleRefreshDays} 天',
+                    ),
                     const Spacer(),
-                    Text('回收站 ${allTrash.length} 条'),
+                    Text('收藏 ${allBookmarks.length} / 回收站 ${allTrash.length}'),
                   ],
                 ),
               ),
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: <Widget>[
-                    _buildBookmarkList(bookmarks),
-                    _buildTrashList(trash),
-                  ],
-                ),
+                child: _showTrash
+                    ? _buildTrashList(trash)
+                    : _buildBookmarkList(bookmarks),
               ),
             ],
           ),
@@ -141,24 +126,42 @@ class _HomePageState extends State<HomePage>
   List<Widget> _buildNormalActions(
     AppController controller,
     List<Bookmark> trash,
-    List<Bookmark> currentTabItems,
+    List<Bookmark> currentItems,
   ) {
-    return <Widget>[
+    final List<Widget> actions = <Widget>[
+      IconButton(
+        tooltip: _searchExpanded ? '收起搜索' : '搜索',
+        onPressed: _toggleSearch,
+        icon: Icon(_searchExpanded ? Icons.search_off : Icons.search),
+      ),
+      IconButton(
+        tooltip: _showTrash ? '返回收藏' : '查看回收站',
+        onPressed: () => _toggleTrashMode(!_showTrash),
+        icon: Icon(_showTrash ? Icons.home_outlined : Icons.delete_outline),
+      ),
       IconButton(
         tooltip: '批量操作',
-        onPressed: () => _enterSelectionMode(currentTabItems),
+        onPressed: () => _enterSelectionMode(currentItems),
         icon: const Icon(Icons.checklist),
       ),
-      IconButton(
-        tooltip: '一键更新全部标题',
-        onPressed: controller.loading ? null : _refreshAllTitles,
-        icon: const Icon(Icons.flash_on),
-      ),
-      IconButton(
-        tooltip: '刷新过期标题',
-        onPressed: controller.loading ? null : _refreshStaleTitles,
-        icon: const Icon(Icons.auto_awesome),
-      ),
+    ];
+
+    if (!_showTrash) {
+      actions.addAll(<Widget>[
+        IconButton(
+          tooltip: '一键更新全部标题',
+          onPressed: controller.loading ? null : _refreshAllTitles,
+          icon: const Icon(Icons.flash_on),
+        ),
+        IconButton(
+          tooltip: '刷新过期标题',
+          onPressed: controller.loading ? null : _refreshStaleTitles,
+          icon: const Icon(Icons.auto_awesome),
+        ),
+      ]);
+    }
+
+    actions.addAll(<Widget>[
       IconButton(
         tooltip: '清空回收站',
         onPressed: controller.loading || trash.isEmpty ? null : _emptyTrash,
@@ -242,7 +245,9 @@ class _HomePageState extends State<HomePage>
               },
         icon: const Icon(Icons.settings),
       ),
-    ];
+    ]);
+
+    return actions;
   }
 
   List<Widget> _buildSelectionActions(
@@ -268,7 +273,7 @@ class _HomePageState extends State<HomePage>
       ),
     ];
 
-    if (_onTrashTab) {
+    if (_showTrash) {
       actions.add(
         IconButton(
           tooltip: '批量恢复',
@@ -363,22 +368,66 @@ class _HomePageState extends State<HomePage>
   Widget _buildSearchArea() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          hintText: '搜索标题或网址',
-          suffixIcon: _searchController.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: '清空搜索',
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.clear),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          color: Theme.of(context).colorScheme.surface,
+        ),
+        child: Row(
+          children: <Widget>[
+            const SizedBox(width: 10),
+            Icon(
+              Icons.search,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  hintText: '搜索标题或网址',
+                  border: InputBorder.none,
+                  isDense: true,
                 ),
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              IconButton(
+                tooltip: '清空搜索',
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+                icon: const Icon(Icons.clear, size: 18),
+              ),
+            IconButton(
+              tooltip: '收起搜索',
+              onPressed: () {
+                setState(() {
+                  _searchExpanded = false;
+                });
+              },
+              icon: const Icon(Icons.expand_less, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrashHint() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          '当前查看回收站，可恢复或永久删除条目',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ),
     );
@@ -534,6 +583,23 @@ class _HomePageState extends State<HomePage>
     _selectedIds.removeWhere((String id) => !valid.contains(id));
   }
 
+  void _toggleSearch() {
+    setState(() {
+      _searchExpanded = !_searchExpanded;
+      if (!_searchExpanded && _searchController.text.isEmpty) {
+        _searchController.clear();
+      }
+    });
+  }
+
+  void _toggleTrashMode(bool showTrash) {
+    setState(() {
+      _showTrash = showTrash;
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
   void _startSelection(String id) {
     setState(() {
       _selectionMode = true;
@@ -669,13 +735,13 @@ class _HomePageState extends State<HomePage>
   Future<void> _exportSelected(ExportFormat format) async {
     final String? targetPath = await _pickExportPath(
       format: format,
-      prefix: _onTrashTab ? 'bookmarks_trash_selected' : 'bookmarks_selected',
+      prefix: _showTrash ? 'bookmarks_trash_selected' : 'bookmarks_selected',
     );
     if (targetPath == null) return;
 
     final ExportResult? result = await widget.controller.exportSelected(
       bookmarkIds: _selectedIds.toList(),
-      fromTrash: _onTrashTab,
+      fromTrash: _showTrash,
       format: format,
       targetPath: targetPath,
     );
