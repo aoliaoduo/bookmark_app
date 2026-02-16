@@ -4,6 +4,7 @@ import 'app/app_controller.dart';
 import 'app/export/export_service.dart';
 import 'app/local/bookmark_repository.dart';
 import 'app/local/local_database.dart';
+import 'app/local/windows_data_migration.dart';
 import 'app/maintenance/maintenance_service.dart';
 import 'app/settings/app_settings.dart';
 import 'app/settings/settings_store.dart';
@@ -46,6 +47,7 @@ class _BookmarkAppState extends State<BookmarkApp> {
 
   Future<void> _bootstrap() async {
     try {
+      await WindowsDataMigration.migrateLegacyBookmarkAppData();
       final SettingsStore settingsStore = SettingsStore();
       final settings = await settingsStore.load();
       final db = await LocalDatabase.instance.database;

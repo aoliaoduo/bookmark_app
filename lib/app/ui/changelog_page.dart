@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.1',
+      date: '2026-02-16',
+      notes: <String>[
+        '修复外观模式选项样式不统一，改为统一单选样式展示',
+        '修复 Windows 目录切换导致的数据/配置丢失，新增旧目录自动迁移',
+        '修复 Windows 标题栏中文名显示乱码',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.0',
       date: '2026-02-16',
       notes: <String>[
@@ -125,7 +134,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.0';
+        _versionLabel = 'v0.4.1';
       });
     }
   }

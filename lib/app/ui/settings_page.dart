@@ -78,26 +78,42 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<AppThemePreference>(
-                    initialValue: _themePreference,
-                    decoration: const InputDecoration(
-                      labelText: '外观模式',
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '外观模式',
+                      style: Theme.of(context).textTheme.labelLarge,
                     ),
-                    items: AppThemePreference.values
-                        .map(
-                          (AppThemePreference mode) =>
-                              DropdownMenuItem<AppThemePreference>(
-                            value: mode,
-                            child: Text(mode.label),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (AppThemePreference? value) {
-                      if (value == null) return;
-                      setState(() {
-                        _themePreference = value;
-                      });
-                    },
+                  ),
+                  const SizedBox(height: 2),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<AppThemePreference>(
+                      showSelectedIcon: false,
+                      segments: AppThemePreference.values
+                          .map(
+                            (AppThemePreference mode) =>
+                                ButtonSegment<AppThemePreference>(
+                              value: mode,
+                              label: Text(
+                                mode.label,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      selected: <AppThemePreference>{_themePreference},
+                      onSelectionChanged: (
+                        Set<AppThemePreference> selected,
+                      ) {
+                        if (selected.isEmpty) return;
+                        setState(() {
+                          _themePreference = selected.first;
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
