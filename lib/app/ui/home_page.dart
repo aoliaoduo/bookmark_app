@@ -823,9 +823,11 @@ class _HomePageState extends State<HomePage>
         dialogTitle: '选择导出文件位置',
         fileName: defaultName,
       );
-      if (savePath != null && savePath.trim().isNotEmpty) {
-        return _ensureExt(savePath, ext);
+      if (savePath == null || savePath.trim().isEmpty) {
+        // 用户在保存对话框里取消时，直接结束，不再二次弹窗。
+        return null;
       }
+      return _ensureExt(savePath, ext);
     } catch (_) {
       // 某些平台不支持保存对话框，回退到目录选择。
     }

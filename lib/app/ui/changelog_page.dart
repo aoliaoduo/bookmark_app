@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.2.1',
+      date: '2026-02-16',
+      notes: <String>[
+        '修复导出时取消需要点两次的问题（现在点一次取消即可）',
+        '优化导出路径选择交互一致性',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.2.0',
       date: '2026-02-16',
       notes: <String>[
@@ -49,7 +57,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.2.0+2';
+        _versionLabel = 'v0.2.1+3';
       });
     }
   }
