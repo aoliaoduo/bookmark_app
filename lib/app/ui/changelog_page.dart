@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.2',
+      date: '2026-02-16',
+      notes: <String>[
+        '修复云同步在 WebDAV 返回 409 时直接中断的问题（改为按空目录处理）',
+        '云同步拉取兼容历史 ussers 目录路径，避免旧目录结构导致报错',
+        'WebDAV Base URL 自动剥离 /BookmarksApp 子路径，减少配置误填影响',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.1',
       date: '2026-02-16',
       notes: <String>[
@@ -134,7 +143,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.1';
+        _versionLabel = 'v0.4.2';
       });
     }
   }

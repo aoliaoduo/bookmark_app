@@ -103,6 +103,101 @@ void main() {
     expect(pulled.single.cursorAt, since);
     expect(pulled.single.batch.createdAt, DateTime.utc(2020, 1, 1));
   });
+
+  test('pullOpsSince tolerates 409 during recursive PROPFIND', () async {
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      final String url = request.url.toString();
+      if (request.method == 'PROPFIND') {
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/devBroken/')) {
+          return _response(409);
+        }
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/')) {
+          return _xmlResponse(_devicesPropfindXml(withBrokenChild: true));
+        }
+        if (url.contains('/BookmarksApp/ussers/u%2F1/devices/')) {
+          return _response(404);
+        }
+      }
+      return _response(404);
+    });
+
+    final WebDavSyncProvider provider = WebDavSyncProvider(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    final pulled = await provider.pullOpsSince(
+      userId: 'u/1',
+      since: DateTime.utc(2026, 2, 16, 12, 0, 0),
+    );
+    expect(pulled, isEmpty);
+  });
+
+  test('pullOpsSince can read legacy ussers path', () async {
+    final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
+    final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
+
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      final String url = request.url.toString();
+      if (request.method == 'PROPFIND') {
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/')) {
+          return _response(404);
+        }
+        if (url.contains('/BookmarksApp/ussers/u%2F1/devices/devA/ops/')) {
+          return _xmlResponse(
+            _opsPropfindXml(fileModified, prefix: '/BookmarksApp/ussers'),
+          );
+        }
+        if (url.contains('/BookmarksApp/ussers/u%2F1/devices/devA/')) {
+          return _xmlResponse(
+              _devicePropfindXml(prefix: '/BookmarksApp/ussers'));
+        }
+        if (url.contains('/BookmarksApp/ussers/u%2F1/devices/')) {
+          return _xmlResponse(
+              _devicesPropfindXml(prefix: '/BookmarksApp/ussers'));
+        }
+      }
+      if (request.method == 'GET' &&
+          url.contains(
+              '/BookmarksApp/ussers/u%2F1/devices/devA/ops/op1.json')) {
+        return _jsonResponse(<String, dynamic>{
+          'deviceId': 'devA',
+          'createdAt': '2020-01-01T00:00:00.000Z',
+          'ops': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'opId': 'op-1',
+              'type': 'upsert',
+              'bookmark': _bookmark('b-1').toJson(),
+              'occurredAt': '2026-02-16T11:30:00.000Z',
+              'deviceId': 'devA',
+            },
+          ],
+        });
+      }
+      return _response(404);
+    });
+
+    final WebDavSyncProvider provider = WebDavSyncProvider(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
+    expect(pulled.length, 1);
+    expect(pulled.single.cursorAt, since);
+  });
 }
 
 class _RecordingHttpClient extends http.BaseClient {
@@ -147,48 +242,63 @@ http.StreamedResponse _jsonResponse(Map<String, dynamic> json) {
   );
 }
 
-String _devicesPropfindXml() {
+String _devicesPropfindXml({
+  String prefix = '/BookmarksApp/users',
+  bool withBrokenChild = false,
+}) {
+  final String brokenChild = withBrokenChild
+      ? '''
+  <d:response>
+    <d:href>$prefix/u%2F1/devices/devBroken/</d:href>
+    <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
+  </d:response>
+'''
+      : '';
   return '''
 <?xml version="1.0" encoding="utf-8"?>
 <d:multistatus xmlns:d="DAV:">
   <d:response>
-    <d:href>/BookmarksApp/users/u%2F1/devices/</d:href>
+    <d:href>$prefix/u%2F1/devices/</d:href>
     <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
   </d:response>
   <d:response>
-    <d:href>/BookmarksApp/users/u%2F1/devices/devA/</d:href>
+    <d:href>$prefix/u%2F1/devices/devA/</d:href>
+    <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
+  </d:response>
+  $brokenChild
+</d:multistatus>
+''';
+}
+
+String _devicePropfindXml({String prefix = '/BookmarksApp/users'}) {
+  return '''
+<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:">
+  <d:response>
+    <d:href>$prefix/u%2F1/devices/devA/</d:href>
+    <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>$prefix/u%2F1/devices/devA/ops/</d:href>
     <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
   </d:response>
 </d:multistatus>
 ''';
 }
 
-String _devicePropfindXml() {
+String _opsPropfindXml(
+  String fileModified, {
+  String prefix = '/BookmarksApp/users',
+}) {
   return '''
 <?xml version="1.0" encoding="utf-8"?>
 <d:multistatus xmlns:d="DAV:">
   <d:response>
-    <d:href>/BookmarksApp/users/u%2F1/devices/devA/</d:href>
+    <d:href>$prefix/u%2F1/devices/devA/ops/</d:href>
     <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
   </d:response>
   <d:response>
-    <d:href>/BookmarksApp/users/u%2F1/devices/devA/ops/</d:href>
-    <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
-  </d:response>
-</d:multistatus>
-''';
-}
-
-String _opsPropfindXml(String fileModified) {
-  return '''
-<?xml version="1.0" encoding="utf-8"?>
-<d:multistatus xmlns:d="DAV:">
-  <d:response>
-    <d:href>/BookmarksApp/users/u%2F1/devices/devA/ops/</d:href>
-    <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat>
-  </d:response>
-  <d:response>
-    <d:href>/BookmarksApp/users/u%2F1/devices/devA/ops/op1.json</d:href>
+    <d:href>$prefix/u%2F1/devices/devA/ops/op1.json</d:href>
     <d:propstat>
       <d:prop>
         <d:resourcetype/>

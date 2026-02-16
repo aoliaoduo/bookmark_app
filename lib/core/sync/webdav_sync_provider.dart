@@ -76,8 +76,20 @@ class WebDavSyncProvider implements SyncProvider {
     required DateTime since,
   }) async {
     final String encodedUserId = _encodePathSegment(userId);
-    final String root = '/BookmarksApp/users/$encodedUserId/devices/';
-    final List<_DavEntry> files = await _listJsonFilesRecursively(root);
+    final List<String> roots = <String>[
+      '/BookmarksApp/users/$encodedUserId/devices/',
+      '/BookmarksApp/ussers/$encodedUserId/devices/',
+    ];
+    final List<_DavEntry> files = <_DavEntry>[];
+    final Set<String> seenFilePaths = <String>{};
+    for (final String root in roots) {
+      final List<_DavEntry> listed = await _listJsonFilesRecursively(root);
+      for (final _DavEntry entry in listed) {
+        if (seenFilePaths.add(_normalizePath(entry.path))) {
+          files.add(entry);
+        }
+      }
+    }
     final List<PulledSyncBatch> result = <PulledSyncBatch>[];
 
     for (final _DavEntry file in files) {
@@ -178,7 +190,7 @@ class WebDavSyncProvider implements SyncProvider {
 
     if (!(response.statusCode == 207 ||
         (response.statusCode >= 200 && response.statusCode < 300))) {
-      if (response.statusCode == 404) {
+      if (response.statusCode == 404 || response.statusCode == 409) {
         return <_DavEntry>[];
       }
       throw Exception('PROPFIND failed: ${response.statusCode} for $path');

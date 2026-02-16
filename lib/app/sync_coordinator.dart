@@ -7,7 +7,7 @@ import '../core/sync/webdav_sync_provider.dart';
 
 class SyncCoordinator {
   SyncCoordinator({required BookmarkRepository repository})
-    : _repository = repository;
+      : _repository = repository;
 
   final BookmarkRepository _repository;
 
@@ -60,8 +60,23 @@ class SyncCoordinator {
   String _normalizeBaseUrl(String input) {
     final String trimmed = input.trim();
     if (trimmed.isEmpty) return trimmed;
-    return trimmed.endsWith('/')
+    final String noTrailingSlash = trimmed.endsWith('/')
         ? trimmed.substring(0, trimmed.length - 1)
         : trimmed;
+    final Uri? parsed = Uri.tryParse(noTrailingSlash);
+    if (parsed == null || !parsed.hasScheme || !parsed.hasAuthority) {
+      return noTrailingSlash;
+    }
+
+    final String marker = '/bookmarksapp';
+    final String lowerPath = parsed.path.toLowerCase();
+    final int markerIndex = lowerPath.indexOf(marker);
+    final String normalizedPath =
+        markerIndex >= 0 ? parsed.path.substring(0, markerIndex) : parsed.path;
+
+    return parsed.replace(path: normalizedPath).toString().replaceFirst(
+          RegExp(r'/$'),
+          '',
+        );
   }
 }
