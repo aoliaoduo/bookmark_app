@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.3.3',
+      date: '2026-02-17',
+      notes: <String>[
+        'CI 调整为仅在 PR 场景自动取消进行中的旧任务',
+        'main 分支推送任务不再被新推送自动中断，减少误判失败',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.3.2',
       date: '2026-02-17',
       notes: <String>[
@@ -92,7 +100,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.3.2';
+        _versionLabel = 'v0.3.3';
       });
     }
   }
