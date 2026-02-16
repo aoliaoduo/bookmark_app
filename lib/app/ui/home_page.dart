@@ -38,7 +38,6 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
 
   bool _showTrash = false;
-  bool _searchExpanded = false;
   bool _selectionMode = false;
   final Set<String> _selectedIds = <String>{};
 
@@ -81,8 +80,7 @@ class _HomePageState extends State<HomePage> {
                 _buildInputArea(controller)
               else
                 _buildTrashHint(),
-              if (_searchExpanded || _searchController.text.isNotEmpty)
-                _buildSearchArea(),
+              _buildSearchArea(),
               if (controller.batchRefreshing)
                 _buildBatchProgress(controller)
               else if (controller.loading)
@@ -129,11 +127,6 @@ class _HomePageState extends State<HomePage> {
     List<Bookmark> currentItems,
   ) {
     final List<Widget> actions = <Widget>[
-      IconButton(
-        tooltip: _searchExpanded ? '收起搜索' : '搜索',
-        onPressed: _toggleSearch,
-        icon: Icon(_searchExpanded ? Icons.search_off : Icons.search),
-      ),
       IconButton(
         tooltip: _showTrash ? '返回收藏' : '查看回收站',
         onPressed: () => _toggleTrashMode(!_showTrash),
@@ -367,18 +360,19 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildSearchArea() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: DecoratedBox(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: Container(
+        height: 40,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: Theme.of(context).colorScheme.outlineVariant,
           ),
-          color: Theme.of(context).colorScheme.surface,
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
         ),
+        padding: const EdgeInsets.only(left: 10),
         child: Row(
           children: <Widget>[
-            const SizedBox(width: 10),
             Icon(
               Icons.search,
               size: 18,
@@ -392,7 +386,7 @@ class _HomePageState extends State<HomePage> {
                 decoration: const InputDecoration(
                   hintText: '搜索标题或网址',
                   border: InputBorder.none,
-                  isDense: true,
+                  isCollapsed: true,
                 ),
               ),
             ),
@@ -405,15 +399,6 @@ class _HomePageState extends State<HomePage> {
                 },
                 icon: const Icon(Icons.clear, size: 18),
               ),
-            IconButton(
-              tooltip: '收起搜索',
-              onPressed: () {
-                setState(() {
-                  _searchExpanded = false;
-                });
-              },
-              icon: const Icon(Icons.expand_less, size: 18),
-            ),
           ],
         ),
       ),
@@ -581,15 +566,6 @@ class _HomePageState extends State<HomePage> {
       ...trash.map((Bookmark b) => b.id),
     };
     _selectedIds.removeWhere((String id) => !valid.contains(id));
-  }
-
-  void _toggleSearch() {
-    setState(() {
-      _searchExpanded = !_searchExpanded;
-      if (!_searchExpanded && _searchController.text.isEmpty) {
-        _searchController.clear();
-      }
-    });
   }
 
   void _toggleTrashMode(bool showTrash) {
