@@ -344,7 +344,6 @@ class _HomePageState extends State<HomePage>
               controller: _urlController,
               enabled: !controller.loading,
               decoration: const InputDecoration(
-                border: OutlineInputBorder(),
                 hintText: '输入网址，例如 https://example.com',
               ),
               onSubmitted: (_) => _addUrl(),
@@ -368,7 +367,6 @@ class _HomePageState extends State<HomePage>
         controller: _searchController,
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
-          border: const OutlineInputBorder(),
           prefixIcon: const Icon(Icons.search),
           hintText: '搜索标题或网址',
           suffixIcon: _searchController.text.isEmpty

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
@@ -20,8 +21,8 @@ class WebDavConfig {
 
 class WebDavSyncProvider implements SyncProvider {
   WebDavSyncProvider({required WebDavConfig config, http.Client? client})
-    : _config = config,
-      _client = client ?? http.Client();
+      : _config = config,
+        _client = client ?? http.Client();
 
   final WebDavConfig _config;
   final http.Client _client;
@@ -42,15 +43,18 @@ class WebDavSyncProvider implements SyncProvider {
     );
 
     final String ts = now.toIso8601String().replaceAll(':', '-');
-    final String path =
-        '/BookmarksApp/users/$userId/devices/$deviceId/ops/$ts-$deviceId.json';
+    final String encodedUserId = _encodePathSegment(userId);
+    final String encodedDeviceId = _encodePathSegment(deviceId);
+    final String opsDir =
+        '/BookmarksApp/users/$encodedUserId/devices/$encodedDeviceId/ops';
+    final String path = '$opsDir/$ts-$encodedDeviceId.json';
 
     await _mkcol('/BookmarksApp');
     await _mkcol('/BookmarksApp/users');
-    await _mkcol('/BookmarksApp/users/$userId');
-    await _mkcol('/BookmarksApp/users/$userId/devices');
-    await _mkcol('/BookmarksApp/users/$userId/devices/$deviceId');
-    await _mkcol('/BookmarksApp/users/$userId/devices/$deviceId/ops');
+    await _mkcol('/BookmarksApp/users/$encodedUserId');
+    await _mkcol('/BookmarksApp/users/$encodedUserId/devices');
+    await _mkcol('/BookmarksApp/users/$encodedUserId/devices/$encodedDeviceId');
+    await _mkcol(opsDir);
 
     final Uri uri = Uri.parse('${_config.baseUrl}$path');
     final http.Response response = await _client.put(
@@ -67,16 +71,23 @@ class WebDavSyncProvider implements SyncProvider {
   }
 
   @override
-  Future<List<SyncBatch>> pullOpsSince({
+  Future<List<PulledSyncBatch>> pullOpsSince({
     required String userId,
     required DateTime since,
   }) async {
-    final String root = '/BookmarksApp/users/$userId/devices/';
-    final List<String> files = await _listJsonFilesRecursively(root);
-    final List<SyncBatch> result = <SyncBatch>[];
+    final String encodedUserId = _encodePathSegment(userId);
+    final String root = '/BookmarksApp/users/$encodedUserId/devices/';
+    final List<_DavEntry> files = await _listJsonFilesRecursively(root);
+    final List<PulledSyncBatch> result = <PulledSyncBatch>[];
 
-    for (final String relativePath in files) {
+    for (final _DavEntry file in files) {
+      final String relativePath = file.path;
       if (!relativePath.contains('/ops/')) continue;
+      final DateTime? lastModified = file.lastModified;
+      if (lastModified != null && lastModified.isBefore(since)) {
+        continue;
+      }
+
       final Uri uri = Uri.parse('${_config.baseUrl}$relativePath');
       final http.Response response = await _client.get(
         uri,
@@ -86,14 +97,21 @@ class WebDavSyncProvider implements SyncProvider {
         final Map<String, dynamic> json =
             jsonDecode(response.body) as Map<String, dynamic>;
         final SyncBatch batch = SyncBatch.fromJson(json);
-        if (batch.createdAt.isAfter(since)) {
-          result.add(batch);
-        }
+        result.add(
+          PulledSyncBatch(
+            batch: batch,
+            cursorAt: lastModified ?? batch.createdAt,
+          ),
+        );
       }
     }
 
     result.sort(
-      (SyncBatch a, SyncBatch b) => a.createdAt.compareTo(b.createdAt),
+      (PulledSyncBatch a, PulledSyncBatch b) {
+        final int cursorCompare = a.cursorAt.compareTo(b.cursorAt);
+        if (cursorCompare != 0) return cursorCompare;
+        return a.batch.createdAt.compareTo(b.batch.createdAt);
+      },
     );
     return result;
   }
@@ -118,9 +136,9 @@ class WebDavSyncProvider implements SyncProvider {
     }
   }
 
-  Future<List<String>> _listJsonFilesRecursively(String rootPath) async {
+  Future<List<_DavEntry>> _listJsonFilesRecursively(String rootPath) async {
     final String normalizedRoot = _normalizePath(rootPath);
-    final List<String> files = <String>[];
+    final List<_DavEntry> files = <_DavEntry>[];
     final Set<String> visited = <String>{};
     final List<String> pending = <String>[normalizedRoot];
 
@@ -137,7 +155,7 @@ class WebDavSyncProvider implements SyncProvider {
         if (entry.isCollection) {
           pending.add(entry.path);
         } else if (entry.path.toLowerCase().endsWith('.json')) {
-          files.add(entry.path);
+          files.add(entry);
         }
       }
     }
@@ -153,7 +171,7 @@ class WebDavSyncProvider implements SyncProvider {
         ..addAll(<String, String>{'Depth': '1'}),
     );
     request.body =
-        '<d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>';
+        '<d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getlastmodified/></d:prop></d:propfind>';
 
     final http.StreamedResponse streamed = await _client.send(request);
     final http.Response response = await http.Response.fromStream(streamed);
@@ -169,9 +187,9 @@ class WebDavSyncProvider implements SyncProvider {
     final XmlDocument doc = XmlDocument.parse(response.body);
     final List<_DavEntry> entries = <_DavEntry>[];
 
-    for (final XmlElement element in doc.findAllElements('response')) {
+    for (final XmlElement element in _findAllByLocalName(doc, 'response')) {
       XmlElement? hrefNode;
-      for (final XmlElement node in element.findAllElements('href')) {
+      for (final XmlElement node in _findAllByLocalName(element, 'href')) {
         hrefNode = node;
         break;
       }
@@ -181,26 +199,50 @@ class WebDavSyncProvider implements SyncProvider {
 
       final String pathValue = _pathFromHref(hrefRaw);
       bool isCollection = false;
-      for (final XmlElement rt in element.findAllElements('resourcetype')) {
-        if (rt.findAllElements('collection').isNotEmpty) {
+      for (final XmlElement rt
+          in _findAllByLocalName(element, 'resourcetype')) {
+        if (_findAllByLocalName(rt, 'collection').isNotEmpty) {
           isCollection = true;
           break;
         }
       }
 
-      entries.add(_DavEntry(path: pathValue, isCollection: isCollection));
+      DateTime? lastModified;
+      XmlElement? modifiedNode;
+      for (final XmlElement node
+          in _findAllByLocalName(element, 'getlastmodified')) {
+        modifiedNode = node;
+        break;
+      }
+      if (modifiedNode != null) {
+        final String raw = modifiedNode.innerText.trim();
+        if (raw.isNotEmpty) {
+          try {
+            lastModified = HttpDate.parse(raw).toUtc();
+          } catch (_) {
+            lastModified = DateTime.tryParse(raw)?.toUtc();
+          }
+        }
+      }
+
+      entries.add(
+        _DavEntry(
+          path: pathValue,
+          isCollection: isCollection,
+          lastModified: lastModified,
+        ),
+      );
     }
 
     return entries;
   }
 
   String _pathFromHref(String href) {
-    final String decoded = Uri.decodeFull(href);
-    final Uri? uri = Uri.tryParse(decoded);
+    final Uri? uri = Uri.tryParse(href);
     if (uri != null && uri.hasAuthority) {
       return _normalizePath(uri.path);
     }
-    return _normalizePath(decoded);
+    return _normalizePath(href);
   }
 
   bool _samePath(String a, String b) {
@@ -212,11 +254,30 @@ class WebDavSyncProvider implements SyncProvider {
     final String withLeading = path.startsWith('/') ? path : '/$path';
     return withLeading.replaceAll(RegExp(r'/{2,}'), '/');
   }
+
+  Iterable<XmlElement> _findAllByLocalName(XmlNode node, String localName) {
+    return node.descendants
+        .whereType<XmlElement>()
+        .where((XmlElement element) => element.name.local == localName);
+  }
+
+  String _encodePathSegment(String raw) {
+    final String trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('WebDAV path segment cannot be empty');
+    }
+    return Uri.encodeComponent(trimmed);
+  }
 }
 
 class _DavEntry {
-  const _DavEntry({required this.path, required this.isCollection});
+  const _DavEntry({
+    required this.path,
+    required this.isCollection,
+    this.lastModified,
+  });
 
   final String path;
   final bool isCollection;
+  final DateTime? lastModified;
 }

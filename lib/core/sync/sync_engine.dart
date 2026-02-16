@@ -37,18 +37,18 @@ class SyncEngine {
     }
 
     final DateTime since = await localStore.lastPulledAt();
-    final List<SyncBatch> remoteBatches = await syncProvider.pullOpsSince(
+    final List<PulledSyncBatch> remoteBatches = await syncProvider.pullOpsSince(
       userId: userId,
       since: since,
     );
 
     DateTime maxPulled = since;
-    for (final SyncBatch batch in remoteBatches) {
-      for (final SyncOp op in batch.ops) {
+    for (final PulledSyncBatch pulled in remoteBatches) {
+      for (final SyncOp op in pulled.batch.ops) {
         await localStore.upsertBookmark(_applyMergePolicy(op.bookmark));
       }
-      if (batch.createdAt.isAfter(maxPulled)) {
-        maxPulled = batch.createdAt;
+      if (pulled.cursorAt.isAfter(maxPulled)) {
+        maxPulled = pulled.cursorAt;
       }
     }
     await localStore.saveLastPulledAt(maxPulled);

@@ -7,8 +7,8 @@ import '../sync/webdav_sync_provider.dart';
 
 class WebDavBackupService {
   WebDavBackupService({required WebDavConfig config, http.Client? client})
-    : _config = config,
-      _client = client ?? http.Client();
+      : _config = config,
+        _client = client ?? http.Client();
 
   final WebDavConfig _config;
   final http.Client _client;
@@ -19,14 +19,14 @@ class WebDavBackupService {
     DateTime? timestamp,
   }) async {
     final DateTime now = (timestamp ?? DateTime.now()).toUtc();
-    final String name =
-        'bookmarks_${now.toIso8601String().split('T').first}.json';
-    final String path = '/BookmarksApp/users/$userId/snapshots/$name';
+    final String name = _snapshotFileName(now);
+    final String snapshotsDir = _snapshotsDir(userId);
+    final String path = '$snapshotsDir/$name';
 
     await _mkcol('/BookmarksApp');
     await _mkcol('/BookmarksApp/users');
-    await _mkcol('/BookmarksApp/users/$userId');
-    await _mkcol('/BookmarksApp/users/$userId/snapshots');
+    await _mkcol(_userDir(userId));
+    await _mkcol(snapshotsDir);
 
     final Uri uri = Uri.parse('${_config.baseUrl}$path');
     final String payload = jsonEncode(<String, dynamic>{
@@ -51,8 +51,9 @@ class WebDavBackupService {
     required String userId,
     required String snapshotFileName,
   }) async {
+    final String encodedName = _encodePathSegment(snapshotFileName);
     final Uri uri = Uri.parse(
-      '${_config.baseUrl}/BookmarksApp/users/$userId/snapshots/$snapshotFileName',
+      '${_config.baseUrl}${_snapshotsDir(userId)}/$encodedName',
     );
     final http.Response response = await _client.get(uri, headers: _headers());
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -85,5 +86,27 @@ class WebDavBackupService {
       'Authorization': 'Basic $token',
       if (contentType != null) 'Content-Type': contentType,
     };
+  }
+
+  String _snapshotFileName(DateTime now) {
+    final String ts =
+        now.toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
+    return 'bookmarks_$ts.json';
+  }
+
+  String _userDir(String userId) {
+    return '/BookmarksApp/users/${_encodePathSegment(userId)}';
+  }
+
+  String _snapshotsDir(String userId) {
+    return '${_userDir(userId)}/snapshots';
+  }
+
+  String _encodePathSegment(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('WebDAV path segment cannot be empty');
+    }
+    return Uri.encodeComponent(trimmed);
   }
 }

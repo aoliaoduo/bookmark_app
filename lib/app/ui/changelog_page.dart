@@ -13,6 +13,25 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.3.0',
+      date: '2026-02-17',
+      notes: <String>[
+        '同步游标改为基于 WebDAV 服务端时间，修复多设备时钟差导致的漏同步风险',
+        'WebDAV 路径段统一做 URL 编码，提升特殊字符场景稳定性',
+        'WebDAV 密码迁移到安全存储（含旧版明文配置自动迁移）',
+        '快照备份文件名升级为时间戳格式，避免同日多次备份互相覆盖',
+      ],
+    ),
+    _ChangelogEntry(
+      version: 'v0.2.2',
+      date: '2026-02-17',
+      notes: <String>[
+        'Windows 端记住上次窗口尺寸，重启后自动恢复',
+        '应用版本格式统一为纯语义版本（移除 +build 展示）',
+        '统一主页/设置/关于/更新日志的视觉风格',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.2.1',
       date: '2026-02-16',
       notes: <String>[
@@ -52,12 +71,12 @@ class _ChangelogPageState extends State<ChangelogPage> {
       final PackageInfo info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v${info.version}+${info.buildNumber}';
+        _versionLabel = 'v${info.version}';
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.2.1+3';
+        _versionLabel = 'v0.3.0';
       });
     }
   }

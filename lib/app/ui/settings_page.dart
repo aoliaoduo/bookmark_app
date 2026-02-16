@@ -53,66 +53,81 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: <Widget>[
-          SwitchListTile(
-            value: _autoRefreshOnLaunch,
-            onChanged: (bool value) {
-              setState(() {
-                _autoRefreshOnLaunch = value;
-              });
-            },
-            title: const Text('启动时自动刷新过期标题'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _daysController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: '标题自动更新周期（天）',
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: <Widget>[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _autoRefreshOnLaunch,
+                    onChanged: (bool value) {
+                      setState(() {
+                        _autoRefreshOnLaunch = value;
+                      });
+                    },
+                    title: const Text('启动时自动刷新过期标题'),
+                  ),
+                  TextField(
+                    controller: _daysController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '标题自动更新周期（天）',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 20),
-          SwitchListTile(
-            value: _webDavEnabled,
-            onChanged: (bool value) {
-              setState(() {
-                _webDavEnabled = value;
-              });
-            },
-            title: const Text('启用 WebDAV 云同步/备份'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _baseUrlController,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: 'WebDAV Base URL',
-              hintText: 'https://dav.example.com/remote.php/dav/files/yourname',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _userIdController,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: '应用内用户 ID（用于云端目录）',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _usernameController,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: 'WebDAV 用户名',
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _passwordController,
-            obscureText: true,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: 'WebDAV 密码',
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: <Widget>[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _webDavEnabled,
+                    onChanged: (bool value) {
+                      setState(() {
+                        _webDavEnabled = value;
+                      });
+                    },
+                    title: const Text('启用 WebDAV 云同步/备份'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _baseUrlController,
+                    decoration: const InputDecoration(
+                      labelText: 'WebDAV Base URL',
+                      hintText:
+                          'https://dav.example.com/remote.php/dav/files/yourname',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _userIdController,
+                    decoration: const InputDecoration(
+                      labelText: '应用内用户 ID（用于云端目录）',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _usernameController,
+                    decoration: const InputDecoration(
+                      labelText: 'WebDAV 用户名',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'WebDAV 密码',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),

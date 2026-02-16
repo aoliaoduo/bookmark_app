@@ -24,12 +24,12 @@ class _AboutPageState extends State<AboutPage> {
       final PackageInfo info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v${info.version}+${info.buildNumber}';
+        _versionLabel = 'v${info.version}';
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.2.1+3';
+        _versionLabel = 'v0.3.0';
       });
     }
   }
@@ -41,14 +41,19 @@ class _AboutPageState extends State<AboutPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          const Text(
+          Text(
             '网址收藏 App',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
           ),
           const SizedBox(height: 10),
-          Text('当前版本：$_versionLabel', style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 6),
-          const Text('作者：奥里奥多', style: TextStyle(fontSize: 16)),
+          Text(
+            '当前版本：$_versionLabel',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 4),
+          Text('作者：奥里奥多', style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: 12),
           Card(
             child: ListTile(
@@ -65,21 +70,43 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            '技术栈',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    '技术栈',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  const _TechItem(
+                    name: 'Flutter',
+                    desc: '跨平台 UI 框架（Android / Windows）',
+                  ),
+                  const _TechItem(name: 'Dart', desc: '应用核心语言'),
+                  const _TechItem(
+                    name: 'SQLite (sqflite)',
+                    desc: '本地优先数据存储',
+                  ),
+                  const _TechItem(name: 'WebDAV', desc: '云同步与云备份协议'),
+                  const _TechItem(
+                    name: 'HTTP + html parser',
+                    desc: '网页请求与标题解析',
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          const _TechItem(
-              name: 'Flutter', desc: '跨平台 UI 框架（Android / Windows）'),
-          const _TechItem(name: 'Dart', desc: '应用核心语言'),
-          const _TechItem(name: 'SQLite (sqflite)', desc: '本地优先数据存储'),
-          const _TechItem(name: 'WebDAV', desc: '云同步与云备份协议'),
-          const _TechItem(name: 'HTTP + html parser', desc: '网页请求与标题解析'),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 14),
+          Text(
             '说明：该应用默认本地优先，云同步/备份在设置中启用并配置。',
-            style: TextStyle(color: Colors.black54),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
