@@ -68,7 +68,7 @@ class _HomePageState extends State<HomePage> {
             title: Text(
               _selectionMode
                   ? '已选择 ${_selectedIds.length} 条'
-                  : (_showTrash ? '回收站' : '网址收藏'),
+                  : (_showTrash ? '回收站' : '链接收藏'),
             ),
             actions: _selectionMode
                 ? _buildSelectionActions(controller, currentItems)
@@ -348,10 +348,16 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: controller.loading ? null : _addUrl,
-            icon: const Icon(Icons.add_link),
-            label: const Text('收藏'),
+          SizedBox(
+            height: 56,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(104, 56),
+              ),
+              onPressed: controller.loading ? null : _addUrl,
+              icon: const Icon(Icons.add_link),
+              label: const Text('收藏'),
+            ),
           ),
         ],
       ),

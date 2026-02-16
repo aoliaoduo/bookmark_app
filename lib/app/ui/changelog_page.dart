@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.3.5',
+      date: '2026-02-17',
+      notes: <String>[
+        '首页标题从“网址收藏”调整为“链接收藏”',
+        '新增输入区按钮高度对齐，收藏按钮与输入框视觉统一',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.3.4',
       date: '2026-02-17',
       notes: <String>[
@@ -107,7 +115,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.3.4';
+        _versionLabel = 'v0.3.5';
       });
     }
   }

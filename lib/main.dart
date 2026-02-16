@@ -78,7 +78,7 @@ class _BookmarkAppState extends State<BookmarkApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '网址收藏',
+      title: '链接收藏',
       theme: ThemeData(
         colorScheme: colorScheme,
         useMaterial3: true,

@@ -29,7 +29,7 @@ class _AboutPageState extends State<AboutPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.3.4';
+        _versionLabel = 'v0.3.5';
       });
     }
   }
@@ -42,7 +42,7 @@ class _AboutPageState extends State<AboutPage> {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           Text(
-            '网址收藏 App',
+            '链接收藏 App',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
