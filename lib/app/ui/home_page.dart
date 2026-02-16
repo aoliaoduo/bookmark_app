@@ -386,6 +386,12 @@ class _HomePageState extends State<HomePage> {
                 decoration: const InputDecoration(
                   hintText: '搜索标题或网址',
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  filled: false,
                   isCollapsed: true,
                 ),
               ),
