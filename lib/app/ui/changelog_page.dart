@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.4',
+      date: '2026-02-16',
+      notes: <String>[
+        '修复手机端顶部操作栏按钮过多导致右侧被遮挡的问题',
+        '窄屏自动切换为“核心按钮 + 更多菜单”，所有功能都可点到',
+        '批量模式顶部操作同样支持窄屏菜单收纳',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.3',
       date: '2026-02-16',
       notes: <String>[
@@ -151,7 +160,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.3';
+        _versionLabel = 'v0.4.4';
       });
     }
   }

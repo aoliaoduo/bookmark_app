@@ -25,6 +25,33 @@ enum _HomeMenuAction {
 
 enum _SelectionMenuAction { exportSelectedJson, exportSelectedCsv }
 
+enum _CompactHomeAction {
+  refreshAllTitles,
+  refreshStaleTitles,
+  emptyTrash,
+  syncNow,
+  backupNow,
+  exportAllJson,
+  exportAllCsv,
+  dedupExact,
+  dedupSimilar,
+  dedupAll,
+  slimDown,
+  changelog,
+  about,
+  settings,
+}
+
+enum _CompactSelectionAction {
+  toggleSelectAll,
+  restoreSelected,
+  deleteSelectedForever,
+  refreshSelectedTitles,
+  deleteSelected,
+  exportSelectedJson,
+  exportSelectedCsv,
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
 
@@ -61,6 +88,7 @@ class _HomePageState extends State<HomePage> {
         final List<Bookmark> bookmarks = _applySearch(allBookmarks);
         final List<Bookmark> trash = _applySearch(allTrash);
         final List<Bookmark> currentItems = _showTrash ? trash : bookmarks;
+        final bool compactActions = _useCompactActionsLayout(context);
 
         _pruneSelection(allBookmarks, allTrash);
 
@@ -72,8 +100,17 @@ class _HomePageState extends State<HomePage> {
                   : (_showTrash ? '回收站' : '粮仓'),
             ),
             actions: _selectionMode
-                ? _buildSelectionActions(controller, currentItems)
-                : _buildNormalActions(controller, trash, currentItems),
+                ? _buildSelectionActions(
+                    controller,
+                    currentItems,
+                    compactActions: compactActions,
+                  )
+                : _buildNormalActions(
+                    controller,
+                    trash,
+                    currentItems,
+                    compactActions: compactActions,
+                  ),
           ),
           body: Column(
             children: <Widget>[
@@ -125,8 +162,100 @@ class _HomePageState extends State<HomePage> {
   List<Widget> _buildNormalActions(
     AppController controller,
     List<Bookmark> trash,
-    List<Bookmark> currentItems,
-  ) {
+    List<Bookmark> currentItems, {
+    required bool compactActions,
+  }) {
+    if (compactActions) {
+      return <Widget>[
+        IconButton(
+          tooltip: _showTrash ? '返回收藏' : '查看回收站',
+          onPressed: () => _toggleTrashMode(!_showTrash),
+          icon: Icon(_showTrash ? Icons.home_outlined : Icons.delete_outline),
+        ),
+        IconButton(
+          tooltip: '批量操作',
+          onPressed: () => _enterSelectionMode(currentItems),
+          icon: const Icon(Icons.checklist),
+        ),
+        PopupMenuButton<_CompactHomeAction>(
+          tooltip: '更多操作',
+          onSelected: (_CompactHomeAction action) {
+            _onCompactHomeAction(action, controller);
+          },
+          itemBuilder: (BuildContext context) =>
+              <PopupMenuEntry<_CompactHomeAction>>[
+            if (!_showTrash)
+              PopupMenuItem<_CompactHomeAction>(
+                value: _CompactHomeAction.refreshAllTitles,
+                enabled: !controller.loading,
+                child: const Text('一键更新全部标题'),
+              ),
+            if (!_showTrash)
+              PopupMenuItem<_CompactHomeAction>(
+                value: _CompactHomeAction.refreshStaleTitles,
+                enabled: !controller.loading,
+                child: const Text('刷新过期标题'),
+              ),
+            PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.emptyTrash,
+              enabled: !controller.loading && trash.isNotEmpty,
+              child: const Text('清空回收站'),
+            ),
+            PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.syncNow,
+              enabled: !controller.loading,
+              child: const Text('云同步'),
+            ),
+            PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.backupNow,
+              enabled: !controller.loading,
+              child: const Text('云备份'),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.exportAllJson,
+              child: Text('导出全部(JSON)'),
+            ),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.exportAllCsv,
+              child: Text('导出全部(CSV)'),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.dedupExact,
+              child: Text('去重（重复）'),
+            ),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.dedupSimilar,
+              child: Text('去重（相似）'),
+            ),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.dedupAll,
+              child: Text('去重（重复+相似）'),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.slimDown,
+              child: Text('瘦身清理'),
+            ),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.changelog,
+              child: Text('更新日志'),
+            ),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.about,
+              child: Text('关于'),
+            ),
+            PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.settings,
+              enabled: !controller.loading,
+              child: const Text('设置'),
+            ),
+          ],
+        ),
+      ];
+    }
+
     final List<Widget> actions = <Widget>[
       IconButton(
         tooltip: _showTrash ? '返回收藏' : '查看回收站',
@@ -211,32 +340,12 @@ class _HomePageState extends State<HomePage> {
       ),
       IconButton(
         tooltip: '关于',
-        onPressed: () {
-          Navigator.of(context).push<void>(
-            MaterialPageRoute<void>(
-              builder: (BuildContext context) => const AboutPage(),
-            ),
-          );
-        },
+        onPressed: _openAbout,
         icon: const Icon(Icons.info_outline),
       ),
       IconButton(
         tooltip: '设置',
-        onPressed: controller.loading
-            ? null
-            : () async {
-                final AppSettings current = controller.settings;
-                final AppSettings? next =
-                    await Navigator.of(context).push<AppSettings>(
-                  MaterialPageRoute<AppSettings>(
-                    builder: (BuildContext context) =>
-                        SettingsPage(settings: current),
-                  ),
-                );
-                if (next != null) {
-                  await controller.saveSettings(next);
-                }
-              },
+        onPressed: controller.loading ? null : () => _openSettings(controller),
         icon: const Icon(Icons.settings),
       ),
     ]);
@@ -246,12 +355,76 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> _buildSelectionActions(
     AppController controller,
-    List<Bookmark> currentTabItems,
-  ) {
+    List<Bookmark> currentTabItems, {
+    required bool compactActions,
+  }) {
     final bool hasSelection = _selectedIds.isNotEmpty;
     final bool allSelected = currentTabItems.isNotEmpty &&
         currentTabItems
             .every((Bookmark item) => _selectedIds.contains(item.id));
+
+    if (compactActions) {
+      return <Widget>[
+        IconButton(
+          tooltip: '退出批量',
+          onPressed: _clearSelection,
+          icon: const Icon(Icons.close),
+        ),
+        PopupMenuButton<_CompactSelectionAction>(
+          tooltip: '批量菜单',
+          onSelected: (_CompactSelectionAction action) {
+            _onCompactSelectionAction(
+              action,
+              currentTabItems: currentTabItems,
+            );
+          },
+          itemBuilder: (BuildContext context) =>
+              <PopupMenuEntry<_CompactSelectionAction>>[
+            PopupMenuItem<_CompactSelectionAction>(
+              value: _CompactSelectionAction.toggleSelectAll,
+              enabled: currentTabItems.isNotEmpty,
+              child: Text(allSelected ? '取消全选' : '全选当前列表'),
+            ),
+            const PopupMenuDivider(),
+            if (_showTrash)
+              PopupMenuItem<_CompactSelectionAction>(
+                value: _CompactSelectionAction.restoreSelected,
+                enabled: hasSelection && !controller.loading,
+                child: const Text('批量恢复'),
+              ),
+            if (_showTrash)
+              PopupMenuItem<_CompactSelectionAction>(
+                value: _CompactSelectionAction.deleteSelectedForever,
+                enabled: hasSelection && !controller.loading,
+                child: const Text('批量永久删除'),
+              ),
+            if (!_showTrash)
+              PopupMenuItem<_CompactSelectionAction>(
+                value: _CompactSelectionAction.refreshSelectedTitles,
+                enabled: hasSelection && !controller.loading,
+                child: const Text('批量更新标题'),
+              ),
+            if (!_showTrash)
+              PopupMenuItem<_CompactSelectionAction>(
+                value: _CompactSelectionAction.deleteSelected,
+                enabled: hasSelection && !controller.loading,
+                child: const Text('批量删除到回收站'),
+              ),
+            PopupMenuItem<_CompactSelectionAction>(
+              value: _CompactSelectionAction.exportSelectedJson,
+              enabled: hasSelection && !controller.loading,
+              child: const Text('导出已选(JSON)'),
+            ),
+            PopupMenuItem<_CompactSelectionAction>(
+              value: _CompactSelectionAction.exportSelectedCsv,
+              enabled: hasSelection && !controller.loading,
+              child: const Text('导出已选(CSV)'),
+            ),
+          ],
+        ),
+      ];
+    }
+
     final List<Widget> actions = <Widget>[
       IconButton(
         tooltip: '退出批量',
@@ -704,6 +877,114 @@ class _HomePageState extends State<HomePage> {
         _selectedIds.addAll(ids);
       }
     });
+  }
+
+  bool _useCompactActionsLayout(BuildContext context) {
+    return MediaQuery.sizeOf(context).width < 900;
+  }
+
+  Future<void> _onCompactHomeAction(
+    _CompactHomeAction action,
+    AppController controller,
+  ) async {
+    switch (action) {
+      case _CompactHomeAction.refreshAllTitles:
+        await _refreshAllTitles();
+        break;
+      case _CompactHomeAction.refreshStaleTitles:
+        await _refreshStaleTitles();
+        break;
+      case _CompactHomeAction.emptyTrash:
+        await _emptyTrash();
+        break;
+      case _CompactHomeAction.syncNow:
+        await controller.syncNow();
+        break;
+      case _CompactHomeAction.backupNow:
+        await controller.backupNow();
+        break;
+      case _CompactHomeAction.exportAllJson:
+        await _exportAll(ExportFormat.json);
+        break;
+      case _CompactHomeAction.exportAllCsv:
+        await _exportAll(ExportFormat.csv);
+        break;
+      case _CompactHomeAction.dedupExact:
+        await _runDedup(removeExact: true, removeSimilar: false);
+        break;
+      case _CompactHomeAction.dedupSimilar:
+        await _runDedup(removeExact: false, removeSimilar: true);
+        break;
+      case _CompactHomeAction.dedupAll:
+        await _runDedup(removeExact: true, removeSimilar: true);
+        break;
+      case _CompactHomeAction.slimDown:
+        await _runSlimDown();
+        break;
+      case _CompactHomeAction.changelog:
+        if (!mounted) return;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (BuildContext context) => const ChangelogPage(),
+          ),
+        );
+        break;
+      case _CompactHomeAction.about:
+        _openAbout();
+        break;
+      case _CompactHomeAction.settings:
+        await _openSettings(controller);
+        break;
+    }
+  }
+
+  Future<void> _onCompactSelectionAction(
+    _CompactSelectionAction action, {
+    required List<Bookmark> currentTabItems,
+  }) async {
+    switch (action) {
+      case _CompactSelectionAction.toggleSelectAll:
+        _toggleSelectAll(currentTabItems);
+        break;
+      case _CompactSelectionAction.restoreSelected:
+        await _restoreSelected();
+        break;
+      case _CompactSelectionAction.deleteSelectedForever:
+        await _deleteSelectedForever();
+        break;
+      case _CompactSelectionAction.refreshSelectedTitles:
+        await _refreshSelectedTitles();
+        break;
+      case _CompactSelectionAction.deleteSelected:
+        await _deleteSelected();
+        break;
+      case _CompactSelectionAction.exportSelectedJson:
+        await _exportSelected(ExportFormat.json);
+        break;
+      case _CompactSelectionAction.exportSelectedCsv:
+        await _exportSelected(ExportFormat.csv);
+        break;
+    }
+  }
+
+  void _openAbout() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const AboutPage(),
+      ),
+    );
+  }
+
+  Future<void> _openSettings(AppController controller) async {
+    final AppSettings current = controller.settings;
+    final AppSettings? next = await Navigator.of(context).push<AppSettings>(
+      MaterialPageRoute<AppSettings>(
+        builder: (BuildContext context) => SettingsPage(settings: current),
+      ),
+    );
+    if (next != null) {
+      await controller.saveSettings(next);
+    }
   }
 
   Future<void> _showTitleIssueActions(Bookmark item, String issue) async {
