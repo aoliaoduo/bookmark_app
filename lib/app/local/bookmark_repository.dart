@@ -490,6 +490,39 @@ class BookmarkRepository implements LocalStore {
     await _upsertBookmarkLocal(merged);
   }
 
+  @override
+  Future<void> deleteBookmark(String bookmarkId) async {
+    await _db.transaction((Transaction txn) async {
+      await txn.delete(
+        'bookmarks',
+        where: 'id = ?',
+        whereArgs: <Object?>[bookmarkId],
+      );
+
+      final List<Map<String, Object?>> pending = await txn.query(
+        'sync_outbox',
+        columns: <String>['op_id', 'bookmark_json'],
+        where: 'pushed = 0',
+      );
+      for (final Map<String, Object?> row in pending) {
+        final String raw = row['bookmark_json']! as String;
+        try {
+          final Map<String, dynamic> json =
+              jsonDecode(raw) as Map<String, dynamic>;
+          final String id = (json['id'] as String?)?.trim() ?? '';
+          if (id != bookmarkId) continue;
+          await txn.delete(
+            'sync_outbox',
+            where: 'op_id = ?',
+            whereArgs: <Object?>[row['op_id']],
+          );
+        } catch (_) {
+          continue;
+        }
+      }
+    });
+  }
+
   Future<void> _enqueueOp(
     SyncOpType type,
     Bookmark bookmark, {

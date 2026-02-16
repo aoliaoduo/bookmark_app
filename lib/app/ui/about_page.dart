@@ -29,7 +29,7 @@ class _AboutPageState extends State<AboutPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.9';
+        _versionLabel = 'v0.4.10';
       });
     }
   }

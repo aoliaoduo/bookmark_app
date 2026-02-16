@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.10',
+      date: '2026-02-17',
+      notes: <String>[
+        '修复“只下载不上传”的同步问题：删除操作会正常上传',
+        '跨设备删除改为直接删除本地记录，避免把回收站状态同步到其他设备',
+        '补充同步引擎回归测试，覆盖删除上传与远端删除落地场景',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.9',
       date: '2026-02-17',
       notes: <String>[
@@ -205,7 +214,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.9';
+        _versionLabel = 'v0.4.10';
       });
     }
   }

@@ -44,9 +44,10 @@ void main() {
     expect(local.markedOpIds, isEmpty);
     expect(local.upserted.length, 1);
     expect(local.upserted.single.id, 'b-1');
+    expect(local.deletedIds, isEmpty);
   });
 
-  test('syncOnce skips trash ops for push and pull', () async {
+  test('syncOnce uploads deletes and applies pulled delete locally', () async {
     final DateTime now = DateTime.utc(2026, 2, 16, 12, 0, 0);
     final _FakeLocalStore local = _FakeLocalStore(
       pendingOps: <SyncOp>[
@@ -103,11 +104,15 @@ void main() {
 
     await engine.syncOnce();
 
-    expect(provider.pushedOps.length, 1);
-    expect(provider.pushedOps.single.opId, 'op-local-upsert');
+    expect(provider.pushedOps.length, 2);
+    expect(
+      provider.pushedOps.map((SyncOp op) => op.opId).toSet(),
+      <String>{'op-local-delete', 'op-local-upsert'},
+    );
     expect(local.markedOpIds, <String>['op-local-delete', 'op-local-upsert']);
     expect(local.upserted.length, 1);
     expect(local.upserted.single.id, 'remote-keep');
+    expect(local.deletedIds, <String>['remote-trash']);
   });
 }
 
@@ -121,6 +126,7 @@ class _FakeLocalStore implements LocalStore {
   final List<SyncOp> _pendingOps;
   final DateTime _lastPulled;
   final List<Bookmark> upserted = <Bookmark>[];
+  final List<String> deletedIds = <String>[];
   final List<String> markedOpIds = <String>[];
   DateTime? savedCursor;
 
@@ -143,6 +149,11 @@ class _FakeLocalStore implements LocalStore {
   @override
   Future<void> upsertBookmark(Bookmark bookmark) async {
     upserted.add(bookmark);
+  }
+
+  @override
+  Future<void> deleteBookmark(String bookmarkId) async {
+    deletedIds.add(bookmarkId);
   }
 }
 
