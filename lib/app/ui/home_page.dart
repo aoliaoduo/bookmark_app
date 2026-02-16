@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
@@ -14,6 +15,9 @@ import 'changelog_page.dart';
 import 'settings_page.dart';
 
 enum _HomeMenuAction {
+  emptyTrash,
+  syncNow,
+  backupNow,
   exportAllJson,
   exportAllCsv,
   dedupExact,
@@ -21,6 +25,7 @@ enum _HomeMenuAction {
   dedupAll,
   slimDown,
   changelog,
+  clearAllData,
 }
 
 enum _SelectionMenuAction { exportSelectedJson, exportSelectedCsv }
@@ -38,6 +43,7 @@ enum _CompactHomeAction {
   dedupAll,
   slimDown,
   changelog,
+  clearAllData,
   about,
   settings,
 }
@@ -51,6 +57,8 @@ enum _CompactSelectionAction {
   exportSelectedJson,
   exportSelectedCsv,
 }
+
+enum _BookmarkRowAction { refreshTitle, deleteToTrash }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
@@ -242,6 +250,12 @@ class _HomePageState extends State<HomePage> {
               value: _CompactHomeAction.changelog,
               child: Text('更新日志'),
             ),
+            PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.clearAllData,
+              enabled: !controller.loading,
+              child: const Text('清空全部数据'),
+            ),
+            const PopupMenuDivider(),
             const PopupMenuItem<_CompactHomeAction>(
               value: _CompactHomeAction.about,
               child: Text('关于'),
@@ -285,26 +299,31 @@ class _HomePageState extends State<HomePage> {
     }
 
     actions.addAll(<Widget>[
-      IconButton(
-        tooltip: '清空回收站',
-        onPressed: controller.loading || trash.isEmpty ? null : _emptyTrash,
-        icon: const Icon(Icons.delete_sweep),
-      ),
-      IconButton(
-        tooltip: '云同步',
-        onPressed: controller.loading ? null : controller.syncNow,
-        icon: const Icon(Icons.sync),
-      ),
-      IconButton(
-        tooltip: '云备份',
-        onPressed: controller.loading ? null : controller.backupNow,
-        icon: const Icon(Icons.backup),
-      ),
       PopupMenuButton<_HomeMenuAction>(
         tooltip: '更多功能',
-        onSelected: (_HomeMenuAction action) => _onHomeMenuAction(action),
+        onSelected: (_HomeMenuAction action) => _onHomeMenuAction(
+          action,
+          controller: controller,
+          trash: trash,
+        ),
         itemBuilder: (BuildContext context) =>
             <PopupMenuEntry<_HomeMenuAction>>[
+          PopupMenuItem<_HomeMenuAction>(
+            value: _HomeMenuAction.emptyTrash,
+            enabled: !controller.loading && trash.isNotEmpty,
+            child: const Text('清空回收站'),
+          ),
+          PopupMenuItem<_HomeMenuAction>(
+            value: _HomeMenuAction.syncNow,
+            enabled: !controller.loading,
+            child: const Text('云同步'),
+          ),
+          PopupMenuItem<_HomeMenuAction>(
+            value: _HomeMenuAction.backupNow,
+            enabled: !controller.loading,
+            child: const Text('云备份'),
+          ),
+          const PopupMenuDivider(),
           const PopupMenuItem<_HomeMenuAction>(
             value: _HomeMenuAction.exportAllJson,
             child: Text('导出全部(JSON)'),
@@ -335,6 +354,11 @@ class _HomePageState extends State<HomePage> {
           const PopupMenuItem<_HomeMenuAction>(
             value: _HomeMenuAction.changelog,
             child: Text('更新日志'),
+          ),
+          PopupMenuItem<_HomeMenuAction>(
+            value: _HomeMenuAction.clearAllData,
+            enabled: !controller.loading,
+            child: const Text('清空全部数据'),
           ),
         ],
       ),
@@ -516,7 +540,7 @@ class _HomePageState extends State<HomePage> {
               controller: _urlController,
               enabled: !controller.loading,
               decoration: const InputDecoration(
-                hintText: '输入网址，例如 https://example.com',
+                hintText: '输入网址',
               ),
               onSubmitted: (_) => _addUrl(),
             ),
@@ -729,27 +753,41 @@ class _HomePageState extends State<HomePage> {
             trailing: _selectionMode
                 ? null
                 : SizedBox(
-                    width: 128,
+                    width: 144,
                     child: Row(
                       children: <Widget>[
-                        IconButton(
+                        _buildInlineActionButton(
                           tooltip: '打开网址',
+                          icon: Icons.open_in_new,
                           onPressed: () => _openUrl(item.url),
-                          icon: const Icon(Icons.open_in_new),
                         ),
-                        IconButton(
-                          tooltip: '更新标题',
-                          onPressed: controller.loading
-                              ? null
-                              : () => controller.refreshTitle(item.id),
-                          icon: const Icon(Icons.refresh),
+                        _buildInlineActionButton(
+                          tooltip: '复制链接',
+                          icon: Icons.content_copy_outlined,
+                          onPressed: () => _copyUrl(item.url),
                         ),
-                        IconButton(
-                          tooltip: '删除到回收站',
-                          onPressed: controller.loading
-                              ? null
-                              : () => controller.deleteBookmark(item.id),
-                          icon: const Icon(Icons.delete_outline),
+                        PopupMenuButton<_BookmarkRowAction>(
+                          tooltip: '更多',
+                          onSelected: (_BookmarkRowAction action) {
+                            _onBookmarkRowAction(
+                              item: item,
+                              action: action,
+                              loading: controller.loading,
+                            );
+                          },
+                          itemBuilder: (BuildContext context) =>
+                              <PopupMenuEntry<_BookmarkRowAction>>[
+                            PopupMenuItem<_BookmarkRowAction>(
+                              value: _BookmarkRowAction.refreshTitle,
+                              enabled: !controller.loading,
+                              child: const Text('更新标题'),
+                            ),
+                            PopupMenuItem<_BookmarkRowAction>(
+                              value: _BookmarkRowAction.deleteToTrash,
+                              enabled: !controller.loading,
+                              child: const Text('删除到回收站'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -792,12 +830,24 @@ class _HomePageState extends State<HomePage> {
             onLongPress: () => _startSelection(item.id),
             trailing: _selectionMode
                 ? null
-                : IconButton(
-                    tooltip: '恢复',
-                    onPressed: controller.loading
-                        ? null
-                        : () => controller.restoreBookmark(item.id),
-                    icon: const Icon(Icons.restore_from_trash),
+                : SizedBox(
+                    width: 88,
+                    child: Row(
+                      children: <Widget>[
+                        _buildInlineActionButton(
+                          tooltip: '复制链接',
+                          icon: Icons.content_copy_outlined,
+                          onPressed: () => _copyUrl(item.url),
+                        ),
+                        _buildInlineActionButton(
+                          tooltip: '恢复',
+                          icon: Icons.restore_from_trash,
+                          onPressed: controller.loading
+                              ? null
+                              : () => controller.restoreBookmark(item.id),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         );
@@ -929,6 +979,9 @@ class _HomePageState extends State<HomePage> {
           ),
         );
         break;
+      case _CompactHomeAction.clearAllData:
+        await _clearAllData();
+        break;
       case _CompactHomeAction.about:
         _openAbout();
         break;
@@ -985,6 +1038,82 @@ class _HomePageState extends State<HomePage> {
     if (next != null) {
       await controller.saveSettings(next);
     }
+  }
+
+  Widget _buildInlineActionButton({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+      constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+      splashRadius: 18,
+      icon: Icon(icon, size: 21),
+    );
+  }
+
+  Future<void> _onBookmarkRowAction({
+    required Bookmark item,
+    required _BookmarkRowAction action,
+    required bool loading,
+  }) async {
+    if (loading) return;
+    switch (action) {
+      case _BookmarkRowAction.refreshTitle:
+        await widget.controller.refreshTitle(item.id);
+        break;
+      case _BookmarkRowAction.deleteToTrash:
+        await widget.controller.deleteBookmark(item.id);
+        if (!mounted) return;
+        _showSnack('已删除到回收站');
+        break;
+    }
+  }
+
+  Future<void> _copyUrl(String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    _showSnack('已复制链接');
+  }
+
+  Future<void> _clearAllData() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('清空全部数据'),
+          content: const Text(
+            '将清空收藏、回收站、同步记录和 WebDAV 配置，且无法恢复。是否继续？',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('确认清空'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    await widget.controller.clearAllData();
+    if (!mounted) return;
+    setState(() {
+      _showTrash = false;
+      _selectionMode = false;
+      _selectedIds.clear();
+      _urlController.clear();
+      _searchController.clear();
+    });
+    _showSnack('已清空全部数据');
   }
 
   Future<void> _showTitleIssueActions(Bookmark item, String issue) async {
@@ -1133,8 +1262,22 @@ class _HomePageState extends State<HomePage> {
     _clearSelection();
   }
 
-  Future<void> _onHomeMenuAction(_HomeMenuAction action) async {
+  Future<void> _onHomeMenuAction(
+    _HomeMenuAction action, {
+    required AppController controller,
+    required List<Bookmark> trash,
+  }) async {
     switch (action) {
+      case _HomeMenuAction.emptyTrash:
+        if (trash.isEmpty) return;
+        await _emptyTrash();
+        break;
+      case _HomeMenuAction.syncNow:
+        await controller.syncNow();
+        break;
+      case _HomeMenuAction.backupNow:
+        await controller.backupNow();
+        break;
       case _HomeMenuAction.exportAllJson:
         await _exportAll(ExportFormat.json);
         break;
@@ -1160,6 +1303,9 @@ class _HomePageState extends State<HomePage> {
             builder: (BuildContext context) => const ChangelogPage(),
           ),
         );
+        break;
+      case _HomeMenuAction.clearAllData:
+        await _clearAllData();
         break;
     }
   }

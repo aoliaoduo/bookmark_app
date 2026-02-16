@@ -412,6 +412,14 @@ class BookmarkRepository implements LocalStore {
     return affected;
   }
 
+  Future<void> clearAllData() async {
+    await _db.transaction((Transaction txn) async {
+      await txn.delete('bookmarks');
+      await txn.delete('sync_outbox');
+      await txn.delete('sync_state');
+    });
+  }
+
   @override
   Future<List<SyncOp>> loadPendingOps() async {
     final List<Map<String, Object?>> rows = await _db.query(

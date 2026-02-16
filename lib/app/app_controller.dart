@@ -378,6 +378,22 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> clearAllData() async {
+    _setLoading(true);
+    try {
+      await _repository.clearAllData();
+      await _settingsStore.clearAll();
+      _settings = await _settingsStore.load();
+      await reloadBookmarks();
+      _restartRefreshTimer();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

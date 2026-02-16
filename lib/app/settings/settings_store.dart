@@ -82,6 +82,20 @@ class SettingsStore {
     await prefs.remove(_webDavPasswordKey);
   }
 
+  Future<void> clearAll() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_deviceIdKey);
+    await prefs.remove(_titleRefreshDaysKey);
+    await prefs.remove(_autoRefreshOnLaunchKey);
+    await prefs.remove(_themePreferenceKey);
+    await prefs.remove(_webDavEnabledKey);
+    await prefs.remove(_webDavBaseUrlKey);
+    await prefs.remove(_webDavUserIdKey);
+    await prefs.remove(_webDavUsernameKey);
+    await prefs.remove(_webDavPasswordKey);
+    await _secretStore.delete(key: _webDavPasswordKey);
+  }
+
   Future<String> _loadPassword(SharedPreferences prefs) async {
     final String? secure = await _secretStore.read(key: _webDavPasswordKey);
     if (secure != null && secure.isNotEmpty) {

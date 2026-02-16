@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.6',
+      date: '2026-02-17',
+      notes: <String>[
+        '输入框提示简化为“输入网址”，移除示例 URL 文案',
+        '新增“清空全部数据”功能，可一键重置收藏与同步配置',
+        '每条收藏支持一键复制链接地址',
+        '合并部分按钮到菜单，减少顶部与条目操作区的拥挤，风格更统一',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.5',
       date: '2026-02-17',
       notes: <String>[
@@ -168,7 +178,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.5';
+        _versionLabel = 'v0.4.6';
       });
     }
   }

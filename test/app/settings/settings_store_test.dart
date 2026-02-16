@@ -52,6 +52,37 @@ void main() {
     await store.save(settings.copyWith(webDavPassword: ''));
     expect(secretStore.readSync('webdav_password'), isNull);
   });
+
+  test('clearAll removes preferences and secret password', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'device_id': 'd1',
+      'title_refresh_days': 5,
+      'auto_refresh_on_launch': false,
+      'theme_preference': 'dark',
+      'webdav_enabled': true,
+      'webdav_base_url': 'https://dav.example.com',
+      'webdav_user_id': 'u1',
+      'webdav_username': 'name',
+      'webdav_password': 'legacy-secret',
+    });
+    final _InMemorySecretStore secretStore = _InMemorySecretStore();
+    await secretStore.write(key: 'webdav_password', value: 'secure-secret');
+    final SettingsStore store = SettingsStore(secretStore: secretStore);
+
+    await store.clearAll();
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('device_id'), isNull);
+    expect(prefs.getInt('title_refresh_days'), isNull);
+    expect(prefs.getBool('auto_refresh_on_launch'), isNull);
+    expect(prefs.getString('theme_preference'), isNull);
+    expect(prefs.getBool('webdav_enabled'), isNull);
+    expect(prefs.getString('webdav_base_url'), isNull);
+    expect(prefs.getString('webdav_user_id'), isNull);
+    expect(prefs.getString('webdav_username'), isNull);
+    expect(prefs.getString('webdav_password'), isNull);
+    expect(secretStore.readSync('webdav_password'), isNull);
+  });
 }
 
 class _InMemorySecretStore implements SecretStore {
