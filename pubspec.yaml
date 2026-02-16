@@ -1,7 +1,7 @@
 name: bookmark_app
 description: Local-first bookmark app with WebDAV backup/sync.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -15,6 +15,7 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.5
   shared_preferences: ^2.5.2
+  package_info_plus: ^8.1.2
   sqflite: ^2.4.1
   sqflite_common_ffi: ^2.3.6
   url_launcher: ^6.3.1
@@ -26,6 +27,12 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.4
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: system
+      name_windows: winsqlite3
 
 flutter:
   uses-material-design: true

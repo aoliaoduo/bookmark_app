@@ -1,22 +1,19 @@
 import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 class SlimDownResult {
   const SlimDownResult({
-    required this.cleanedCacheFiles,
-    required this.cleanedCacheBytes,
     required this.purgedOutboxRows,
     required this.purgedTrashRows,
+    required this.purgedInvalidRows,
     required this.dbBytesBefore,
     required this.dbBytesAfter,
   });
 
-  final int cleanedCacheFiles;
-  final int cleanedCacheBytes;
   final int purgedOutboxRows;
   final int purgedTrashRows;
+  final int purgedInvalidRows;
   final int dbBytesBefore;
   final int dbBytesAfter;
 }
@@ -48,18 +45,22 @@ class MaintenanceService {
       whereArgs: <Object?>[trashCutoff],
     );
 
+    // 清理意外写入的无效数据，避免无用脏记录持续占用空间。
+    final int purgedInvalidRows = await _db.delete(
+      'bookmarks',
+      where: "trim(url) = '' OR trim(normalized_url) = ''",
+    );
+
     await _db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
     await _db.execute('VACUUM');
     await _db.execute('PRAGMA optimize');
 
-    final _CacheCleanResult cacheResult = await _clearTemporaryFiles();
     final int dbBytesAfter = await _safeDbSize();
 
     return SlimDownResult(
-      cleanedCacheFiles: cacheResult.files,
-      cleanedCacheBytes: cacheResult.bytes,
       purgedOutboxRows: purgedOutboxRows,
       purgedTrashRows: purgedTrashRows,
+      purgedInvalidRows: purgedInvalidRows,
       dbBytesBefore: dbBytesBefore,
       dbBytesAfter: dbBytesAfter,
     );
@@ -74,39 +75,4 @@ class MaintenanceService {
       return 0;
     }
   }
-
-  Future<_CacheCleanResult> _clearTemporaryFiles() async {
-    try {
-      final Directory tempDir = await getTemporaryDirectory();
-      if (!await tempDir.exists()) {
-        return const _CacheCleanResult(files: 0, bytes: 0);
-      }
-
-      int files = 0;
-      int bytes = 0;
-      await for (final FileSystemEntity entity
-          in tempDir.list(recursive: true, followLinks: false)) {
-        if (entity is File) {
-          files += 1;
-          try {
-            bytes += await entity.length();
-            await entity.delete();
-          } catch (_) {
-            // 某些临时文件可能被系统占用，忽略并继续。
-          }
-        }
-      }
-
-      return _CacheCleanResult(files: files, bytes: bytes);
-    } catch (_) {
-      return const _CacheCleanResult(files: 0, bytes: 0);
-    }
-  }
-}
-
-class _CacheCleanResult {
-  const _CacheCleanResult({required this.files, required this.bytes});
-
-  final int files;
-  final int bytes;
 }

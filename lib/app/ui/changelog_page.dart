@@ -1,0 +1,110 @@
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+class ChangelogPage extends StatefulWidget {
+  const ChangelogPage({super.key});
+
+  @override
+  State<ChangelogPage> createState() => _ChangelogPageState();
+}
+
+class _ChangelogPageState extends State<ChangelogPage> {
+  String _versionLabel = '-';
+
+  static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
+    _ChangelogEntry(
+      version: 'v0.2.0',
+      date: '2026-02-16',
+      notes: <String>[
+        '新增回收站、清空回收站、批量操作、实时进度条',
+        '新增去重（重复/相似）与一键标题更新',
+        '新增导出、搜索、瘦身（仅清理无用数据）',
+        '新增关于页与应用内更新日志页',
+      ],
+    ),
+    _ChangelogEntry(
+      version: 'v0.1.0',
+      date: '2026-02-16',
+      notes: <String>[
+        '首版上线：本地优先收藏、WebDAV 云备份/同步',
+        '支持自动抓取网页标题与按周期更新',
+        '支持 Android / Windows 构建与运行',
+      ],
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final PackageInfo info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _versionLabel = 'v${info.version}+${info.buildNumber}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _versionLabel = 'v0.2.0+2';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('更新日志')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.new_releases_outlined),
+              title: const Text('当前应用版本'),
+              subtitle: Text(_versionLabel),
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final _ChangelogEntry entry in _entries)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '${entry.version} (${entry.date})',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    for (final String note in entry.notes)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('• $note'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChangelogEntry {
+  const _ChangelogEntry({
+    required this.version,
+    required this.date,
+    required this.notes,
+  });
+
+  final String version;
+  final String date;
+  final List<String> notes;
+}

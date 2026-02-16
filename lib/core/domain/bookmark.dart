@@ -1,4 +1,6 @@
 class Bookmark {
+  static const Object _unset = Object();
+
   const Bookmark({
     required this.id,
     required this.url,
@@ -26,24 +28,28 @@ class Bookmark {
   bool get isDeleted => deletedAt != null;
 
   Bookmark copyWith({
-    String? title,
-    String? note,
+    Object? title = _unset,
+    Object? note = _unset,
     List<String>? tags,
     DateTime? updatedAt,
-    DateTime? deletedAt,
-    DateTime? titleUpdatedAt,
+    Object? deletedAt = _unset,
+    Object? titleUpdatedAt = _unset,
   }) {
     return Bookmark(
       id: id,
       url: url,
       normalizedUrl: normalizedUrl,
-      title: title ?? this.title,
-      note: note ?? this.note,
+      title: identical(title, _unset) ? this.title : title as String?,
+      note: identical(note, _unset) ? this.note : note as String?,
       tags: tags ?? this.tags,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      deletedAt: deletedAt ?? this.deletedAt,
-      titleUpdatedAt: titleUpdatedAt ?? this.titleUpdatedAt,
+      deletedAt: identical(deletedAt, _unset)
+          ? this.deletedAt
+          : deletedAt as DateTime?,
+      titleUpdatedAt: identical(titleUpdatedAt, _unset)
+          ? this.titleUpdatedAt
+          : titleUpdatedAt as DateTime?,
     );
   }
 

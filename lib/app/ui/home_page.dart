@@ -9,6 +9,7 @@ import '../export/export_service.dart';
 import '../maintenance/maintenance_service.dart';
 import '../settings/app_settings.dart';
 import 'about_page.dart';
+import 'changelog_page.dart';
 import 'settings_page.dart';
 
 enum _HomeMenuAction {
@@ -18,6 +19,7 @@ enum _HomeMenuAction {
   dedupSimilar,
   dedupAll,
   slimDown,
+  changelog,
 }
 
 enum _SelectionMenuAction { exportSelectedJson, exportSelectedCsv }
@@ -73,6 +75,7 @@ class _HomePageState extends State<HomePage>
 
         final List<Bookmark> bookmarks = _applySearch(allBookmarks);
         final List<Bookmark> trash = _applySearch(allTrash);
+        final List<Bookmark> currentTabItems = _onTrashTab ? trash : bookmarks;
 
         _pruneSelection(allBookmarks, allTrash);
 
@@ -88,8 +91,8 @@ class _HomePageState extends State<HomePage>
               ],
             ),
             actions: _selectionMode
-                ? _buildSelectionActions(controller)
-                : _buildNormalActions(controller, trash),
+                ? _buildSelectionActions(controller, currentTabItems)
+                : _buildNormalActions(controller, trash, currentTabItems),
           ),
           body: Column(
             children: <Widget>[
@@ -136,15 +139,14 @@ class _HomePageState extends State<HomePage>
   }
 
   List<Widget> _buildNormalActions(
-      AppController controller, List<Bookmark> trash) {
+    AppController controller,
+    List<Bookmark> trash,
+    List<Bookmark> currentTabItems,
+  ) {
     return <Widget>[
       IconButton(
         tooltip: '批量操作',
-        onPressed: () {
-          setState(() {
-            _selectionMode = true;
-          });
-        },
+        onPressed: () => _enterSelectionMode(currentTabItems),
         icon: const Icon(Icons.checklist),
       ),
       IconButton(
@@ -203,6 +205,11 @@ class _HomePageState extends State<HomePage>
             value: _HomeMenuAction.slimDown,
             child: Text('瘦身清理'),
           ),
+          const PopupMenuDivider(),
+          const PopupMenuItem<_HomeMenuAction>(
+            value: _HomeMenuAction.changelog,
+            child: Text('更新日志'),
+          ),
         ],
       ),
       IconButton(
@@ -238,13 +245,26 @@ class _HomePageState extends State<HomePage>
     ];
   }
 
-  List<Widget> _buildSelectionActions(AppController controller) {
+  List<Widget> _buildSelectionActions(
+    AppController controller,
+    List<Bookmark> currentTabItems,
+  ) {
     final bool hasSelection = _selectedIds.isNotEmpty;
+    final bool allSelected = currentTabItems.isNotEmpty &&
+        currentTabItems
+            .every((Bookmark item) => _selectedIds.contains(item.id));
     final List<Widget> actions = <Widget>[
       IconButton(
         tooltip: '退出批量',
         onPressed: _clearSelection,
         icon: const Icon(Icons.close),
+      ),
+      IconButton(
+        tooltip: allSelected ? '取消全选' : '全选当前列表',
+        onPressed: currentTabItems.isEmpty
+            ? null
+            : () => _toggleSelectAll(currentTabItems),
+        icon: Icon(allSelected ? Icons.deselect : Icons.select_all),
       ),
     ];
 
@@ -540,6 +560,30 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  void _enterSelectionMode(List<Bookmark> currentTabItems) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.clear();
+    });
+    if (currentTabItems.isEmpty) {
+      _showSnack('当前列表没有可批量操作的数据');
+    } else {
+      _showSnack('已进入批量模式，请勾选或全选条目');
+    }
+  }
+
+  void _toggleSelectAll(List<Bookmark> items) {
+    final Set<String> ids = items.map((Bookmark item) => item.id).toSet();
+    final bool allSelected = ids.isNotEmpty && ids.every(_selectedIds.contains);
+    setState(() {
+      if (allSelected) {
+        _selectedIds.removeWhere((String id) => ids.contains(id));
+      } else {
+        _selectedIds.addAll(ids);
+      }
+    });
+  }
+
   Future<void> _openUrl(String raw) async {
     final Uri uri = Uri.parse(raw);
     final bool ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -662,6 +706,14 @@ class _HomePageState extends State<HomePage>
       case _HomeMenuAction.slimDown:
         await _runSlimDown();
         break;
+      case _HomeMenuAction.changelog:
+        if (!mounted) return;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (BuildContext context) => const ChangelogPage(),
+          ),
+        );
+        break;
     }
   }
 
@@ -705,12 +757,17 @@ class _HomePageState extends State<HomePage>
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('瘦身完成'),
-          content: Text(
-            '缓存文件: ${result.cleanedCacheFiles} 个\n'
-            '缓存释放: ${_formatBytes(result.cleanedCacheBytes)}\n'
-            '清理已推送同步日志: ${result.purgedOutboxRows} 条\n'
-            '清理过期回收站数据: ${result.purgedTrashRows} 条\n'
-            '数据库体积: ${_formatBytes(result.dbBytesBefore)} -> ${_formatBytes(result.dbBytesAfter)}',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('清理已推送同步日志: ${result.purgedOutboxRows} 条'),
+              Text('清理过期回收站数据: ${result.purgedTrashRows} 条'),
+              Text('清理无效数据: ${result.purgedInvalidRows} 条'),
+              Text(
+                '数据库体积: ${_formatBytes(result.dbBytesBefore)} -> ${_formatBytes(result.dbBytesAfter)}',
+              ),
+            ],
           ),
           actions: <Widget>[
             FilledButton(

@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android Asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.1"
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build APK Release
+        run: flutter build apk --release
+
+      - name: Prepare Android Asset
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/bookmark_app-${{ github.ref_name }}-android-release.apk
+
+      - name: Upload Android Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-asset
+          path: dist/bookmark_app-${{ github.ref_name }}-android-release.apk
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows Asset
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.1"
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Prepare Windows Asset
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/bookmark_app-${{ github.ref_name }}-windows-x64-release.zip -Force
+
+      - name: Upload Windows Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-asset
+          path: dist/bookmark_app-${{ github.ref_name }}-windows-x64-release.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows]
+    permissions:
+      contents: write
+    steps:
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List Artifacts
+        run: ls -lah dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.apk
+            dist/*.zip

@@ -321,7 +321,7 @@ class BookmarkRepository implements LocalStore {
       if (removeExact) {
         final Map<String, Bookmark> keptByExactKey = <String, Bookmark>{};
         for (final Bookmark b in ordered) {
-          final String key = b.normalizedUrl.toLowerCase().trim();
+          final String key = _exactKey(b.normalizedUrl);
           if (keptByExactKey.containsKey(key)) {
             final Bookmark deleted = b.copyWith(deletedAt: now, updatedAt: now);
             await _upsertBookmarkLocal(deleted, executor: txn);
@@ -335,18 +335,26 @@ class BookmarkRepository implements LocalStore {
       }
 
       if (removeSimilar) {
-        final Map<String, Bookmark> keptBySimilarKey = <String, Bookmark>{};
+        final Map<String, List<_SimilarEntry>> buckets =
+            <String, List<_SimilarEntry>>{};
         for (final Bookmark b in ordered) {
           if (removedIds.contains(b.id)) continue;
-          final String key = _similarKey(b.url);
-          if (keptBySimilarKey.containsKey(key)) {
+
+          final _SimilarEntry candidate = _buildSimilarEntry(b.url);
+          final List<_SimilarEntry> bucket =
+              buckets.putIfAbsent(candidate.bucket, () => <_SimilarEntry>[]);
+          final bool matched = bucket.any(
+            (_SimilarEntry kept) => _isSimilarEntry(candidate, kept),
+          );
+
+          if (matched) {
             final Bookmark deleted = b.copyWith(deletedAt: now, updatedAt: now);
             await _upsertBookmarkLocal(deleted, executor: txn);
             await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
             removedIds.add(b.id);
             similarRemoved += 1;
           } else {
-            keptBySimilarKey[key] = b;
+            bucket.add(candidate);
           }
         }
       }
@@ -628,29 +636,242 @@ class BookmarkRepository implements LocalStore {
     return uri.normalizePath().toString();
   }
 
-  String _similarKey(String rawUrl) {
+  String _exactKey(String rawUrl) {
+    final Uri uri = _safeUri(rawUrl);
+    final String scheme = uri.scheme.toLowerCase();
+    final String host = uri.host.toLowerCase();
+    final int? port = uri.hasPort ? uri.port : null;
+    final bool isDefaultPort = (scheme == 'http' && port == 80) ||
+        (scheme == 'https' && port == 443);
+    final String portPart =
+        (port == null || isDefaultPort) ? '' : ':${port.toString()}';
+
+    String path = uri.path.toLowerCase();
+    if (path.isEmpty) {
+      path = '/';
+    } else if (path.length > 1 && path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+
+    final List<MapEntry<String, String>> query = uri.queryParametersAll.entries
+        .expand(
+          (MapEntry<String, List<String>> e) => e.value.isEmpty
+              ? <MapEntry<String, String>>[
+                  MapEntry<String, String>(e.key.toLowerCase(), ''),
+                ]
+              : e.value.map(
+                  (String v) =>
+                      MapEntry<String, String>(e.key.toLowerCase(), v),
+                ),
+        )
+        .toList()
+      ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+        final int keyCmp = a.key.compareTo(b.key);
+        if (keyCmp != 0) return keyCmp;
+        return a.value.compareTo(b.value);
+      });
+
+    final String queryPart = query.isEmpty
+        ? ''
+        : '?${query.map((MapEntry<String, String> e) => '${e.key}=${e.value}').join('&')}';
+
+    return '$scheme://$host$portPart$path$queryPart';
+  }
+
+  _SimilarEntry _buildSimilarEntry(String rawUrl) {
+    final Uri uri = _safeUri(rawUrl);
+
+    String host = uri.host.toLowerCase();
+    if (host.startsWith('www.')) {
+      host = host.substring(4);
+    } else if (host.startsWith('m.')) {
+      host = host.substring(2);
+    } else if (host.startsWith('mobile.')) {
+      host = host.substring('mobile.'.length);
+    }
+
+    String path = uri.path.toLowerCase();
+    if (path.isEmpty) {
+      path = '/';
+    } else if (path.length > 1 && path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+
+    final List<String> pathSegments = path
+        .split('/')
+        .map((String s) => s.trim().toLowerCase())
+        .where((String s) => s.isNotEmpty)
+        .toList();
+    final String firstPath = pathSegments.isEmpty ? '/' : pathSegments.first;
+    final Set<String> pathTokens = _urlTokens(path);
+
+    final List<MapEntry<String, String>> nonTrackingQuery =
+        uri.queryParametersAll.entries
+            .where((MapEntry<String, List<String>> e) =>
+                !_trackingQueryKeys.contains(e.key.toLowerCase()))
+            .expand(
+              (MapEntry<String, List<String>> e) => e.value.isEmpty
+                  ? <MapEntry<String, String>>[
+                      MapEntry<String, String>(e.key.toLowerCase(), ''),
+                    ]
+                  : e.value.map(
+                      (String v) =>
+                          MapEntry<String, String>(e.key.toLowerCase(), v),
+                    ),
+            )
+            .toList()
+          ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+            final int keyCmp = a.key.compareTo(b.key);
+            if (keyCmp != 0) return keyCmp;
+            return a.value.compareTo(b.value);
+          });
+
+    final String queryPart = nonTrackingQuery.isEmpty
+        ? ''
+        : '?${nonTrackingQuery.map((MapEntry<String, String> e) => '${e.key}=${e.value}').join('&')}';
+    final String canonical = '$host$path$queryPart';
+
+    final Set<String> tokens = <String>{...pathTokens, ..._urlTokens(queryPart)}
+      ..add(host);
+
+    return _SimilarEntry(
+      bucket: '$host|$firstPath',
+      canonical: canonical,
+      tokens: tokens,
+    );
+  }
+
+  bool _isSimilarEntry(_SimilarEntry a, _SimilarEntry b) {
+    if (a.canonical == b.canonical) {
+      return true;
+    }
+
+    if (a.canonical.length >= 12 &&
+        b.canonical.length >= 12 &&
+        (a.canonical.contains(b.canonical) || b.canonical.contains(a.canonical))) {
+      return true;
+    }
+
+    final double tokenScore = _jaccardScore(a.tokens, b.tokens);
+    if (tokenScore >= 0.82) {
+      return true;
+    }
+
+    final double textScore = _normalizedLevenshteinScore(
+      a.canonical,
+      b.canonical,
+    );
+    return textScore >= 0.9;
+  }
+
+  Set<String> _urlTokens(String input) {
+    return input
+        .split(RegExp(r'[^a-z0-9]+'))
+        .map((String t) => t.trim())
+        .where((String t) => t.isNotEmpty)
+        .toSet();
+  }
+
+  double _jaccardScore(Set<String> a, Set<String> b) {
+    if (a.isEmpty && b.isEmpty) {
+      return 1;
+    }
+    final Set<String> intersection = a.intersection(b);
+    final Set<String> union = <String>{...a, ...b};
+    if (union.isEmpty) return 0;
+    return intersection.length / union.length;
+  }
+
+  double _normalizedLevenshteinScore(String a, String b) {
+    if (a == b) return 1;
+    if (a.isEmpty || b.isEmpty) return 0;
+
+    final int distance = _levenshteinDistance(a, b);
+    final int maxLen = a.length > b.length ? a.length : b.length;
+    return 1 - (distance / maxLen);
+  }
+
+  int _levenshteinDistance(String a, String b) {
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+
+    final List<int> previous = List<int>.generate(
+      b.length + 1,
+      (int i) => i,
+    );
+    final List<int> current = List<int>.filled(b.length + 1, 0);
+
+    for (int i = 1; i <= a.length; i += 1) {
+      current[0] = i;
+      for (int j = 1; j <= b.length; j += 1) {
+        final int cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
+        final int deletion = previous[j] + 1;
+        final int insertion = current[j - 1] + 1;
+        final int substitution = previous[j - 1] + cost;
+        int best = deletion < insertion ? deletion : insertion;
+        if (substitution < best) {
+          best = substitution;
+        }
+        current[j] = best;
+      }
+
+      for (int j = 0; j <= b.length; j += 1) {
+        previous[j] = current[j];
+      }
+    }
+
+    return previous[b.length];
+  }
+
+  Uri _safeUri(String rawUrl) {
+    final String input = rawUrl.trim();
     try {
-      Uri uri = Uri.parse(rawUrl);
+      Uri uri = Uri.parse(input);
       if (!uri.hasScheme) {
-        uri = Uri.parse('https://$rawUrl');
+        uri = Uri.parse('https://$input');
       }
-
-      String host = uri.host.toLowerCase();
-      if (host.startsWith('www.')) {
-        host = host.substring(4);
-      }
-
-      String path = uri.path.toLowerCase();
-      if (path.endsWith('/')) {
-        path = path.substring(0, path.length - 1);
-      }
-      if (path.isEmpty) {
-        path = '/';
-      }
-
-      return '$host$path';
+      return uri;
     } catch (_) {
-      return rawUrl.trim().toLowerCase();
+      final String fallback = input.toLowerCase();
+      return Uri(
+        scheme: 'https',
+        host: 'invalid.local',
+        path: fallback.isEmpty ? '/' : '/${Uri.encodeComponent(fallback)}',
+      );
     }
   }
 }
+
+class _SimilarEntry {
+  const _SimilarEntry({
+    required this.bucket,
+    required this.canonical,
+    required this.tokens,
+  });
+
+  final String bucket;
+  final String canonical;
+  final Set<String> tokens;
+}
+
+const Set<String> _trackingQueryKeys = <String>{
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'utm_id',
+  'utm_name',
+  'utm_cid',
+  'utm_reader',
+  'utm_viz_id',
+  'utm_pubreferrer',
+  'utm_swu',
+  'gclid',
+  'fbclid',
+  'igshid',
+  'msclkid',
+  'ref',
+  'ref_src',
+  'source',
+};
