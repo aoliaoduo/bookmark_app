@@ -73,6 +73,8 @@ enum _SortOption {
   urlAsc,
 }
 
+enum _TopSyncState { syncing, success, error, idle, notReady }
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
 
@@ -133,9 +135,10 @@ class _HomePageState extends State<HomePage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: _selectionMode
-                ? Text('已选择 ${_selectedIds.length} 条')
-                : (_showTrash ? const Text('回收站') : null),
+            title: _buildTopBarTitle(
+              controller,
+              compactActions: compactActions,
+            ),
             actions: _selectionMode
                 ? _buildSelectionActions(
                     controller,
@@ -248,11 +251,6 @@ class _HomePageState extends State<HomePage> {
     if (compactActions) {
       return <Widget>[
         IconButton(
-          tooltip: _showTrash ? '返回收藏' : '查看回收站',
-          onPressed: () => _toggleTrashMode(!_showTrash),
-          icon: Icon(_showTrash ? Icons.home_outlined : Icons.delete_outline),
-        ),
-        IconButton(
           tooltip: '批量操作',
           onPressed: () => _enterSelectionMode(currentItems),
           icon: const Icon(Icons.checklist),
@@ -345,11 +343,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     final List<Widget> actions = <Widget>[
-      IconButton(
-        tooltip: _showTrash ? '返回收藏' : '查看回收站',
-        onPressed: () => _toggleTrashMode(!_showTrash),
-        icon: Icon(_showTrash ? Icons.home_outlined : Icons.delete_outline),
-      ),
       IconButton(
         tooltip: '批量操作',
         onPressed: () => _enterSelectionMode(currentItems),
@@ -1223,6 +1216,211 @@ class _HomePageState extends State<HomePage> {
     );
     if (next != null) {
       await controller.saveSettings(next);
+    }
+  }
+
+  Widget _buildTopBarTitle(
+    AppController controller, {
+    required bool compactActions,
+  }) {
+    if (_selectionMode) {
+      return Text('已选择 ${_selectedIds.length} 条');
+    }
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool showSyncBadge = constraints.maxWidth >= 220;
+        final bool compactBadge = compactActions || constraints.maxWidth < 320;
+        return Row(
+          children: <Widget>[
+            Expanded(child: _buildTopModeSwitch(controller)),
+            if (showSyncBadge) ...<Widget>[
+              const SizedBox(width: 8),
+              _buildTopSyncBadge(controller, compact: compactBadge),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTopModeSwitch(AppController controller) {
+    final ThemeData theme = Theme.of(context);
+    final Color borderColor =
+        theme.colorScheme.outlineVariant.withValues(alpha: 0.7);
+    return Container(
+      height: 34,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: <Widget>[
+          _buildTopModeTab(
+            label: '收藏',
+            selected: !_showTrash,
+            onTap: controller.loading || !_showTrash
+                ? null
+                : () => _toggleTrashMode(false),
+          ),
+          _buildTopModeTab(
+            label: '回收站',
+            selected: _showTrash,
+            onTap: controller.loading || _showTrash
+                ? null
+                : () => _toggleTrashMode(true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopModeTab({
+    required String label,
+    required bool selected,
+    required VoidCallback? onTap,
+  }) {
+    final ThemeData theme = Theme.of(context);
+    final Color fg = selected
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onSurfaceVariant;
+    final Color bg =
+        selected ? theme.colorScheme.primaryContainer : Colors.transparent;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopSyncBadge(
+    AppController controller, {
+    required bool compact,
+  }) {
+    final ThemeData theme = Theme.of(context);
+    final _TopSyncState state = _resolveTopSyncState(controller);
+    final Color fg;
+    final Color bg;
+    final IconData icon;
+    switch (state) {
+      case _TopSyncState.syncing:
+        fg = theme.colorScheme.primary;
+        bg = theme.colorScheme.primaryContainer.withValues(alpha: 0.55);
+        icon = Icons.sync;
+        break;
+      case _TopSyncState.success:
+        fg = theme.colorScheme.primary;
+        bg = theme.colorScheme.primaryContainer.withValues(alpha: 0.55);
+        icon = Icons.cloud_done_outlined;
+        break;
+      case _TopSyncState.error:
+        fg = theme.colorScheme.error;
+        bg = theme.colorScheme.errorContainer.withValues(alpha: 0.58);
+        icon = Icons.error_outline;
+        break;
+      case _TopSyncState.notReady:
+      case _TopSyncState.idle:
+        fg = theme.colorScheme.onSurfaceVariant;
+        bg = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.75);
+        icon = Icons.cloud_off_outlined;
+        break;
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 12, color: fg),
+          if (!compact) ...<Widget>[
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 92),
+              child: Text(
+                _topSyncStatusText(controller),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  _TopSyncState _resolveTopSyncState(AppController controller) {
+    if (controller.syncing) {
+      return _TopSyncState.syncing;
+    }
+    final SyncRunDiagnostics? report = controller.lastSyncDiagnostics;
+    if (report != null && report.success) {
+      return _TopSyncState.success;
+    }
+    if (controller.syncError != null && controller.settings.syncReady) {
+      return _TopSyncState.error;
+    }
+    if (controller.lastSyncAt != null && controller.settings.syncReady) {
+      return _TopSyncState.success;
+    }
+    if (!controller.settings.syncReady) {
+      return _TopSyncState.notReady;
+    }
+    return _TopSyncState.idle;
+  }
+
+  String _topSyncStatusText(AppController controller) {
+    final _TopSyncState state = _resolveTopSyncState(controller);
+    switch (state) {
+      case _TopSyncState.syncing:
+        return '同步中';
+      case _TopSyncState.success:
+        final DateTime? at =
+            controller.lastSyncDiagnostics?.finishedAt ?? controller.lastSyncAt;
+        if (at == null) {
+          return '已同步';
+        }
+        final DateTime local = at.toLocal();
+        final String hh = local.hour.toString().padLeft(2, '0');
+        final String mm = local.minute.toString().padLeft(2, '0');
+        return '已同步 $hh:$mm';
+      case _TopSyncState.error:
+        return '同步失败';
+      case _TopSyncState.notReady:
+        return '未配置';
+      case _TopSyncState.idle:
+        return '未同步';
     }
   }
 

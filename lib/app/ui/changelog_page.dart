@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.15',
+      notes: <String>[
+        '首页顶栏升级为“收藏/回收站”分段切换，替代单独回收站按钮，减少空白并提升切换效率',
+        '顶栏新增轻量同步状态胶囊（同步中/已同步/同步失败/未配置），状态感知更直观',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.14',
       notes: <String>[
         '首页普通模式顶部标题已移除，不再显示“粮仓”或“收藏”文字',
