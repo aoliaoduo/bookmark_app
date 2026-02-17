@@ -853,30 +853,43 @@ class _HomePageState extends State<HomePage> {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final Color fieldBase = isDark
-        ? theme.colorScheme.surface.withValues(alpha: 0.72)
-        : Colors.white.withValues(alpha: 0.8);
+        ? theme.colorScheme.surface.withValues(alpha: 0.78)
+        : Colors.white.withValues(alpha: 0.9);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
       child: Row(
         children: <Widget>[
           Expanded(
             child: Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
               decoration: BoxDecoration(
-                color: fieldBase,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: isDark ? 0.08 : 0.2),
+                      fieldBase,
+                    ),
+                    Color.alphaBlend(
+                      Colors.black.withValues(alpha: isDark ? 0.08 : 0.04),
+                      fieldBase,
+                    ),
+                  ],
+                ),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: isDark ? 0.62 : 0.86,
+                    alpha: isDark ? 0.5 : 0.72,
                   ),
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
                     color: theme.colorScheme.shadow
-                        .withValues(alpha: isDark ? 0.17 : 0.09),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
+                        .withValues(alpha: isDark ? 0.2 : 0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
@@ -912,10 +925,11 @@ class _HomePageState extends State<HomePage> {
           _GlassTactileButton(
             tooltip: '收藏',
             onPressed: controller.loading ? null : _addUrl,
+            singleLayer: true,
             radius: 16,
-            size: const Size(108, 48),
+            size: const Size(102, 46),
             tintColor: theme.colorScheme.primary,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
@@ -1590,34 +1604,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTopModeSwitch(AppController controller) {
-    final ThemeData theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-    final Color borderColor = theme.colorScheme.outlineVariant
-        .withValues(alpha: isDark ? 0.55 : 0.88);
-    return Container(
+    return SizedBox(
       height: 38,
-      padding: const EdgeInsets.all(2.5),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            theme.colorScheme.surface.withValues(alpha: isDark ? 0.74 : 0.92),
-            theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: isDark ? 0.62 : 0.78),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color:
-                theme.colorScheme.shadow.withValues(alpha: isDark ? 0.22 : 0.1),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
       child: Row(
         children: <Widget>[
           _buildTopModeTab(
@@ -1652,27 +1640,35 @@ class _HomePageState extends State<HomePage> {
         : theme.colorScheme.onSurfaceVariant;
     final Color bg = selected
         ? Color.alphaBlend(
-            theme.colorScheme.primary.withValues(alpha: isDark ? 0.32 : 0.2),
-            theme.colorScheme.primaryContainer,
+            theme.colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.14),
+            theme.colorScheme.primaryContainer.withValues(alpha: 0.92),
           )
-        : theme.colorScheme.surfaceContainerHighest;
+        : Color.alphaBlend(
+            theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: isDark ? 0.7 : 0.86),
+            theme.colorScheme.surface.withValues(alpha: isDark ? 0.66 : 0.9),
+          );
     return Expanded(
-      child: _GlassTactileButton(
-        tooltip: label,
-        onPressed: onTap,
-        visualEnabled: selected || onTap != null,
-        radius: 999,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        tintColor: bg,
-        child: Center(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: fg,
-                  fontWeight: FontWeight.w700,
-                ),
+      child: Padding(
+        padding: EdgeInsets.only(right: label == '收藏' ? 6 : 0),
+        child: _GlassTactileButton(
+          tooltip: label,
+          onPressed: onTap,
+          visualEnabled: selected || onTap != null,
+          singleLayer: true,
+          radius: 999,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          tintColor: bg,
+          child: Center(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
           ),
         ),
       ),
@@ -1714,6 +1710,7 @@ class _HomePageState extends State<HomePage> {
     return _GlassTactileButton(
       onPressed: null,
       visualEnabled: true,
+      singleLayer: true,
       radius: 999,
       tintColor: bg,
       padding: EdgeInsets.symmetric(
@@ -2599,6 +2596,7 @@ class _GlassTactileButton extends StatefulWidget {
     this.radius = 14,
     this.tintColor,
     this.visualEnabled,
+    this.singleLayer = false,
     this.size,
   });
 
@@ -2609,6 +2607,7 @@ class _GlassTactileButton extends StatefulWidget {
   final double radius;
   final Color? tintColor;
   final bool? visualEnabled;
+  final bool singleLayer;
   final Size? size;
 
   @override
@@ -2633,6 +2632,14 @@ class _GlassTactileButtonState extends State<_GlassTactileButton> {
       Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
       tint,
     ).withValues(alpha: visualEnabled ? (isDark ? 0.62 : 0.74) : 0.5);
+    final Color flatTopColor = Color.alphaBlend(
+      Colors.white.withValues(alpha: isDark ? 0.06 : 0.2),
+      tint,
+    ).withValues(alpha: visualEnabled ? (isDark ? 0.86 : 0.92) : 0.58);
+    final Color flatBottomColor = Color.alphaBlend(
+      Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
+      tint,
+    ).withValues(alpha: visualEnabled ? (isDark ? 0.82 : 0.9) : 0.55);
     final BorderRadius borderRadius = BorderRadius.circular(widget.radius);
     final BoxConstraints? constraints = widget.size == null
         ? null
@@ -2650,69 +2657,93 @@ class _GlassTactileButtonState extends State<_GlassTactileButton> {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[topColor, bottomColor],
+          begin: widget.singleLayer ? Alignment.topCenter : Alignment.topLeft,
+          end: widget.singleLayer
+              ? Alignment.bottomCenter
+              : Alignment.bottomRight,
+          colors: widget.singleLayer
+              ? <Color>[flatTopColor, flatBottomColor]
+              : <Color>[topColor, bottomColor],
         ),
         border: Border.all(
-          color: Colors.white.withValues(
-            alpha: visualEnabled ? (isDark ? 0.2 : 0.54) : 0.24,
-          ),
+          color: widget.singleLayer
+              ? theme.colorScheme.outlineVariant.withValues(
+                  alpha: visualEnabled ? (isDark ? 0.5 : 0.75) : 0.32,
+                )
+              : Colors.white.withValues(
+                  alpha: visualEnabled ? (isDark ? 0.2 : 0.54) : 0.24,
+                ),
         ),
         boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.white.withValues(
-              alpha: visualEnabled ? (isDark ? 0.07 : 0.34) : 0.08,
+          if (!widget.singleLayer)
+            BoxShadow(
+              color: Colors.white.withValues(
+                alpha: visualEnabled ? (isDark ? 0.07 : 0.34) : 0.08,
+              ),
+              blurRadius: _pressed ? 4 : 9,
+              offset: const Offset(-1.5, -1.5),
             ),
-            blurRadius: _pressed ? 4 : 9,
-            offset: const Offset(-1.5, -1.5),
-          ),
           BoxShadow(
             color: theme.colorScheme.shadow.withValues(
-              alpha: visualEnabled ? (isDark ? 0.44 : 0.2) : 0.12,
+              alpha: visualEnabled
+                  ? (widget.singleLayer
+                      ? (isDark ? 0.24 : 0.14)
+                      : (isDark ? 0.44 : 0.2))
+                  : 0.12,
             ),
-            blurRadius: _pressed ? 8 : 16,
-            offset: Offset(0, _pressed ? 3.5 : 8),
+            blurRadius:
+                widget.singleLayer ? (_pressed ? 6 : 12) : (_pressed ? 8 : 16),
+            offset: Offset(
+                0,
+                widget.singleLayer
+                    ? (_pressed ? 2.5 : 5)
+                    : (_pressed ? 3.5 : 8)),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Stack(
-          children: <Widget>[
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      stops: const <double>[0, 0.55, 1],
-                      colors: <Color>[
-                        Colors.white.withValues(alpha: isDark ? 0.18 : 0.38),
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: isDark ? 0.2 : 0.09),
-                      ],
+      child: widget.singleLayer
+          ? Center(child: widget.child)
+          : ClipRRect(
+              borderRadius: borderRadius,
+              child: Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            stops: const <double>[0, 0.55, 1],
+                            colors: <Color>[
+                              Colors.white
+                                  .withValues(alpha: isDark ? 0.18 : 0.38),
+                              Colors.transparent,
+                              Colors.black
+                                  .withValues(alpha: isDark ? 0.2 : 0.09),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: _GlassTexturePainter(
-                    color: (isDark ? Colors.white : Colors.black).withValues(
-                      alpha: visualEnabled ? (isDark ? 0.05 : 0.03) : 0.02,
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _GlassTexturePainter(
+                          color:
+                              (isDark ? Colors.white : Colors.black).withValues(
+                            alpha:
+                                visualEnabled ? (isDark ? 0.05 : 0.03) : 0.02,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  Center(child: widget.child),
+                ],
               ),
             ),
-            Center(child: widget.child),
-          ],
-        ),
-      ),
     );
 
     content = Material(

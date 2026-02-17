@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.21',
+      notes: <String>[
+        '统一顶部主交互视觉：收藏/回收站切换、输入框、收藏按钮改为同一单层玻璃语言',
+        '移除导致“框中框”观感的双层壳结构，改为单边框+单阴影的简洁实体效果',
+        '输入区与顶部切换条间距和尺寸重排，整体更紧凑、干净且风格一致',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.20',
       notes: <String>[
         '输入网址区域改为单层轻玻璃容器，移除重纹理外壳，解决“框中框”观感',
@@ -373,7 +381,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.20';
+        _versionLabel = 'v0.5.21';
       });
     }
   }
