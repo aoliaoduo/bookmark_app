@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.11',
+      date: '2026-02-17',
+      notes: <String>[
+        '本地数据写入链路加固：单条新增/更新标题/删除/恢复统一为“数据写入 + 同步出站入列”原子事务',
+        '新增事务回归测试：覆盖 outbox 写入失败时整单回滚，避免本地状态与同步队列不一致',
+        '控制层 loading 改为计数模型，修复并发操作下 loading 状态提前复位导致的交互抖动',
+        '新增同步与备份并发保护：同步进行中禁止启动云备份，避免云侧操作竞态',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.10',
       date: '2026-02-17',
       notes: <String>[

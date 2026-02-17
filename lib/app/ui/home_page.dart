@@ -286,7 +286,9 @@ class _HomePageState extends State<HomePage> {
             ),
             PopupMenuItem<_CompactHomeAction>(
               value: _CompactHomeAction.backupNow,
-              enabled: !controller.loading,
+              enabled: !controller.loading &&
+                  !controller.syncing &&
+                  !controller.backingUp,
               child: const Text('云备份'),
             ),
             const PopupMenuDivider(),
@@ -390,7 +392,9 @@ class _HomePageState extends State<HomePage> {
           ),
           PopupMenuItem<_HomeMenuAction>(
             value: _HomeMenuAction.backupNow,
-            enabled: !controller.loading,
+            enabled: !controller.loading &&
+                !controller.syncing &&
+                !controller.backingUp,
             child: const Text('云备份'),
           ),
           const PopupMenuDivider(),
@@ -1228,7 +1232,10 @@ class _HomePageState extends State<HomePage> {
     final bool syncReady = controller.settings.syncReady;
     return IconButton(
       tooltip: syncReady ? '云同步' : '云同步（请先在设置中完成 WebDAV 配置）',
-      onPressed: !syncReady || controller.loading || controller.syncing
+      onPressed: !syncReady ||
+              controller.loading ||
+              controller.syncing ||
+              controller.backingUp
           ? null
           : () => _syncNow(controller),
       icon: const Icon(Icons.cloud_sync_outlined),

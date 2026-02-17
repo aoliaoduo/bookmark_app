@@ -122,8 +122,10 @@ class BookmarkRepository implements LocalStore {
       titleUpdatedAt: null,
     );
 
-    await _upsertBookmarkLocal(bookmark);
-    await _enqueueOp(SyncOpType.upsert, bookmark);
+    await _writeBookmarkAndOutbox(
+      bookmark: bookmark,
+      opType: SyncOpType.upsert,
+    );
 
     return bookmark;
   }
@@ -143,8 +145,10 @@ class BookmarkRepository implements LocalStore {
         updatedAt: now,
       );
 
-      await _upsertBookmarkLocal(updated);
-      await _enqueueOp(SyncOpType.upsert, updated);
+      await _writeBookmarkAndOutbox(
+        bookmark: updated,
+        opType: SyncOpType.upsert,
+      );
       return updated;
     } on MetadataFetchException catch (e) {
       final Bookmark failed = bookmark.copyWith(
@@ -152,8 +156,10 @@ class BookmarkRepository implements LocalStore {
         titleUpdatedAt: now,
         updatedAt: now,
       );
-      await _upsertBookmarkLocal(failed);
-      await _enqueueOp(SyncOpType.upsert, failed);
+      await _writeBookmarkAndOutbox(
+        bookmark: failed,
+        opType: SyncOpType.upsert,
+      );
       return failed;
     } catch (_) {
       final Bookmark failed = bookmark.copyWith(
@@ -161,8 +167,10 @@ class BookmarkRepository implements LocalStore {
         titleUpdatedAt: now,
         updatedAt: now,
       );
-      await _upsertBookmarkLocal(failed);
-      await _enqueueOp(SyncOpType.upsert, failed);
+      await _writeBookmarkAndOutbox(
+        bookmark: failed,
+        opType: SyncOpType.upsert,
+      );
       return failed;
     }
   }
@@ -172,8 +180,10 @@ class BookmarkRepository implements LocalStore {
     if (bookmark == null || bookmark.isDeleted) return null;
     final DateTime now = DateTime.now().toUtc();
     final Bookmark updated = bookmark.copyWith(note: null, updatedAt: now);
-    await _upsertBookmarkLocal(updated);
-    await _enqueueOp(SyncOpType.upsert, updated);
+    await _writeBookmarkAndOutbox(
+      bookmark: updated,
+      opType: SyncOpType.upsert,
+    );
     return updated;
   }
 
@@ -268,10 +278,11 @@ class BookmarkRepository implements LocalStore {
     final DateTime now = DateTime.now().toUtc();
 
     final Bookmark deleted = bookmark.copyWith(deletedAt: now, updatedAt: now);
-
-    await _upsertBookmarkLocal(deleted);
-    await _upsertTombstoneLocal(deleted.id, now);
-    await _enqueueOp(SyncOpType.delete, deleted);
+    await _writeBookmarkAndOutbox(
+      bookmark: deleted,
+      opType: SyncOpType.delete,
+      tombstoneAt: now,
+    );
   }
 
   Future<int> softDeleteMany(List<String> bookmarkIds) async {
@@ -290,9 +301,12 @@ class BookmarkRepository implements LocalStore {
       for (final Bookmark bookmark in candidates) {
         final Bookmark deleted =
             bookmark.copyWith(deletedAt: now, updatedAt: now);
-        await _upsertBookmarkLocal(deleted, executor: txn);
-        await _upsertTombstoneLocal(deleted.id, now, executor: txn);
-        await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
+        await _writeBookmarkAndOutbox(
+          bookmark: deleted,
+          opType: SyncOpType.delete,
+          tombstoneAt: now,
+          executor: txn,
+        );
         affected += 1;
       }
     });
@@ -307,9 +321,11 @@ class BookmarkRepository implements LocalStore {
       deletedAt: null,
       updatedAt: now,
     );
-    await _upsertBookmarkLocal(restored);
-    await _deleteTombstoneLocal(restored.id);
-    await _enqueueOp(SyncOpType.upsert, restored);
+    await _writeBookmarkAndOutbox(
+      bookmark: restored,
+      opType: SyncOpType.upsert,
+      clearTombstone: true,
+    );
     return restored;
   }
 
@@ -331,9 +347,12 @@ class BookmarkRepository implements LocalStore {
       for (final Bookmark bookmark in deletedOnes) {
         final Bookmark restored =
             bookmark.copyWith(deletedAt: null, updatedAt: now);
-        await _upsertBookmarkLocal(restored, executor: txn);
-        await _deleteTombstoneLocal(restored.id, executor: txn);
-        await _enqueueOp(SyncOpType.upsert, restored, executor: txn);
+        await _writeBookmarkAndOutbox(
+          bookmark: restored,
+          opType: SyncOpType.upsert,
+          clearTombstone: true,
+          executor: txn,
+        );
         affected += 1;
       }
     });
@@ -389,9 +408,12 @@ class BookmarkRepository implements LocalStore {
           final String key = _exactKey(b.normalizedUrl);
           if (keptByExactKey.containsKey(key)) {
             final Bookmark deleted = b.copyWith(deletedAt: now, updatedAt: now);
-            await _upsertBookmarkLocal(deleted, executor: txn);
-            await _upsertTombstoneLocal(deleted.id, now, executor: txn);
-            await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
+            await _writeBookmarkAndOutbox(
+              bookmark: deleted,
+              opType: SyncOpType.delete,
+              tombstoneAt: now,
+              executor: txn,
+            );
             removedIds.add(b.id);
             exactRemoved += 1;
           } else {
@@ -415,9 +437,12 @@ class BookmarkRepository implements LocalStore {
 
           if (matched) {
             final Bookmark deleted = b.copyWith(deletedAt: now, updatedAt: now);
-            await _upsertBookmarkLocal(deleted, executor: txn);
-            await _upsertTombstoneLocal(deleted.id, now, executor: txn);
-            await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
+            await _writeBookmarkAndOutbox(
+              bookmark: deleted,
+              opType: SyncOpType.delete,
+              tombstoneAt: now,
+              executor: txn,
+            );
             removedIds.add(b.id);
             similarRemoved += 1;
           } else {
@@ -591,6 +616,37 @@ class BookmarkRepository implements LocalStore {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  Future<void> _writeBookmarkAndOutbox({
+    required Bookmark bookmark,
+    required SyncOpType opType,
+    DateTime? tombstoneAt,
+    bool clearTombstone = false,
+    DatabaseExecutor? executor,
+  }) async {
+    Future<void> write(DatabaseExecutor dbExecutor) async {
+      await _upsertBookmarkLocal(bookmark, executor: dbExecutor);
+      if (tombstoneAt != null) {
+        await _upsertTombstoneLocal(
+          bookmark.id,
+          tombstoneAt,
+          executor: dbExecutor,
+        );
+      } else if (clearTombstone) {
+        await _deleteTombstoneLocal(bookmark.id, executor: dbExecutor);
+      }
+      await _enqueueOp(opType, bookmark, executor: dbExecutor);
+    }
+
+    if (executor != null) {
+      await write(executor);
+      return;
+    }
+
+    await _db.transaction((Transaction txn) async {
+      await write(txn);
+    });
+  }
+
   Future<void> _upsertBookmarkLocal(
     Bookmark bookmark, {
     DatabaseExecutor? executor,
@@ -723,8 +779,10 @@ class BookmarkRepository implements LocalStore {
             titleUpdatedAt: now,
             updatedAt: now,
           );
-          await _upsertBookmarkLocal(updated);
-          await _enqueueOp(SyncOpType.upsert, updated);
+          await _writeBookmarkAndOutbox(
+            bookmark: updated,
+            opType: SyncOpType.upsert,
+          );
           updatedCount += 1;
         } on MetadataFetchException catch (e) {
           final DateTime now = DateTime.now().toUtc();
@@ -733,8 +791,10 @@ class BookmarkRepository implements LocalStore {
             titleUpdatedAt: now,
             updatedAt: now,
           );
-          await _upsertBookmarkLocal(failed);
-          await _enqueueOp(SyncOpType.upsert, failed);
+          await _writeBookmarkAndOutbox(
+            bookmark: failed,
+            opType: SyncOpType.upsert,
+          );
         } catch (_) {
           final DateTime now = DateTime.now().toUtc();
           final Bookmark failed = target.copyWith(
@@ -742,8 +802,10 @@ class BookmarkRepository implements LocalStore {
             titleUpdatedAt: now,
             updatedAt: now,
           );
-          await _upsertBookmarkLocal(failed);
-          await _enqueueOp(SyncOpType.upsert, failed);
+          await _writeBookmarkAndOutbox(
+            bookmark: failed,
+            opType: SyncOpType.upsert,
+          );
         }
 
         processedCount += 1;

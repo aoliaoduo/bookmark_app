@@ -36,7 +36,9 @@ class AppController extends ChangeNotifier {
   List<Bookmark> _bookmarks = const <Bookmark>[];
   List<Bookmark> _trashBookmarks = const <Bookmark>[];
   bool _loading = false;
+  int _loadingDepth = 0;
   bool _syncing = false;
+  bool _backingUp = false;
   DateTime? _lastSyncAt;
   String? _syncError;
   SyncRunDiagnostics? _lastSyncDiagnostics;
@@ -51,6 +53,7 @@ class AppController extends ChangeNotifier {
   List<Bookmark> get trashBookmarks => _trashBookmarks;
   bool get loading => _loading;
   bool get syncing => _syncing;
+  bool get backingUp => _backingUp;
   DateTime? get lastSyncAt => _lastSyncAt;
   String? get syncError => _syncError;
   SyncRunDiagnostics? get lastSyncDiagnostics => _lastSyncDiagnostics;
@@ -364,6 +367,14 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> backupNow() async {
+    if (_syncing || _backingUp) {
+      _error = _syncing ? '正在云同步，请稍后再云备份' : '正在云备份，请稍后重试';
+      notifyListeners();
+      return;
+    }
+
+    _backingUp = true;
+    notifyListeners();
     _setLoading(true);
     try {
       await _syncCoordinator.backupNow(settings);
@@ -372,6 +383,8 @@ class AppController extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _setLoading(false);
+      _backingUp = false;
+      notifyListeners();
     }
   }
 
@@ -436,7 +449,18 @@ class AppController extends ChangeNotifier {
   }
 
   void _setLoading(bool value) {
-    _loading = value;
+    if (value) {
+      _loadingDepth += 1;
+    } else {
+      if (_loadingDepth > 0) {
+        _loadingDepth -= 1;
+      }
+    }
+    final bool next = _loadingDepth > 0;
+    if (_loading == next) {
+      return;
+    }
+    _loading = next;
     notifyListeners();
   }
 
