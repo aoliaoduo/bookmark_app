@@ -853,11 +853,11 @@ class _HomePageState extends State<HomePage> {
     final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      child: _buildGlassPanel(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        child: Row(
-          children: <Widget>[
-            Expanded(
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _buildGlassPanel(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
               child: TextField(
                 controller: _urlController,
                 enabled: !controller.loading,
@@ -875,35 +875,35 @@ class _HomePageState extends State<HomePage> {
                 onSubmitted: (_) => _addUrl(),
               ),
             ),
-            const SizedBox(width: 8),
-            _GlassTactileButton(
-              tooltip: '收藏',
-              onPressed: controller.loading ? null : _addUrl,
-              radius: 16,
-              size: const Size(116, 50),
-              tintColor: theme.colorScheme.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Icon(
-                    Icons.add_link,
-                    size: 18,
+          ),
+          const SizedBox(width: 8),
+          _GlassTactileButton(
+            tooltip: '收藏',
+            onPressed: controller.loading ? null : _addUrl,
+            radius: 16,
+            size: const Size(116, 50),
+            tintColor: theme.colorScheme.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(
+                  Icons.add_link,
+                  size: 18,
+                  color: theme.colorScheme.onPrimary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '收藏',
+                  style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.onPrimary,
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '收藏',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

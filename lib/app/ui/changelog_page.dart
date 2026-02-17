@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.19',
+      notes: <String>[
+        '输入区视觉重构：去掉整行外层玻璃壳，改为“左侧输入框 + 右侧收藏按钮”独立结构',
+        '修复“玻璃框里还有一层框”的观感问题，主操作区层级更简洁直接',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.18',
       notes: <String>[
         '修复 Windows 端启动后无响应问题：玻璃按钮在顶栏的布局约束已改为安全模式',
@@ -359,7 +366,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.18';
+        _versionLabel = 'v0.5.19';
       });
     }
   }
