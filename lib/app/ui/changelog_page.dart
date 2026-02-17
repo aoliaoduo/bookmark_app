@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.11',
+      date: '2026-02-17',
+      notes: <String>[
+        '列表项“打开网址 / 复制链接 / 更多”操作改为紧贴右侧并统一图标交互尺寸',
+        '“云同步”从“更多功能”中独立为顶栏主按钮（桌面与移动端一致）',
+        '应用启动时若 WebDAV 配置完整会自动执行一次云同步，贴近主流产品同步逻辑',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.10',
       date: '2026-02-17',
       notes: <String>[
@@ -214,7 +223,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.10';
+        _versionLabel = 'v0.4.11';
       });
     }
   }

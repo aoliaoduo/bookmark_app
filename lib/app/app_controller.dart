@@ -56,6 +56,7 @@ class AppController extends ChangeNotifier {
     try {
       _settings = await _settingsStore.load();
       await reloadBookmarks();
+      await _syncOnLaunchIfReady();
       if (_settings!.autoRefreshOnLaunch) {
         await refreshStaleTitles();
       }
@@ -436,6 +437,20 @@ class AppController extends ChangeNotifier {
         refreshStaleTitles();
       }
     });
+  }
+
+  Future<void> _syncOnLaunchIfReady() async {
+    final AppSettings? current = _settings;
+    if (current == null || !current.syncReady) {
+      return;
+    }
+    try {
+      await _syncCoordinator.syncNow(current);
+      await reloadBookmarks();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
   }
 
   @override

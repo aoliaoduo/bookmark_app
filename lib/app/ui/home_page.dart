@@ -16,7 +16,6 @@ import 'settings_page.dart';
 
 enum _HomeMenuAction {
   emptyTrash,
-  syncNow,
   backupNow,
   exportAllJson,
   exportAllCsv,
@@ -34,7 +33,6 @@ enum _CompactHomeAction {
   refreshAllTitles,
   refreshStaleTitles,
   emptyTrash,
-  syncNow,
   backupNow,
   exportAllJson,
   exportAllCsv,
@@ -185,6 +183,7 @@ class _HomePageState extends State<HomePage> {
           onPressed: () => _enterSelectionMode(currentItems),
           icon: const Icon(Icons.checklist),
         ),
+        _buildSyncActionButton(controller),
         PopupMenuButton<_CompactHomeAction>(
           tooltip: '更多操作',
           onSelected: (_CompactHomeAction action) {
@@ -208,11 +207,6 @@ class _HomePageState extends State<HomePage> {
               value: _CompactHomeAction.emptyTrash,
               enabled: !controller.loading && trash.isNotEmpty,
               child: const Text('清空回收站'),
-            ),
-            PopupMenuItem<_CompactHomeAction>(
-              value: _CompactHomeAction.syncNow,
-              enabled: !controller.loading,
-              child: const Text('云同步'),
             ),
             PopupMenuItem<_CompactHomeAction>(
               value: _CompactHomeAction.backupNow,
@@ -281,6 +275,7 @@ class _HomePageState extends State<HomePage> {
         onPressed: () => _enterSelectionMode(currentItems),
         icon: const Icon(Icons.checklist),
       ),
+      _buildSyncActionButton(controller),
     ];
 
     if (!_showTrash) {
@@ -312,11 +307,6 @@ class _HomePageState extends State<HomePage> {
             value: _HomeMenuAction.emptyTrash,
             enabled: !controller.loading && trash.isNotEmpty,
             child: const Text('清空回收站'),
-          ),
-          PopupMenuItem<_HomeMenuAction>(
-            value: _HomeMenuAction.syncNow,
-            enabled: !controller.loading,
-            child: const Text('云同步'),
           ),
           PopupMenuItem<_HomeMenuAction>(
             value: _HomeMenuAction.backupNow,
@@ -752,45 +742,48 @@ class _HomePageState extends State<HomePage> {
             onLongPress: () => _startSelection(item.id),
             trailing: _selectionMode
                 ? null
-                : SizedBox(
-                    width: 144,
-                    child: Row(
-                      children: <Widget>[
-                        _buildInlineActionButton(
-                          tooltip: '打开网址',
-                          icon: Icons.open_in_new,
-                          onPressed: () => _openUrl(item.url),
-                        ),
-                        _buildInlineActionButton(
-                          tooltip: '复制链接',
-                          icon: Icons.content_copy_outlined,
-                          onPressed: () => _copyUrl(item.url),
-                        ),
-                        PopupMenuButton<_BookmarkRowAction>(
-                          tooltip: '更多',
-                          onSelected: (_BookmarkRowAction action) {
-                            _onBookmarkRowAction(
-                              item: item,
-                              action: action,
-                              loading: controller.loading,
-                            );
-                          },
-                          itemBuilder: (BuildContext context) =>
-                              <PopupMenuEntry<_BookmarkRowAction>>[
-                            PopupMenuItem<_BookmarkRowAction>(
-                              value: _BookmarkRowAction.refreshTitle,
-                              enabled: !controller.loading,
-                              child: const Text('更新标题'),
-                            ),
-                            PopupMenuItem<_BookmarkRowAction>(
-                              value: _BookmarkRowAction.deleteToTrash,
-                              enabled: !controller.loading,
-                              child: const Text('删除到回收站'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      _buildInlineActionButton(
+                        tooltip: '打开网址',
+                        icon: Icons.open_in_new,
+                        onPressed: () => _openUrl(item.url),
+                      ),
+                      _buildInlineActionButton(
+                        tooltip: '复制链接',
+                        icon: Icons.content_copy_outlined,
+                        onPressed: () => _copyUrl(item.url),
+                      ),
+                      PopupMenuButton<_BookmarkRowAction>(
+                        tooltip: '更多',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                            width: 40, height: 40),
+                        splashRadius: 18,
+                        icon: const Icon(Icons.more_vert, size: 21),
+                        onSelected: (_BookmarkRowAction action) {
+                          _onBookmarkRowAction(
+                            item: item,
+                            action: action,
+                            loading: controller.loading,
+                          );
+                        },
+                        itemBuilder: (BuildContext context) =>
+                            <PopupMenuEntry<_BookmarkRowAction>>[
+                          PopupMenuItem<_BookmarkRowAction>(
+                            value: _BookmarkRowAction.refreshTitle,
+                            enabled: !controller.loading,
+                            child: const Text('更新标题'),
+                          ),
+                          PopupMenuItem<_BookmarkRowAction>(
+                            value: _BookmarkRowAction.deleteToTrash,
+                            enabled: !controller.loading,
+                            child: const Text('删除到回收站'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
           ),
         );
@@ -830,24 +823,22 @@ class _HomePageState extends State<HomePage> {
             onLongPress: () => _startSelection(item.id),
             trailing: _selectionMode
                 ? null
-                : SizedBox(
-                    width: 88,
-                    child: Row(
-                      children: <Widget>[
-                        _buildInlineActionButton(
-                          tooltip: '复制链接',
-                          icon: Icons.content_copy_outlined,
-                          onPressed: () => _copyUrl(item.url),
-                        ),
-                        _buildInlineActionButton(
-                          tooltip: '恢复',
-                          icon: Icons.restore_from_trash,
-                          onPressed: controller.loading
-                              ? null
-                              : () => controller.restoreBookmark(item.id),
-                        ),
-                      ],
-                    ),
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      _buildInlineActionButton(
+                        tooltip: '复制链接',
+                        icon: Icons.content_copy_outlined,
+                        onPressed: () => _copyUrl(item.url),
+                      ),
+                      _buildInlineActionButton(
+                        tooltip: '恢复',
+                        icon: Icons.restore_from_trash,
+                        onPressed: controller.loading
+                            ? null
+                            : () => controller.restoreBookmark(item.id),
+                      ),
+                    ],
                   ),
           ),
         );
@@ -947,9 +938,6 @@ class _HomePageState extends State<HomePage> {
       case _CompactHomeAction.emptyTrash:
         await _emptyTrash();
         break;
-      case _CompactHomeAction.syncNow:
-        await controller.syncNow();
-        break;
       case _CompactHomeAction.backupNow:
         await controller.backupNow();
         break;
@@ -1038,6 +1026,25 @@ class _HomePageState extends State<HomePage> {
     if (next != null) {
       await controller.saveSettings(next);
     }
+  }
+
+  Widget _buildSyncActionButton(AppController controller) {
+    final bool syncReady = controller.settings.syncReady;
+    return IconButton(
+      tooltip: syncReady ? '云同步' : '云同步（请先在设置中完成 WebDAV 配置）',
+      onPressed: !syncReady || controller.loading
+          ? null
+          : () {
+              _syncNow(controller);
+            },
+      icon: const Icon(Icons.cloud_sync_outlined),
+    );
+  }
+
+  Future<void> _syncNow(AppController controller) async {
+    await controller.syncNow();
+    if (!mounted || controller.error != null) return;
+    _showSnack('云同步完成');
   }
 
   Widget _buildInlineActionButton({
@@ -1271,9 +1278,6 @@ class _HomePageState extends State<HomePage> {
       case _HomeMenuAction.emptyTrash:
         if (trash.isEmpty) return;
         await _emptyTrash();
-        break;
-      case _HomeMenuAction.syncNow:
-        await controller.syncNow();
         break;
       case _HomeMenuAction.backupNow:
         await controller.backupNow();
