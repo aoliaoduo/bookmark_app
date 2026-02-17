@@ -21,7 +21,8 @@ class SyncEngineReport {
     required this.pushedOps,
     required this.pulledBatchCount,
     required this.pulledOps,
-    required this.filteredDuplicateOrSelfOps,
+    required this.filteredSelfDeviceOps,
+    required this.filteredDuplicateOps,
     required this.filteredStaleOps,
     required this.appliedUpserts,
     required this.appliedDeletes,
@@ -33,7 +34,8 @@ class SyncEngineReport {
   final int pushedOps;
   final int pulledBatchCount;
   final int pulledOps;
-  final int filteredDuplicateOrSelfOps;
+  final int filteredSelfDeviceOps;
+  final int filteredDuplicateOps;
   final int filteredStaleOps;
   final int appliedUpserts;
   final int appliedDeletes;
@@ -78,16 +80,17 @@ class SyncEngine {
     final Set<String> seenOpIds = <String>{};
     final Map<String, SyncOp> latestByBookmarkId = <String, SyncOp>{};
     int pulledOpsCount = 0;
-    int filteredDuplicateOrSelfOps = 0;
+    int filteredSelfDeviceOps = 0;
+    int filteredDuplicateOps = 0;
     for (final PulledSyncBatch pulled in remoteBatches) {
       pulledOpsCount += pulled.batch.ops.length;
       for (final SyncOp op in pulled.batch.ops) {
         if (op.deviceId == deviceId) {
-          filteredDuplicateOrSelfOps += 1;
+          filteredSelfDeviceOps += 1;
           continue;
         }
         if (!seenOpIds.add(op.opId)) {
-          filteredDuplicateOrSelfOps += 1;
+          filteredDuplicateOps += 1;
           continue;
         }
         final String bookmarkId = op.bookmark.id;
@@ -139,7 +142,8 @@ class SyncEngine {
       pushedOps: pendingOpsCount,
       pulledBatchCount: remoteBatches.length,
       pulledOps: pulledOpsCount,
-      filteredDuplicateOrSelfOps: filteredDuplicateOrSelfOps,
+      filteredSelfDeviceOps: filteredSelfDeviceOps,
+      filteredDuplicateOps: filteredDuplicateOps,
       filteredStaleOps: filteredStaleOps,
       appliedUpserts: appliedUpserts,
       appliedDeletes: appliedDeletes,

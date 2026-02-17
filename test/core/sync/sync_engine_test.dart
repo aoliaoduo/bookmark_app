@@ -49,6 +49,8 @@ void main() {
     expect(report.pushedOps, 0);
     expect(report.pulledBatchCount, 1);
     expect(report.pulledOps, 1);
+    expect(report.filteredSelfDeviceOps, 0);
+    expect(report.filteredDuplicateOps, 0);
     expect(report.appliedUpserts, 1);
     expect(report.appliedDeletes, 0);
   });
@@ -123,6 +125,8 @@ void main() {
     expect(report.pushedOps, 2);
     expect(report.pulledBatchCount, 1);
     expect(report.pulledOps, 2);
+    expect(report.filteredSelfDeviceOps, 0);
+    expect(report.filteredDuplicateOps, 0);
     expect(report.appliedUpserts, 1);
     expect(report.appliedDeletes, 1);
   });
@@ -181,7 +185,8 @@ void main() {
     expect(local.upserted.single.id, 'remote-keep');
     expect(local.savedCursor, DateTime.utc(2026, 2, 16, 14));
     expect(report.pulledOps, 3);
-    expect(report.filteredDuplicateOrSelfOps, 2);
+    expect(report.filteredSelfDeviceOps, 1);
+    expect(report.filteredDuplicateOps, 1);
     expect(report.appliedUpserts, 1);
   });
 }

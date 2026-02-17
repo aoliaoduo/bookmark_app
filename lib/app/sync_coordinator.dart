@@ -34,8 +34,8 @@ class SyncRunDiagnostics {
   int get pushedOps => engineReport?.pushedOps ?? 0;
   int get pulledBatchCount => engineReport?.pulledBatchCount ?? 0;
   int get pulledOps => engineReport?.pulledOps ?? 0;
-  int get filteredDuplicateOrSelfOps =>
-      engineReport?.filteredDuplicateOrSelfOps ?? 0;
+  int get filteredSelfDeviceOps => engineReport?.filteredSelfDeviceOps ?? 0;
+  int get filteredDuplicateOps => engineReport?.filteredDuplicateOps ?? 0;
   int get filteredStaleOps => engineReport?.filteredStaleOps ?? 0;
   int get appliedUpserts => engineReport?.appliedUpserts ?? 0;
   int get appliedDeletes => engineReport?.appliedDeletes ?? 0;

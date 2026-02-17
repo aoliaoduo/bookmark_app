@@ -1350,6 +1350,14 @@ class _HomePageState extends State<HomePage> {
     return '$prefix：上传 ${report.pushedOps}，下载 ${report.pulledOps}$retry';
   }
 
+  String _syncApplySummary(SyncRunDiagnostics report) {
+    final int changed = report.appliedUpserts + report.appliedDeletes;
+    if (changed <= 0) {
+      return '本次无本地数据变更（仅完成同步校验）。';
+    }
+    return '本次已应用 $changed 条变更（更新 ${report.appliedUpserts}，删除 ${report.appliedDeletes}）。';
+  }
+
   Future<void> _openSyncDiagnostics(AppController controller) async {
     final SyncRunDiagnostics? report = controller.lastSyncDiagnostics;
     if (report == null) {
@@ -1379,10 +1387,14 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 10),
                 Text('状态：$status'),
-                Text('开始：${_formatDateTime(report.startedAt)}'),
-                Text('结束：${_formatDateTime(report.finishedAt)}'),
+                Text(
+                    '开始：${_formatDateTime(report.startedAt, includeSeconds: true)}'),
+                Text(
+                    '结束：${_formatDateTime(report.finishedAt, includeSeconds: true)}'),
                 Text('耗时：${_formatDuration(report.duration)}'),
                 Text('尝试次数：${report.attemptCount}（重试 ${report.retryCount} 次）'),
+                const SizedBox(height: 6),
+                Text(_syncApplySummary(report)),
                 const SizedBox(height: 10),
                 Text('待上传操作：${report.localPendingOps}'),
                 Text('实际上传：${report.pushedOps}'),
@@ -1390,7 +1402,8 @@ class _HomePageState extends State<HomePage> {
                 Text('下载操作：${report.pulledOps}'),
                 Text('应用更新：${report.appliedUpserts}'),
                 Text('应用删除：${report.appliedDeletes}'),
-                Text('过滤重复/同设备：${report.filteredDuplicateOrSelfOps}'),
+                Text('过滤同设备：${report.filteredSelfDeviceOps}'),
+                Text('过滤重复操作：${report.filteredDuplicateOps}'),
                 Text('过滤过期操作：${report.filteredStaleOps}'),
                 if (error != null && error.trim().isNotEmpty) ...<Widget>[
                   const SizedBox(height: 10),
@@ -1835,14 +1848,18 @@ class _HomePageState extends State<HomePage> {
     return '${gb.toStringAsFixed(2)}GB';
   }
 
-  String _formatDateTime(DateTime value) {
+  String _formatDateTime(DateTime value, {bool includeSeconds = false}) {
     final DateTime local = value.toLocal();
     final String yyyy = local.year.toString().padLeft(4, '0');
     final String mm = local.month.toString().padLeft(2, '0');
     final String dd = local.day.toString().padLeft(2, '0');
     final String hh = local.hour.toString().padLeft(2, '0');
     final String min = local.minute.toString().padLeft(2, '0');
-    return '$yyyy-$mm-$dd $hh:$min';
+    if (!includeSeconds) {
+      return '$yyyy-$mm-$dd $hh:$min';
+    }
+    final String ss = local.second.toString().padLeft(2, '0');
+    return '$yyyy-$mm-$dd $hh:$min:$ss';
   }
 
   void _showSnack(String text) {

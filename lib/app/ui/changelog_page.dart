@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.7',
+      date: '2026-02-17',
+      notes: <String>[
+        '同步诊断统计拆分“过滤同设备”和“过滤重复操作”，避免混合计数造成误解',
+        '同步诊断中的开始/结束时间显示精确到秒，便于排查短时同步问题',
+        '新增本次结果总结文案：明确提示“本次无本地数据变更”或“已应用 X 条变更”',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.6',
       date: '2026-02-17',
       notes: <String>[
@@ -303,7 +312,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.6';
+        _versionLabel = 'v0.5.7';
       });
     }
   }
