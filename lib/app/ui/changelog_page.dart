@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.12',
+      date: '2026-02-17',
+      notes: <String>[
+        '启动自动云同步新增可视反馈，显示“正在自动云同步...”动画提示',
+        '云同步结果统一提示：成功与失败都会弹出明确反馈',
+        '移除每条链接的“更多”按钮，保留常用“打开网址/复制链接”操作，列表更简洁',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.11',
       date: '2026-02-17',
       notes: <String>[
@@ -223,7 +232,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.11';
+        _versionLabel = 'v0.4.12';
       });
     }
   }

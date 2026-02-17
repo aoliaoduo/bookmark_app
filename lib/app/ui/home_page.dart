@@ -56,8 +56,6 @@ enum _CompactSelectionAction {
   exportSelectedCsv,
 }
 
-enum _BookmarkRowAction { refreshTitle, deleteToTrash }
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
 
@@ -73,7 +71,17 @@ class _HomePageState extends State<HomePage> {
 
   bool _showTrash = false;
   bool _selectionMode = false;
+  bool _startupAutoSyncStarted = false;
+  bool _startupAutoSyncRunning = false;
   final Set<String> _selectedIds = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runStartupAutoSync();
+    });
+  }
 
   @override
   void dispose() {
@@ -125,6 +133,7 @@ class _HomePageState extends State<HomePage> {
               else
                 _buildTrashHint(),
               _buildSearchArea(),
+              _buildStartupSyncBanner(),
               if (controller.batchRefreshing)
                 _buildBatchProgress(controller)
               else if (controller.loading)
@@ -655,7 +664,6 @@ class _HomePageState extends State<HomePage> {
       return const Center(child: Text('还没有匹配的收藏'));
     }
 
-    final AppController controller = widget.controller;
     return ListView.builder(
       itemCount: bookmarks.length,
       itemBuilder: (BuildContext context, int index) {
@@ -754,34 +762,6 @@ class _HomePageState extends State<HomePage> {
                         tooltip: '复制链接',
                         icon: Icons.content_copy_outlined,
                         onPressed: () => _copyUrl(item.url),
-                      ),
-                      PopupMenuButton<_BookmarkRowAction>(
-                        tooltip: '更多',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                            width: 40, height: 40),
-                        splashRadius: 18,
-                        icon: const Icon(Icons.more_vert, size: 21),
-                        onSelected: (_BookmarkRowAction action) {
-                          _onBookmarkRowAction(
-                            item: item,
-                            action: action,
-                            loading: controller.loading,
-                          );
-                        },
-                        itemBuilder: (BuildContext context) =>
-                            <PopupMenuEntry<_BookmarkRowAction>>[
-                          PopupMenuItem<_BookmarkRowAction>(
-                            value: _BookmarkRowAction.refreshTitle,
-                            enabled: !controller.loading,
-                            child: const Text('更新标题'),
-                          ),
-                          PopupMenuItem<_BookmarkRowAction>(
-                            value: _BookmarkRowAction.deleteToTrash,
-                            enabled: !controller.loading,
-                            child: const Text('删除到回收站'),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -1032,19 +1012,89 @@ class _HomePageState extends State<HomePage> {
     final bool syncReady = controller.settings.syncReady;
     return IconButton(
       tooltip: syncReady ? '云同步' : '云同步（请先在设置中完成 WebDAV 配置）',
-      onPressed: !syncReady || controller.loading
-          ? null
-          : () {
-              _syncNow(controller);
-            },
+      onPressed:
+          !syncReady || controller.loading ? null : () => _syncNow(controller),
       icon: const Icon(Icons.cloud_sync_outlined),
     );
   }
 
   Future<void> _syncNow(AppController controller) async {
     await controller.syncNow();
-    if (!mounted || controller.error != null) return;
+    if (!mounted) return;
+    if (controller.error != null) {
+      _showSnack('云同步失败：${_syncErrorText(controller.error!)}');
+      return;
+    }
     _showSnack('云同步完成');
+  }
+
+  Future<void> _runStartupAutoSync() async {
+    if (_startupAutoSyncStarted) return;
+    _startupAutoSyncStarted = true;
+
+    final AppController controller = widget.controller;
+    if (!controller.settings.syncReady) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _startupAutoSyncRunning = true;
+      });
+    }
+
+    await controller.syncNow();
+    if (!mounted) return;
+    setState(() {
+      _startupAutoSyncRunning = false;
+    });
+
+    if (controller.error != null) {
+      _showSnack('自动云同步失败：${_syncErrorText(controller.error!)}');
+      return;
+    }
+    _showSnack('自动云同步完成');
+  }
+
+  Widget _buildStartupSyncBanner() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: _startupAutoSyncRunning
+          ? Padding(
+              key: const ValueKey<String>('startup-sync-running'),
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+              child: Row(
+                children: <Widget>[
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '正在自动云同步...',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  String _syncErrorText(String raw) {
+    final String firstLine = raw
+        .split(RegExp(r'[\r\n]+'))
+        .first
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+    if (firstLine.isEmpty) {
+      return '未知错误';
+    }
+    if (firstLine.length <= 60) {
+      return firstLine;
+    }
+    return '${firstLine.substring(0, 60)}...';
   }
 
   Widget _buildInlineActionButton({
@@ -1060,24 +1110,6 @@ class _HomePageState extends State<HomePage> {
       splashRadius: 18,
       icon: Icon(icon, size: 21),
     );
-  }
-
-  Future<void> _onBookmarkRowAction({
-    required Bookmark item,
-    required _BookmarkRowAction action,
-    required bool loading,
-  }) async {
-    if (loading) return;
-    switch (action) {
-      case _BookmarkRowAction.refreshTitle:
-        await widget.controller.refreshTitle(item.id);
-        break;
-      case _BookmarkRowAction.deleteToTrash:
-        await widget.controller.deleteBookmark(item.id);
-        if (!mounted) return;
-        _showSnack('已删除到回收站');
-        break;
-    }
   }
 
   Future<void> _copyUrl(String url) async {
