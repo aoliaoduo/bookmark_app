@@ -30,7 +30,7 @@ class LocalDatabase {
 
     return openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onConfigure: (Database db) async {
         await _configurePragmas(db);
       },
@@ -68,12 +68,37 @@ CREATE TABLE sync_state(
 )
 ''');
 
+        await db.execute('''
+CREATE TABLE sync_tombstones(
+  bookmark_id TEXT PRIMARY KEY,
+  deleted_at TEXT NOT NULL,
+  expire_at TEXT NOT NULL
+)
+''');
+
         await db.execute(
           'CREATE INDEX idx_outbox_pushed ON sync_outbox(pushed, occurred_at)',
         );
         await db.execute(
           'CREATE INDEX idx_bookmarks_updated ON bookmarks(updated_at)',
         );
+        await db.execute(
+          'CREATE INDEX idx_tombstones_expire ON sync_tombstones(expire_at)',
+        );
+      },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+CREATE TABLE IF NOT EXISTS sync_tombstones(
+  bookmark_id TEXT PRIMARY KEY,
+  deleted_at TEXT NOT NULL,
+  expire_at TEXT NOT NULL
+)
+''');
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_tombstones_expire ON sync_tombstones(expire_at)',
+          );
+        }
       },
     );
   }

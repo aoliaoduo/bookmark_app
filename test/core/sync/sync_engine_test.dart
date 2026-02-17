@@ -189,6 +189,7 @@ class _FakeLocalStore implements LocalStore {
   final List<String> deletedIds = <String>[];
   final List<String> markedOpIds = <String>[];
   final Map<String, Bookmark> _records = <String, Bookmark>{};
+  final Map<String, DateTime> _tombstones = <String, DateTime>{};
   DateTime? savedCursor;
 
   @override
@@ -203,6 +204,11 @@ class _FakeLocalStore implements LocalStore {
   }
 
   @override
+  Future<DateTime?> findTombstoneAt(String bookmarkId) async {
+    return _tombstones[bookmarkId];
+  }
+
+  @override
   Future<void> markOpsAsPushed(List<String> opIds) async {
     markedOpIds.addAll(opIds);
   }
@@ -210,6 +216,16 @@ class _FakeLocalStore implements LocalStore {
   @override
   Future<void> saveLastPulledAt(DateTime timestamp) async {
     savedCursor = timestamp;
+  }
+
+  @override
+  Future<void> saveTombstone(String bookmarkId, DateTime deletedAt) async {
+    _tombstones[bookmarkId] = deletedAt;
+  }
+
+  @override
+  Future<void> clearTombstone(String bookmarkId) async {
+    _tombstones.remove(bookmarkId);
   }
 
   @override

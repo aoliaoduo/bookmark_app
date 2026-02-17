@@ -8,6 +8,9 @@ abstract class LocalStore {
   Future<DateTime> lastPulledAt();
   Future<void> saveLastPulledAt(DateTime timestamp);
   Future<Bookmark?> findBookmarkById(String bookmarkId);
+  Future<DateTime?> findTombstoneAt(String bookmarkId);
+  Future<void> saveTombstone(String bookmarkId, DateTime deletedAt);
+  Future<void> clearTombstone(String bookmarkId);
   Future<void> upsertBookmark(Bookmark bookmark);
   Future<void> deleteBookmark(String bookmarkId);
 }
@@ -76,14 +79,20 @@ class SyncEngine {
       });
     for (final SyncOp op in latestOps) {
       final Bookmark? local = await localStore.findBookmarkById(op.bookmark.id);
-      if (!_shouldApplyRemoteOp(local, op)) {
+      final DateTime? tombstoneAt = await localStore.findTombstoneAt(
+        op.bookmark.id,
+      );
+      if (!_shouldApplyRemoteOp(local, tombstoneAt, op)) {
         continue;
       }
       if (op.type == SyncOpType.delete || op.bookmark.isDeleted) {
+        final DateTime deletedAt = _logicalTimestamp(op);
+        await localStore.saveTombstone(op.bookmark.id, deletedAt);
         await localStore.deleteBookmark(op.bookmark.id);
         continue;
       }
       await localStore.upsertBookmark(_applyMergePolicy(op.bookmark));
+      await localStore.clearTombstone(op.bookmark.id);
     }
 
     await localStore.saveLastPulledAt(maxPulled);
@@ -110,22 +119,32 @@ class SyncEngine {
   }
 
   DateTime _logicalTimestamp(SyncOp op) {
-    final DateTime bookmarkUpdated = op.bookmark.updatedAt;
-    final DateTime base = bookmarkUpdated.isAfter(op.occurredAt)
-        ? bookmarkUpdated
-        : op.occurredAt;
+    final DateTime updatedAt = op.bookmark.updatedAt;
     final DateTime? deletedAt = op.bookmark.deletedAt;
-    if (deletedAt != null && deletedAt.isAfter(base)) {
+    if (deletedAt != null && deletedAt.isAfter(updatedAt)) {
       return deletedAt;
     }
-    return base;
+    return updatedAt;
   }
 
-  bool _shouldApplyRemoteOp(Bookmark? local, SyncOp remote) {
+  bool _shouldApplyRemoteOp(
+    Bookmark? local,
+    DateTime? tombstoneAt,
+    SyncOp remote,
+  ) {
+    final DateTime remoteAt = _logicalTimestamp(remote);
+    if (tombstoneAt != null) {
+      if (remoteAt.isBefore(tombstoneAt)) {
+        return false;
+      }
+      if (remoteAt.isAtSameMomentAs(tombstoneAt) && !_isDeleteLike(remote)) {
+        return false;
+      }
+    }
+
     if (local == null) {
       return true;
     }
-    final DateTime remoteAt = _logicalTimestamp(remote);
     final DateTime localAt = _localLogicalTimestamp(local);
     if (remoteAt.isAfter(localAt)) {
       return true;

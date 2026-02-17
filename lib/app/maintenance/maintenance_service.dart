@@ -7,6 +7,7 @@ class SlimDownResult {
     required this.purgedOutboxRows,
     required this.purgedTrashRows,
     required this.purgedInvalidRows,
+    required this.purgedExpiredTombstoneRows,
     required this.dbBytesBefore,
     required this.dbBytesAfter,
   });
@@ -14,6 +15,7 @@ class SlimDownResult {
   final int purgedOutboxRows;
   final int purgedTrashRows;
   final int purgedInvalidRows;
+  final int purgedExpiredTombstoneRows;
   final int dbBytesBefore;
   final int dbBytesAfter;
 }
@@ -51,6 +53,13 @@ class MaintenanceService {
       where: "trim(url) = '' OR trim(normalized_url) = ''",
     );
 
+    final String tombstoneCutoff = now.toIso8601String();
+    final int purgedExpiredTombstoneRows = await _db.delete(
+      'sync_tombstones',
+      where: 'expire_at < ?',
+      whereArgs: <Object?>[tombstoneCutoff],
+    );
+
     await _runMaintenancePragmas();
 
     final int dbBytesAfter = await _safeDbSize();
@@ -59,6 +68,7 @@ class MaintenanceService {
       purgedOutboxRows: purgedOutboxRows,
       purgedTrashRows: purgedTrashRows,
       purgedInvalidRows: purgedInvalidRows,
+      purgedExpiredTombstoneRows: purgedExpiredTombstoneRows,
       dbBytesBefore: dbBytesBefore,
       dbBytesAfter: dbBytesAfter,
     );

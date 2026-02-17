@@ -34,6 +34,7 @@ class BookmarkRepository implements LocalStore {
   final MetadataFetchService _metadataService;
   final String _deviceId;
   final Uuid _uuid = const Uuid();
+  static const Duration _tombstoneRetention = Duration(days: 365);
 
   Future<List<Bookmark>> listBookmarks({bool includeDeleted = false}) async {
     final List<Map<String, Object?>> rows = await _db.query(
@@ -67,6 +68,31 @@ class BookmarkRepository implements LocalStore {
   @override
   Future<Bookmark?> findBookmarkById(String bookmarkId) {
     return findById(bookmarkId);
+  }
+
+  @override
+  Future<DateTime?> findTombstoneAt(String bookmarkId) async {
+    final List<Map<String, Object?>> rows = await _db.query(
+      'sync_tombstones',
+      columns: <String>['deleted_at'],
+      where: 'bookmark_id = ?',
+      whereArgs: <Object?>[bookmarkId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return DateTime.parse(rows.first['deleted_at']! as String).toUtc();
+  }
+
+  @override
+  Future<void> saveTombstone(String bookmarkId, DateTime deletedAt) async {
+    await _upsertTombstoneLocal(bookmarkId, deletedAt);
+  }
+
+  @override
+  Future<void> clearTombstone(String bookmarkId) async {
+    await _deleteTombstoneLocal(bookmarkId);
   }
 
   Future<Bookmark> addUrl(String rawInput) async {
@@ -244,6 +270,7 @@ class BookmarkRepository implements LocalStore {
     final Bookmark deleted = bookmark.copyWith(deletedAt: now, updatedAt: now);
 
     await _upsertBookmarkLocal(deleted);
+    await _upsertTombstoneLocal(deleted.id, now);
     await _enqueueOp(SyncOpType.delete, deleted);
   }
 
@@ -264,6 +291,7 @@ class BookmarkRepository implements LocalStore {
         final Bookmark deleted =
             bookmark.copyWith(deletedAt: now, updatedAt: now);
         await _upsertBookmarkLocal(deleted, executor: txn);
+        await _upsertTombstoneLocal(deleted.id, now, executor: txn);
         await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
         affected += 1;
       }
@@ -280,6 +308,7 @@ class BookmarkRepository implements LocalStore {
       updatedAt: now,
     );
     await _upsertBookmarkLocal(restored);
+    await _deleteTombstoneLocal(restored.id);
     await _enqueueOp(SyncOpType.upsert, restored);
     return restored;
   }
@@ -303,6 +332,7 @@ class BookmarkRepository implements LocalStore {
         final Bookmark restored =
             bookmark.copyWith(deletedAt: null, updatedAt: now);
         await _upsertBookmarkLocal(restored, executor: txn);
+        await _deleteTombstoneLocal(restored.id, executor: txn);
         await _enqueueOp(SyncOpType.upsert, restored, executor: txn);
         affected += 1;
       }
@@ -360,6 +390,7 @@ class BookmarkRepository implements LocalStore {
           if (keptByExactKey.containsKey(key)) {
             final Bookmark deleted = b.copyWith(deletedAt: now, updatedAt: now);
             await _upsertBookmarkLocal(deleted, executor: txn);
+            await _upsertTombstoneLocal(deleted.id, now, executor: txn);
             await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
             removedIds.add(b.id);
             exactRemoved += 1;
@@ -385,6 +416,7 @@ class BookmarkRepository implements LocalStore {
           if (matched) {
             final Bookmark deleted = b.copyWith(deletedAt: now, updatedAt: now);
             await _upsertBookmarkLocal(deleted, executor: txn);
+            await _upsertTombstoneLocal(deleted.id, now, executor: txn);
             await _enqueueOp(SyncOpType.delete, deleted, executor: txn);
             removedIds.add(b.id);
             similarRemoved += 1;
@@ -422,6 +454,7 @@ class BookmarkRepository implements LocalStore {
       await txn.delete('bookmarks');
       await txn.delete('sync_outbox');
       await txn.delete('sync_state');
+      await txn.delete('sync_tombstones');
     });
   }
 
@@ -492,7 +525,18 @@ class BookmarkRepository implements LocalStore {
   Future<void> upsertBookmark(Bookmark incoming) async {
     final Bookmark? local = await findById(incoming.id);
     final Bookmark merged = _merge(local, incoming);
-    await _upsertBookmarkLocal(merged);
+    await _db.transaction((Transaction txn) async {
+      await _upsertBookmarkLocal(merged, executor: txn);
+      if (merged.deletedAt == null) {
+        await _deleteTombstoneLocal(merged.id, executor: txn);
+      } else {
+        await _upsertTombstoneLocal(
+          merged.id,
+          merged.deletedAt!,
+          executor: txn,
+        );
+      }
+    });
   }
 
   @override
@@ -567,6 +611,35 @@ class BookmarkRepository implements LocalStore {
               bookmark.titleUpdatedAt?.toUtc().toIso8601String(),
         },
         conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> _upsertTombstoneLocal(
+    String bookmarkId,
+    DateTime deletedAt, {
+    DatabaseExecutor? executor,
+  }) async {
+    final DateTime deletedUtc = deletedAt.toUtc();
+    final DateTime expireAt = deletedUtc.add(_tombstoneRetention);
+    await (executor ?? _db).insert(
+      'sync_tombstones',
+      <String, Object?>{
+        'bookmark_id': bookmarkId,
+        'deleted_at': deletedUtc.toIso8601String(),
+        'expire_at': expireAt.toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _deleteTombstoneLocal(
+    String bookmarkId, {
+    DatabaseExecutor? executor,
+  }) async {
+    await (executor ?? _db).delete(
+      'sync_tombstones',
+      where: 'bookmark_id = ?',
+      whereArgs: <Object?>[bookmarkId],
+    );
   }
 
   Bookmark _bookmarkFromRow(Map<String, Object?> row) {

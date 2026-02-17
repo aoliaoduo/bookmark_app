@@ -16,6 +16,7 @@ void main() {
     expect(result.purgedOutboxRows, 2);
     expect(result.purgedTrashRows, 3);
     expect(result.purgedInvalidRows, 1);
+    expect(result.purgedExpiredTombstoneRows, 4);
     expect(db.rawQueries, contains('PRAGMA journal_mode'));
     expect(db.rawQueries, contains('PRAGMA wal_checkpoint(TRUNCATE)'));
     expect(db.rawQueries, contains('PRAGMA optimize'));
@@ -78,6 +79,11 @@ class _FakeDatabase implements Database {
           where != null &&
           where.contains("trim(url) = ''")) {
         return Future<int>.value(1);
+      }
+      if (table == 'sync_tombstones' &&
+          where != null &&
+          where.contains('expire_at < ?')) {
+        return Future<int>.value(4);
       }
       return Future<int>.value(0);
     }

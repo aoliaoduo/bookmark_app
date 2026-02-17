@@ -1595,6 +1595,7 @@ class _HomePageState extends State<HomePage> {
               Text('清理已推送同步日志: ${result.purgedOutboxRows} 条'),
               Text('清理过期回收站数据: ${result.purgedTrashRows} 条'),
               Text('清理无效数据: ${result.purgedInvalidRows} 条'),
+              Text('清理过期删除墓碑: ${result.purgedExpiredTombstoneRows} 条'),
               Text(
                 '数据库体积: ${_formatBytes(result.dbBytesBefore)} -> ${_formatBytes(result.dbBytesAfter)}',
               ),

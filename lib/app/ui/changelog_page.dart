@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.5',
+      date: '2026-02-17',
+      notes: <String>[
+        '新增删除墓碑机制：本地记录被删除后会保存墓碑时间，阻止远端旧 upsert 将已删除链接“复活”',
+        '同步冲突判定升级：每个链接只应用最新远端状态，并按本地状态与墓碑时间跳过过期操作',
+        '数据库升级到 v2，新增墓碑表并支持升级迁移；瘦身清理支持回收过期墓碑',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.4',
       date: '2026-02-17',
       notes: <String>[
@@ -285,7 +294,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.4';
+        _versionLabel = 'v0.5.5';
       });
     }
   }

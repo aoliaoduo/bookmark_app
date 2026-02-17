@@ -270,6 +270,94 @@ void main() {
     expect(store.deletedBookmarkIds, <String>[id]);
     expect(await store.findBookmarkById(id), isNull);
   });
+
+  test('tombstone prevents stale remote upsert from resurrecting deleted item',
+      () async {
+    final DateTime base = DateTime.utc(2026, 2, 17, 13, 0, 0);
+    final String id = 'article-6';
+    final SyncOp remoteOldUpsert = SyncOp(
+      opId: 'upsert-old',
+      type: SyncOpType.upsert,
+      bookmark: _bookmark(
+        id: id,
+        updatedAt: base.subtract(const Duration(minutes: 5)),
+      ),
+      occurredAt: base.add(const Duration(minutes: 1)),
+      deviceId: 'remote-a',
+    );
+
+    final _MemoryLocalStore store = _MemoryLocalStore(
+      lastPulled: base.subtract(const Duration(minutes: 1)),
+      pendingOps: const <SyncOp>[],
+      initialTombstones: <String, DateTime>{id: base},
+    );
+    final SyncEngine engine = SyncEngine(
+      localStore: store,
+      syncProvider: _StaticSyncProvider(
+        pulled: <PulledSyncBatch>[
+          PulledSyncBatch(
+            batch: SyncBatch(
+              deviceId: 'remote-a',
+              createdAt: base.add(const Duration(minutes: 2)),
+              ops: <SyncOp>[remoteOldUpsert],
+            ),
+            cursorAt: base.add(const Duration(minutes: 3)),
+          ),
+        ],
+      ),
+      userId: 'user-a',
+      deviceId: 'device-local',
+    );
+
+    await engine.syncOnce();
+
+    expect(await store.findBookmarkById(id), isNull);
+    expect(await store.findTombstoneAt(id), isNotNull);
+  });
+
+  test('newer remote upsert can override tombstone and clear it', () async {
+    final DateTime base = DateTime.utc(2026, 2, 17, 14, 0, 0);
+    final String id = 'article-7';
+    final SyncOp remoteNewUpsert = SyncOp(
+      opId: 'upsert-new',
+      type: SyncOpType.upsert,
+      bookmark: _bookmark(
+        id: id,
+        updatedAt: base.add(const Duration(minutes: 10)),
+      ),
+      occurredAt: base.add(const Duration(minutes: 11)),
+      deviceId: 'remote-a',
+    );
+
+    final _MemoryLocalStore store = _MemoryLocalStore(
+      lastPulled: base.subtract(const Duration(minutes: 1)),
+      pendingOps: const <SyncOp>[],
+      initialTombstones: <String, DateTime>{id: base},
+    );
+    final SyncEngine engine = SyncEngine(
+      localStore: store,
+      syncProvider: _StaticSyncProvider(
+        pulled: <PulledSyncBatch>[
+          PulledSyncBatch(
+            batch: SyncBatch(
+              deviceId: 'remote-a',
+              createdAt: base.add(const Duration(minutes: 12)),
+              ops: <SyncOp>[remoteNewUpsert],
+            ),
+            cursorAt: base.add(const Duration(minutes: 13)),
+          ),
+        ],
+      ),
+      userId: 'user-a',
+      deviceId: 'device-local',
+    );
+
+    await engine.syncOnce();
+
+    final Bookmark? restored = await store.findBookmarkById(id);
+    expect(restored, isNotNull);
+    expect(await store.findTombstoneAt(id), isNull);
+  });
 }
 
 class _MemoryLocalStore implements LocalStore {
@@ -277,11 +365,13 @@ class _MemoryLocalStore implements LocalStore {
     required DateTime lastPulled,
     required List<SyncOp> pendingOps,
     List<Bookmark> initialBookmarks = const <Bookmark>[],
+    Map<String, DateTime> initialTombstones = const <String, DateTime>{},
   })  : _lastPulled = lastPulled,
         _pendingOps = pendingOps {
     for (final Bookmark bookmark in initialBookmarks) {
       _bookmarks[bookmark.id] = bookmark;
     }
+    _tombstones.addAll(initialTombstones);
   }
 
   final DateTime _lastPulled;
@@ -291,6 +381,7 @@ class _MemoryLocalStore implements LocalStore {
   final List<String> markedOpIds = <String>[];
   final List<String> deletedBookmarkIds = <String>[];
   final List<Bookmark> upsertedBookmarks = <Bookmark>[];
+  final Map<String, DateTime> _tombstones = <String, DateTime>{};
   DateTime? savedLastPulled;
 
   @override
@@ -312,6 +403,21 @@ class _MemoryLocalStore implements LocalStore {
   @override
   Future<Bookmark?> findBookmarkById(String bookmarkId) async {
     return _bookmarks[bookmarkId];
+  }
+
+  @override
+  Future<DateTime?> findTombstoneAt(String bookmarkId) async {
+    return _tombstones[bookmarkId];
+  }
+
+  @override
+  Future<void> saveTombstone(String bookmarkId, DateTime deletedAt) async {
+    _tombstones[bookmarkId] = deletedAt;
+  }
+
+  @override
+  Future<void> clearTombstone(String bookmarkId) async {
+    _tombstones.remove(bookmarkId);
   }
 
   @override
