@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/domain/bookmark.dart';
 
-enum ExportFormat { json, csv }
+enum ExportFormat { json, csv, md }
 
 class ExportResult {
   const ExportResult({
@@ -25,7 +25,7 @@ class ExportService {
     final DateTime now = DateTime.now();
     final String ts =
         '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
-    final String ext = format == ExportFormat.json ? 'json' : 'csv';
+    final String ext = _extensionForFormat(format);
     return '${prefix}_$ts.$ext';
   }
 
@@ -37,34 +37,52 @@ class ExportService {
     final File file = File(_normalizeTargetPath(targetPath, format));
     await file.parent.create(recursive: true);
 
-    if (format == ExportFormat.json) {
-      final List<Map<String, dynamic>> data =
-          bookmarks.map((Bookmark b) => b.toJson()).toList();
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(data),
-      );
-    } else {
-      final StringBuffer csv = StringBuffer();
-      csv.writeln(
-        'id,url,normalizedUrl,title,note,tags,createdAt,updatedAt,deletedAt,titleUpdatedAt',
-      );
-      for (final Bookmark b in bookmarks) {
-        csv.writeln(
-          <String>[
-            b.id,
-            b.url,
-            b.normalizedUrl,
-            b.title ?? '',
-            b.note ?? '',
-            b.tags.join('|'),
-            b.createdAt.toIso8601String(),
-            b.updatedAt.toIso8601String(),
-            b.deletedAt?.toIso8601String() ?? '',
-            b.titleUpdatedAt?.toIso8601String() ?? '',
-          ].map(_escapeCsv).join(','),
+    switch (format) {
+      case ExportFormat.json:
+        final List<Map<String, dynamic>> data =
+            bookmarks.map((Bookmark b) => b.toJson()).toList();
+        await file.writeAsString(
+          const JsonEncoder.withIndent('  ').convert(data),
         );
-      }
-      await file.writeAsString(csv.toString());
+        break;
+      case ExportFormat.csv:
+        final StringBuffer csv = StringBuffer();
+        csv.writeln(
+          'id,url,normalizedUrl,title,note,tags,createdAt,updatedAt,deletedAt,titleUpdatedAt',
+        );
+        for (final Bookmark b in bookmarks) {
+          csv.writeln(
+            <String>[
+              b.id,
+              b.url,
+              b.normalizedUrl,
+              b.title ?? '',
+              b.note ?? '',
+              b.tags.join('|'),
+              b.createdAt.toIso8601String(),
+              b.updatedAt.toIso8601String(),
+              b.deletedAt?.toIso8601String() ?? '',
+              b.titleUpdatedAt?.toIso8601String() ?? '',
+            ].map(_escapeCsv).join(','),
+          );
+        }
+        await file.writeAsString(csv.toString());
+        break;
+      case ExportFormat.md:
+        final StringBuffer markdown = StringBuffer();
+        for (int i = 0; i < bookmarks.length; i++) {
+          final Bookmark b = bookmarks[i];
+          final String title = _escapeMarkdownLinkText(
+            (b.title ?? '').trim().isEmpty ? b.url : b.title!.trim(),
+          );
+          final String url = _escapeMarkdownLinkUrl(b.url);
+          markdown.writeln('[$title]($url)');
+          if (i != bookmarks.length - 1) {
+            markdown.writeln();
+          }
+        }
+        await file.writeAsString(markdown.toString());
+        break;
     }
 
     return ExportResult(
@@ -73,11 +91,22 @@ class ExportService {
 
   String _normalizeTargetPath(String targetPath, ExportFormat format) {
     final String trimmed = targetPath.trim();
-    final String ext = format == ExportFormat.json ? '.json' : '.csv';
+    final String ext = '.${_extensionForFormat(format)}';
     if (trimmed.toLowerCase().endsWith(ext)) {
       return trimmed;
     }
     return p.setExtension(trimmed, ext);
+  }
+
+  String _extensionForFormat(ExportFormat format) {
+    switch (format) {
+      case ExportFormat.json:
+        return 'json';
+      case ExportFormat.csv:
+        return 'csv';
+      case ExportFormat.md:
+        return 'md';
+    }
   }
 
   String _escapeCsv(String value) {
@@ -87,5 +116,19 @@ class ExportService {
       return value;
     }
     return '"${value.replaceAll('"', '""')}"';
+  }
+
+  String _escapeMarkdownLinkText(String value) {
+    return value
+        .replaceAll('\\', r'\\')
+        .replaceAll('[', r'\[')
+        .replaceAll(']', r'\]');
+  }
+
+  String _escapeMarkdownLinkUrl(String value) {
+    return value
+        .replaceAll('\\', r'\\')
+        .replaceAll('(', r'\(')
+        .replaceAll(')', r'\)');
   }
 }

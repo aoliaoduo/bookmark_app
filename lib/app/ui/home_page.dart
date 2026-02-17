@@ -22,6 +22,7 @@ enum _HomeMenuAction {
   backupNow,
   exportAllJson,
   exportAllCsv,
+  exportAllMd,
   dedupExact,
   dedupSimilar,
   dedupAll,
@@ -30,7 +31,11 @@ enum _HomeMenuAction {
   clearAllData,
 }
 
-enum _SelectionMenuAction { exportSelectedJson, exportSelectedCsv }
+enum _SelectionMenuAction {
+  exportSelectedJson,
+  exportSelectedCsv,
+  exportSelectedMd,
+}
 
 enum _CompactHomeAction {
   refreshAllTitles,
@@ -39,6 +44,7 @@ enum _CompactHomeAction {
   backupNow,
   exportAllJson,
   exportAllCsv,
+  exportAllMd,
   dedupExact,
   dedupSimilar,
   dedupAll,
@@ -57,6 +63,7 @@ enum _CompactSelectionAction {
   deleteSelected,
   exportSelectedJson,
   exportSelectedCsv,
+  exportSelectedMd,
 }
 
 enum _SortOption {
@@ -291,6 +298,10 @@ class _HomePageState extends State<HomePage> {
               value: _CompactHomeAction.exportAllCsv,
               child: Text('导出全部(CSV)'),
             ),
+            const PopupMenuItem<_CompactHomeAction>(
+              value: _CompactHomeAction.exportAllMd,
+              child: Text('导出全部(MD)'),
+            ),
             const PopupMenuDivider(),
             const PopupMenuItem<_CompactHomeAction>(
               value: _CompactHomeAction.dedupExact,
@@ -390,6 +401,10 @@ class _HomePageState extends State<HomePage> {
           const PopupMenuItem<_HomeMenuAction>(
             value: _HomeMenuAction.exportAllCsv,
             child: Text('导出全部(CSV)'),
+          ),
+          const PopupMenuItem<_HomeMenuAction>(
+            value: _HomeMenuAction.exportAllMd,
+            child: Text('导出全部(MD)'),
           ),
           const PopupMenuDivider(),
           const PopupMenuItem<_HomeMenuAction>(
@@ -503,6 +518,11 @@ class _HomePageState extends State<HomePage> {
               enabled: hasSelection && !controller.loading,
               child: const Text('导出已选(CSV)'),
             ),
+            PopupMenuItem<_CompactSelectionAction>(
+              value: _CompactSelectionAction.exportSelectedMd,
+              enabled: hasSelection && !controller.loading,
+              child: const Text('导出已选(MD)'),
+            ),
           ],
         ),
       ];
@@ -565,11 +585,17 @@ class _HomePageState extends State<HomePage> {
       PopupMenuButton<_SelectionMenuAction>(
         tooltip: '导出已选',
         enabled: hasSelection && !controller.loading,
-        onSelected: (_SelectionMenuAction action) {
-          if (action == _SelectionMenuAction.exportSelectedJson) {
-            _exportSelected(ExportFormat.json);
-          } else {
-            _exportSelected(ExportFormat.csv);
+        onSelected: (_SelectionMenuAction action) async {
+          switch (action) {
+            case _SelectionMenuAction.exportSelectedJson:
+              await _exportSelected(ExportFormat.json);
+              break;
+            case _SelectionMenuAction.exportSelectedCsv:
+              await _exportSelected(ExportFormat.csv);
+              break;
+            case _SelectionMenuAction.exportSelectedMd:
+              await _exportSelected(ExportFormat.md);
+              break;
           }
         },
         itemBuilder: (BuildContext context) =>
@@ -581,6 +607,10 @@ class _HomePageState extends State<HomePage> {
           const PopupMenuItem<_SelectionMenuAction>(
             value: _SelectionMenuAction.exportSelectedCsv,
             child: Text('导出已选(CSV)'),
+          ),
+          const PopupMenuItem<_SelectionMenuAction>(
+            value: _SelectionMenuAction.exportSelectedMd,
+            child: Text('导出已选(MD)'),
           ),
         ],
       ),
@@ -1107,6 +1137,9 @@ class _HomePageState extends State<HomePage> {
       case _CompactHomeAction.exportAllCsv:
         await _exportAll(ExportFormat.csv);
         break;
+      case _CompactHomeAction.exportAllMd:
+        await _exportAll(ExportFormat.md);
+        break;
       case _CompactHomeAction.dedupExact:
         await _runDedup(removeExact: true, removeSimilar: false);
         break;
@@ -1164,6 +1197,9 @@ class _HomePageState extends State<HomePage> {
         break;
       case _CompactSelectionAction.exportSelectedCsv:
         await _exportSelected(ExportFormat.csv);
+        break;
+      case _CompactSelectionAction.exportSelectedMd:
+        await _exportSelected(ExportFormat.md);
         break;
     }
   }
@@ -1773,6 +1809,9 @@ class _HomePageState extends State<HomePage> {
       case _HomeMenuAction.exportAllCsv:
         await _exportAll(ExportFormat.csv);
         break;
+      case _HomeMenuAction.exportAllMd:
+        await _exportAll(ExportFormat.md);
+        break;
       case _HomeMenuAction.dedupExact:
         await _runDedup(removeExact: true, removeSimilar: false);
         break;
@@ -1897,7 +1936,7 @@ class _HomePageState extends State<HomePage> {
     required ExportFormat format,
     required String prefix,
   }) async {
-    final String ext = format == ExportFormat.json ? 'json' : 'csv';
+    final String ext = _extensionForExportFormat(format);
     final String defaultName =
         '${prefix}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
@@ -1929,6 +1968,17 @@ class _HomePageState extends State<HomePage> {
     final String suffix = '.$ext';
     if (lower.endsWith(suffix)) return path;
     return '$path$suffix';
+  }
+
+  String _extensionForExportFormat(ExportFormat format) {
+    switch (format) {
+      case ExportFormat.json:
+        return 'json';
+      case ExportFormat.csv:
+        return 'csv';
+      case ExportFormat.md:
+        return 'md';
+    }
   }
 
   String _formatBytes(int bytes) {

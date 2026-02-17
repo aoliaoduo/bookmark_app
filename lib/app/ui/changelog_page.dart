@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.10',
+      date: '2026-02-17',
+      notes: <String>[
+        '新增 Markdown 导出：支持导出全部/导出已选为 .md 文件',
+        'Markdown 导出格式为 [标题](链接)，并在每条之间保留一个空行',
+        '导出文件选择与自动补全后缀逻辑已覆盖 MD 格式',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.9',
       date: '2026-02-17',
       notes: <String>[
