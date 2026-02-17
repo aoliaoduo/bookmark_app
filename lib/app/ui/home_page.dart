@@ -622,28 +622,86 @@ class _HomePageState extends State<HomePage> {
   }) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
+    final BorderRadius borderRadius = BorderRadius.circular(16);
+    final Color panelBase = isDark
+        ? theme.colorScheme.surface.withValues(alpha: 0.7)
+        : Colors.white.withValues(alpha: 0.84);
     return Container(
-      padding: padding,
       decoration: BoxDecoration(
-        color: isDark
-            ? theme.colorScheme.surface.withValues(alpha: 0.72)
-            : Colors.white.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: borderRadius,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color.alphaBlend(
+              Colors.white.withValues(alpha: isDark ? 0.08 : 0.26),
+              panelBase,
+            ),
+            Color.alphaBlend(
+              Colors.black.withValues(alpha: isDark ? 0.14 : 0.06),
+              panelBase,
+            ),
+          ],
+        ),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(
-            alpha: isDark ? 0.55 : 0.9,
+            alpha: isDark ? 0.5 : 0.85,
           ),
         ),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: theme.colorScheme.shadow
-                .withValues(alpha: isDark ? 0.26 : 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.white.withValues(alpha: isDark ? 0.04 : 0.28),
+            blurRadius: 10,
+            offset: const Offset(-2, -2),
+          ),
+          BoxShadow(
+            color:
+                theme.colorScheme.shadow.withValues(alpha: isDark ? 0.24 : 0.1),
+            blurRadius: 18,
+            offset: const Offset(0, 9),
           ),
         ],
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      stops: const <double>[0, 0.55, 1],
+                      colors: <Color>[
+                        Colors.white.withValues(alpha: isDark ? 0.14 : 0.26),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: isDark ? 0.16 : 0.06),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _GlassTexturePainter(
+                    color: (isDark ? Colors.white : Colors.black).withValues(
+                      alpha: isDark ? 0.035 : 0.02,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: padding,
+              child: child,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -792,6 +850,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildInputArea(AppController controller) {
+    final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       child: _buildGlassPanel(
@@ -817,15 +876,30 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              height: 50,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(108, 50),
-                ),
-                onPressed: controller.loading ? null : _addUrl,
-                icon: const Icon(Icons.add_link),
-                label: const Text('收藏'),
+            _GlassTactileButton(
+              tooltip: '收藏',
+              onPressed: controller.loading ? null : _addUrl,
+              radius: 16,
+              size: const Size(116, 50),
+              tintColor: theme.colorScheme.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(
+                    Icons.add_link,
+                    size: 18,
+                    color: theme.colorScheme.onPrimary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '收藏',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -867,13 +941,24 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             if (_searchController.text.isNotEmpty)
-              IconButton(
-                tooltip: '清空搜索',
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {});
-                },
-                icon: const Icon(Icons.clear, size: 18),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: _GlassTactileButton(
+                  tooltip: '清空搜索',
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                  radius: 10,
+                  size: const Size.square(34),
+                  padding: EdgeInsets.zero,
+                  tintColor: theme.colorScheme.surfaceContainerHighest,
+                  child: Icon(
+                    Icons.clear,
+                    size: 17,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
           ],
         ),
@@ -1066,6 +1151,10 @@ class _HomePageState extends State<HomePage> {
                       _buildInlineActionButton(
                         tooltip: '删除到回收站',
                         icon: Icons.delete_outline,
+                        tintColor: Theme.of(context)
+                            .colorScheme
+                            .errorContainer
+                            .withValues(alpha: 0.78),
                         onPressed: controller.loading
                             ? null
                             : () => _deleteBookmarkInline(item),
@@ -1146,6 +1235,10 @@ class _HomePageState extends State<HomePage> {
                       _buildInlineActionButton(
                         tooltip: '恢复',
                         icon: Icons.restore_from_trash,
+                        tintColor: Theme.of(context)
+                            .colorScheme
+                            .primaryContainer
+                            .withValues(alpha: 0.8),
                         onPressed: controller.loading
                             ? null
                             : () => controller.restoreBookmark(item.id),
@@ -1466,14 +1559,32 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildTopModeSwitch(AppController controller) {
     final ThemeData theme = Theme.of(context);
-    final Color borderColor =
-        theme.colorScheme.outlineVariant.withValues(alpha: 0.7);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color borderColor = theme.colorScheme.outlineVariant
+        .withValues(alpha: isDark ? 0.55 : 0.88);
     return Container(
-      height: 34,
+      height: 38,
+      padding: const EdgeInsets.all(2.5),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            theme.colorScheme.surface.withValues(alpha: isDark ? 0.74 : 0.92),
+            theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: isDark ? 0.62 : 0.78),
+          ],
+        ),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: borderColor),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color:
+                theme.colorScheme.shadow.withValues(alpha: isDark ? 0.22 : 0.1),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: <Widget>[
@@ -1484,6 +1595,7 @@ class _HomePageState extends State<HomePage> {
                 ? null
                 : () => _toggleTrashMode(false),
           ),
+          const SizedBox(width: 4),
           _buildTopModeTab(
             label: '回收站',
             selected: _showTrash,
@@ -1502,33 +1614,33 @@ class _HomePageState extends State<HomePage> {
     required VoidCallback? onTap,
   }) {
     final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final Color fg = selected
         ? theme.colorScheme.onPrimaryContainer
         : theme.colorScheme.onSurfaceVariant;
-    final Color bg =
-        selected ? theme.colorScheme.primaryContainer : Colors.transparent;
+    final Color bg = selected
+        ? Color.alphaBlend(
+            theme.colorScheme.primary.withValues(alpha: isDark ? 0.32 : 0.2),
+            theme.colorScheme.primaryContainer,
+          )
+        : theme.colorScheme.surfaceContainerHighest;
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: fg,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
+      child: _GlassTactileButton(
+        tooltip: label,
+        onPressed: onTap,
+        visualEnabled: selected || onTap != null,
+        radius: 999,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        tintColor: bg,
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ),
       ),
@@ -1567,14 +1679,14 @@ class _HomePageState extends State<HomePage> {
         icon = Icons.cloud_off_outlined;
         break;
     }
-    return Container(
+    return _GlassTactileButton(
+      onPressed: null,
+      visualEnabled: true,
+      radius: 999,
+      tintColor: bg,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6 : 8,
         vertical: 5,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1995,31 +2107,22 @@ class _HomePageState extends State<HomePage> {
     required String tooltip,
     required IconData icon,
     required VoidCallback? onPressed,
+    Color? tintColor,
   }) {
     final ThemeData theme = Theme.of(context);
     final bool enabled = onPressed != null;
-    return Container(
-      margin: const EdgeInsets.only(left: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: enabled ? 0.72 : 0.36,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(
-            alpha: enabled ? 0.8 : 0.45,
-          ),
-        ),
-      ),
-      child: IconButton(
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: _GlassTactileButton(
         tooltip: tooltip,
         onPressed: onPressed,
-        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-        splashRadius: 18,
-        icon: Icon(
+        radius: 11,
+        size: const Size.square(38),
+        padding: EdgeInsets.zero,
+        tintColor: tintColor ?? theme.colorScheme.surfaceContainerHighest,
+        child: Icon(
           icon,
-          size: 19,
+          size: 18,
           color: enabled
               ? theme.colorScheme.onSurfaceVariant
               : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -2452,5 +2555,186 @@ class _HomePageState extends State<HomePage> {
 
   void _showSnack(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+}
+
+class _GlassTactileButton extends StatefulWidget {
+  const _GlassTactileButton({
+    required this.child,
+    required this.onPressed,
+    this.tooltip,
+    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    this.radius = 14,
+    this.tintColor,
+    this.visualEnabled,
+    this.size,
+  });
+
+  final Widget child;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+  final Color? tintColor;
+  final bool? visualEnabled;
+  final Size? size;
+
+  @override
+  State<_GlassTactileButton> createState() => _GlassTactileButtonState();
+}
+
+class _GlassTactileButtonState extends State<_GlassTactileButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final bool visualEnabled = widget.visualEnabled ?? widget.onPressed != null;
+    final Color tint =
+        widget.tintColor ?? theme.colorScheme.surfaceContainerHighest;
+    final Color topColor = Color.alphaBlend(
+      Colors.white.withValues(alpha: isDark ? 0.14 : 0.3),
+      tint,
+    ).withValues(alpha: visualEnabled ? (isDark ? 0.78 : 0.88) : 0.54);
+    final Color bottomColor = Color.alphaBlend(
+      Colors.black.withValues(alpha: isDark ? 0.24 : 0.12),
+      tint,
+    ).withValues(alpha: visualEnabled ? (isDark ? 0.62 : 0.74) : 0.5);
+    final BorderRadius borderRadius = BorderRadius.circular(widget.radius);
+    final BoxConstraints? constraints = widget.size == null
+        ? null
+        : BoxConstraints.tightFor(
+            width: widget.size!.width,
+            height: widget.size!.height,
+          );
+
+    Widget content = AnimatedContainer(
+      duration: const Duration(milliseconds: 130),
+      curve: Curves.easeOutCubic,
+      transform: Matrix4.translationValues(0, _pressed ? 1.6 : 0, 0),
+      constraints: constraints,
+      padding: widget.padding,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[topColor, bottomColor],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(
+            alpha: visualEnabled ? (isDark ? 0.2 : 0.54) : 0.24,
+          ),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.white.withValues(
+              alpha: visualEnabled ? (isDark ? 0.07 : 0.34) : 0.08,
+            ),
+            blurRadius: _pressed ? 4 : 9,
+            offset: const Offset(-1.5, -1.5),
+          ),
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(
+              alpha: visualEnabled ? (isDark ? 0.44 : 0.2) : 0.12,
+            ),
+            blurRadius: _pressed ? 8 : 16,
+            offset: Offset(0, _pressed ? 3.5 : 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      stops: const <double>[0, 0.55, 1],
+                      colors: <Color>[
+                        Colors.white.withValues(alpha: isDark ? 0.18 : 0.38),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: isDark ? 0.2 : 0.09),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _GlassTexturePainter(
+                    color: (isDark ? Colors.white : Colors.black).withValues(
+                      alpha: visualEnabled ? (isDark ? 0.05 : 0.03) : 0.02,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Center(child: widget.child),
+          ],
+        ),
+      ),
+    );
+
+    content = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onPressed,
+        borderRadius: borderRadius,
+        onHighlightChanged: (bool pressed) {
+          if (_pressed == pressed) return;
+          setState(() {
+            _pressed = pressed;
+          });
+        },
+        child: content,
+      ),
+    );
+
+    final String? tooltip = widget.tooltip;
+    if (tooltip != null && tooltip.isNotEmpty) {
+      return Tooltip(message: tooltip, child: content);
+    }
+    return content;
+  }
+}
+
+class _GlassTexturePainter extends CustomPainter {
+  const _GlassTexturePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.8;
+    const double stepX = 11;
+    const double stepY = 8;
+    for (double y = 3; y < size.height; y += stepY) {
+      final bool shifted = ((y / stepY).floor() % 2 == 0);
+      final double startX = shifted ? 4 : 8;
+      for (double x = startX; x < size.width; x += stepX) {
+        final double length = ((x + y).round() % 3 == 0) ? 1.7 : 1.2;
+        canvas.drawLine(Offset(x, y), Offset(x + length, y), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlassTexturePainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

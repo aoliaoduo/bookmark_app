@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.17',
+      notes: <String>[
+        '首页关键按钮升级为实体玻璃按键：增加高光、阴影、渐变与按压反馈，点击质感更清晰',
+        '顶部“收藏/回收站”切换重绘为胶囊玻璃分段按钮，色调与背景统一，不再有漂浮感',
+        '列表行内操作按钮与搜索清空按钮统一玻璃风格，圆角、深浅层级和纹理细节保持一致',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.16',
       notes: <String>[
         '全局视觉升级：统一卡片、输入框、按钮圆角与阴影层级，整体观感更干净',
@@ -344,7 +352,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.12';
+        _versionLabel = 'v0.5.17';
       });
     }
   }
