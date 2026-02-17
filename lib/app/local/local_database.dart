@@ -31,6 +31,9 @@ class LocalDatabase {
     return openDatabase(
       dbPath,
       version: 1,
+      onConfigure: (Database db) async {
+        await _configurePragmas(db);
+      },
       onCreate: (Database db, int _) async {
         await db.execute('''
 CREATE TABLE bookmarks(
@@ -73,5 +76,26 @@ CREATE TABLE sync_state(
         );
       },
     );
+  }
+
+  Future<void> _configurePragmas(Database db) async {
+    // 优先保证数据落盘稳定性：启用 WAL + FULL 同步 + 连接忙等待。
+    await _tryRawQuery(db, 'PRAGMA journal_mode = WAL');
+    await _tryExecute(db, 'PRAGMA synchronous = FULL');
+    await _tryExecute(db, 'PRAGMA wal_autocheckpoint = 1000');
+    await _tryExecute(db, 'PRAGMA foreign_keys = ON');
+    await _tryExecute(db, 'PRAGMA busy_timeout = 5000');
+  }
+
+  Future<void> _tryExecute(Database db, String sql) async {
+    try {
+      await db.execute(sql);
+    } catch (_) {}
+  }
+
+  Future<void> _tryRawQuery(Database db, String sql) async {
+    try {
+      await db.rawQuery(sql);
+    } catch (_) {}
   }
 }

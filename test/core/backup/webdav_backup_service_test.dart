@@ -92,6 +92,120 @@ void main() {
       contains('/BookmarksApp/users/u%2F1/snapshots/a%2Fb%20c.json'),
     );
   });
+
+  test('downloadSnapshot validates digest when present', () async {
+    final Bookmark bookmark = _bookmark('b-1');
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      if (request.method == 'GET') {
+        return _response(
+          200,
+          body: jsonEncode(<String, dynamic>{
+            'createdAt': '2026-02-16T10:00:00.000Z',
+            'bookmarkCount': 1,
+            'digestSha256': 'invalid-digest',
+            'bookmarks': <Map<String, dynamic>>[
+              bookmark.toJson(),
+            ],
+          }),
+          headers: <String, String>{'content-type': 'application/json'},
+        );
+      }
+      return _response(404);
+    });
+
+    final WebDavBackupService service = WebDavBackupService(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    expect(
+      () => service.downloadSnapshot(
+        userId: 'u/1',
+        snapshotFileName: 'a.json',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('downloadSnapshot validates bookmarkCount when present', () async {
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      if (request.method == 'GET') {
+        return _response(
+          200,
+          body: jsonEncode(<String, dynamic>{
+            'createdAt': '2026-02-16T10:00:00.000Z',
+            'bookmarkCount': 2,
+            'bookmarks': <Map<String, dynamic>>[
+              _bookmark('b-1').toJson(),
+            ],
+          }),
+          headers: <String, String>{'content-type': 'application/json'},
+        );
+      }
+      return _response(404);
+    });
+
+    final WebDavBackupService service = WebDavBackupService(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    expect(
+      () => service.downloadSnapshot(
+        userId: 'u/1',
+        snapshotFileName: 'a.json',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('uploadSnapshot with base path avoids duplicated path segments',
+      () async {
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      if (request.method == 'MKCOL') {
+        return _response(201);
+      }
+      if (request.method == 'PUT') {
+        return _response(200);
+      }
+      return _response(404);
+    });
+
+    final WebDavBackupService service = WebDavBackupService(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com/dav',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    await service.uploadSnapshot(
+      userId: 'u/1',
+      bookmarks: <Bookmark>[_bookmark('b-1')],
+      timestamp: DateTime.utc(2026, 2, 16, 10, 0, 0),
+    );
+
+    final List<String> urls =
+        client.requests.map((http.BaseRequest r) => r.url.toString()).toList();
+    for (final String url in urls) {
+      expect(url, isNot(contains('/dav/dav/')));
+    }
+  });
 }
 
 class _RecordingHttpClient extends http.BaseClient {

@@ -44,8 +44,15 @@ class SyncEngine {
     );
 
     DateTime maxPulled = since;
+    final Set<String> seenOpIds = <String>{};
     for (final PulledSyncBatch pulled in remoteBatches) {
       for (final SyncOp op in pulled.batch.ops) {
+        if (op.deviceId == deviceId) {
+          continue;
+        }
+        if (!seenOpIds.add(op.opId)) {
+          continue;
+        }
         if (op.type == SyncOpType.delete || op.bookmark.isDeleted) {
           await localStore.deleteBookmark(op.bookmark.id);
           continue;

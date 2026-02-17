@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -21,14 +22,19 @@ class WebDavConfig {
 }
 
 class WebDavSyncProvider implements SyncProvider {
-  WebDavSyncProvider({required WebDavConfig config, http.Client? client})
-      : _config = config,
+  WebDavSyncProvider({
+    required WebDavConfig config,
+    http.Client? client,
+    Duration requestTimeout = const Duration(seconds: 25),
+  })  : _config = config,
         _client = client ?? http.Client(),
-        _baseUri = _parseBaseUri(config.baseUrl);
+        _baseUri = _parseBaseUri(config.baseUrl),
+        _requestTimeout = requestTimeout;
 
   final WebDavConfig _config;
   final http.Client _client;
   final Uri _baseUri;
+  final Duration _requestTimeout;
 
   @override
   Future<void> pushOps({
@@ -60,15 +66,29 @@ class WebDavSyncProvider implements SyncProvider {
     await _mkcol(opsDir);
 
     final Uri uri = _buildUri(path);
-    final http.Response response = await _client.put(
-      uri,
-      headers: _headers(contentType: 'application/json'),
-      body: jsonEncode(batch.toJson()),
-    );
+    final http.Response response;
+    try {
+      response = await _client
+          .put(
+            uri,
+            headers: _headers(contentType: 'application/json'),
+            body: jsonEncode(batch.toJson()),
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException catch (e) {
+      throw WebDavRequestException(
+        'WebDAV push request timed out',
+        path: path,
+        cause: e,
+      );
+    }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'WebDAV push failed: ${response.statusCode} ${response.body}',
+      throw WebDavRequestException(
+        'WebDAV push failed',
+        statusCode: response.statusCode,
+        path: path,
+        responseBody: _decodeResponseBody(response),
       );
     }
   }
@@ -104,10 +124,21 @@ class WebDavSyncProvider implements SyncProvider {
       }
 
       final Uri uri = _buildUri(relativePath);
-      final http.Response response = await _client.get(
-        uri,
-        headers: _headers(),
-      );
+      final http.Response response;
+      try {
+        response = await _client
+            .get(
+              uri,
+              headers: _headers(),
+            )
+            .timeout(_requestTimeout);
+      } on TimeoutException catch (e) {
+        throw WebDavRequestException(
+          'WebDAV pull request timed out',
+          path: relativePath,
+          cause: e,
+        );
+      }
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final Map<String, dynamic> json = _decodeJsonObject(response);
         final SyncBatch batch = SyncBatch.fromJson(json);
@@ -116,6 +147,13 @@ class WebDavSyncProvider implements SyncProvider {
             batch: batch,
             cursorAt: lastModified ?? batch.createdAt,
           ),
+        );
+      } else if (!(response.statusCode == 404 || response.statusCode == 409)) {
+        throw WebDavRequestException(
+          'WebDAV pull file failed',
+          statusCode: response.statusCode,
+          path: relativePath,
+          responseBody: _decodeResponseBody(response),
         );
       }
     }
@@ -144,9 +182,22 @@ class WebDavSyncProvider implements SyncProvider {
     final Uri uri = _buildUri(path);
     final http.Request request = http.Request('MKCOL', uri);
     request.headers.addAll(_headers());
-    final http.StreamedResponse response = await _client.send(request);
+    final http.StreamedResponse response;
+    try {
+      response = await _client.send(request).timeout(_requestTimeout);
+    } on TimeoutException catch (e) {
+      throw WebDavRequestException(
+        'WebDAV MKCOL request timed out',
+        path: path,
+        cause: e,
+      );
+    }
     if (!(response.statusCode == 201 || response.statusCode == 405)) {
-      throw Exception('MKCOL failed for $path with ${response.statusCode}');
+      throw WebDavRequestException(
+        'MKCOL failed',
+        statusCode: response.statusCode,
+        path: path,
+      );
     }
   }
 
@@ -187,7 +238,16 @@ class WebDavSyncProvider implements SyncProvider {
     request.body =
         '<d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getlastmodified/></d:prop></d:propfind>';
 
-    final http.StreamedResponse streamed = await _client.send(request);
+    final http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request).timeout(_requestTimeout);
+    } on TimeoutException catch (e) {
+      throw WebDavRequestException(
+        'PROPFIND request timed out',
+        path: path,
+        cause: e,
+      );
+    }
     final http.Response response = await http.Response.fromStream(streamed);
 
     if (!(response.statusCode == 207 ||
@@ -195,7 +255,12 @@ class WebDavSyncProvider implements SyncProvider {
       if (response.statusCode == 404 || response.statusCode == 409) {
         return <_DavEntry>[];
       }
-      throw Exception('PROPFIND failed: ${response.statusCode} for $path');
+      throw WebDavRequestException(
+        'PROPFIND failed',
+        statusCode: response.statusCode,
+        path: path,
+        responseBody: _decodeResponseBody(response),
+      );
     }
 
     final XmlDocument doc = XmlDocument.parse(_decodeResponseBody(response));
@@ -390,4 +455,41 @@ class _DavEntry {
   final String path;
   final bool isCollection;
   final DateTime? lastModified;
+}
+
+class WebDavRequestException implements Exception {
+  const WebDavRequestException(
+    this.message, {
+    this.statusCode,
+    this.path,
+    this.responseBody,
+    this.cause,
+  });
+
+  final String message;
+  final int? statusCode;
+  final String? path;
+  final String? responseBody;
+  final Object? cause;
+
+  @override
+  String toString() {
+    final StringBuffer buffer = StringBuffer(message);
+    if (statusCode != null) {
+      buffer.write(' (status=$statusCode)');
+    }
+    if (path != null && path!.isNotEmpty) {
+      buffer.write(', path=$path');
+    }
+    if (responseBody != null && responseBody!.trim().isNotEmpty) {
+      final String trimmed = responseBody!.trim();
+      final String snippet =
+          trimmed.length <= 180 ? trimmed : '${trimmed.substring(0, 180)}...';
+      buffer.write(', body=$snippet');
+    }
+    if (cause != null) {
+      buffer.write(', cause=$cause');
+    }
+    return buffer.toString();
+  }
 }

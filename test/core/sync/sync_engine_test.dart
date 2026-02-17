@@ -114,6 +114,61 @@ void main() {
     expect(local.upserted.single.id, 'remote-keep');
     expect(local.deletedIds, <String>['remote-trash']);
   });
+
+  test('syncOnce ignores same-device and duplicated pulled ops', () async {
+    final DateTime now = DateTime.utc(2026, 2, 16, 12, 0, 0);
+    final _FakeLocalStore local = _FakeLocalStore(
+      pendingOps: const <SyncOp>[],
+      lastPulled: DateTime.utc(2026, 2, 16, 11, 0, 0),
+    );
+
+    final SyncOp remoteUpsert = SyncOp(
+      opId: 'remote-op-1',
+      type: SyncOpType.upsert,
+      bookmark: _bookmark('remote-keep'),
+      occurredAt: now,
+      deviceId: 'remote-device',
+    );
+    final SyncBatch batchA = SyncBatch(
+      deviceId: 'remote-device',
+      createdAt: now,
+      ops: <SyncOp>[
+        SyncOp(
+          opId: 'self-op',
+          type: SyncOpType.upsert,
+          bookmark: _bookmark('self-should-ignore'),
+          occurredAt: now,
+          deviceId: 'd1',
+        ),
+        remoteUpsert,
+      ],
+    );
+    final SyncBatch batchB = SyncBatch(
+      deviceId: 'remote-device',
+      createdAt: now.add(const Duration(seconds: 1)),
+      ops: <SyncOp>[remoteUpsert],
+    );
+
+    final _FakeSyncProvider provider = _FakeSyncProvider(
+      pulled: <PulledSyncBatch>[
+        PulledSyncBatch(batch: batchA, cursorAt: DateTime.utc(2026, 2, 16, 13)),
+        PulledSyncBatch(batch: batchB, cursorAt: DateTime.utc(2026, 2, 16, 14)),
+      ],
+    );
+
+    final SyncEngine engine = SyncEngine(
+      localStore: local,
+      syncProvider: provider,
+      userId: 'u1',
+      deviceId: 'd1',
+    );
+
+    await engine.syncOnce();
+
+    expect(local.upserted.length, 1);
+    expect(local.upserted.single.id, 'remote-keep');
+    expect(local.savedCursor, DateTime.utc(2026, 2, 16, 14));
+  });
 }
 
 class _FakeLocalStore implements LocalStore {

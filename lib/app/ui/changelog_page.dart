@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.3',
+      date: '2026-02-17',
+      notes: <String>[
+        '本地数据库启用更稳健的持久化配置（WAL、FULL、busy_timeout），降低异常中断下的数据损坏风险',
+        '云同步与云备份新增网络超时与瞬时故障重试策略，弱网下成功率更高',
+        '云备份新增完整性校验（bookmarkCount + SHA-256 digest），恢复前可识别损坏文件',
+        '同步引擎新增远端操作去重和同设备操作忽略，避免重复应用造成状态抖动',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.2',
       date: '2026-02-17',
       notes: <String>[
@@ -266,7 +276,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.2';
+        _versionLabel = 'v0.5.3';
       });
     }
   }
