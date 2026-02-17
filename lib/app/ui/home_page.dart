@@ -56,6 +56,13 @@ enum _CompactSelectionAction {
   exportSelectedCsv,
 }
 
+enum _SortOption {
+  updatedDesc,
+  createdDesc,
+  titleAsc,
+  urlAsc,
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
 
@@ -71,6 +78,7 @@ class _HomePageState extends State<HomePage> {
 
   bool _showTrash = false;
   bool _selectionMode = false;
+  _SortOption _sortOption = _SortOption.updatedDesc;
   final Set<String> _selectedIds = <String>{};
 
   @override
@@ -97,8 +105,14 @@ class _HomePageState extends State<HomePage> {
         final List<Bookmark> allBookmarks = controller.bookmarks;
         final List<Bookmark> allTrash = controller.trashBookmarks;
 
-        final List<Bookmark> bookmarks = _applySearch(allBookmarks);
-        final List<Bookmark> trash = _applySearch(allTrash);
+        final List<Bookmark> bookmarks = _applySort(
+          _applySearch(allBookmarks),
+          fromTrash: false,
+        );
+        final List<Bookmark> trash = _applySort(
+          _applySearch(allTrash),
+          fromTrash: true,
+        );
         final List<Bookmark> currentItems = _showTrash ? trash : bookmarks;
         final bool compactActions = _useCompactActionsLayout(context);
 
@@ -150,12 +164,58 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 child: Row(
                   children: <Widget>[
-                    Text(
-                      _showTrash
-                          ? '回收站模式'
-                          : '自动更新周期: 每 ${controller.settings.titleRefreshDays} 天',
+                    Expanded(
+                      child: Text(
+                        _showTrash
+                            ? '回收站模式'
+                            : '自动更新周期: 每 ${controller.settings.titleRefreshDays} 天',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const Spacer(),
+                    PopupMenuButton<_SortOption>(
+                      tooltip: '排序',
+                      onSelected: (_SortOption value) {
+                        setState(() {
+                          _sortOption = value;
+                        });
+                      },
+                      itemBuilder: (BuildContext context) =>
+                          <PopupMenuEntry<_SortOption>>[
+                        CheckedPopupMenuItem<_SortOption>(
+                          value: _SortOption.updatedDesc,
+                          checked: _sortOption == _SortOption.updatedDesc,
+                          child: const Text('按最近更新'),
+                        ),
+                        CheckedPopupMenuItem<_SortOption>(
+                          value: _SortOption.createdDesc,
+                          checked: _sortOption == _SortOption.createdDesc,
+                          child: const Text('按最近添加'),
+                        ),
+                        CheckedPopupMenuItem<_SortOption>(
+                          value: _SortOption.titleAsc,
+                          checked: _sortOption == _SortOption.titleAsc,
+                          child: const Text('按标题 A-Z'),
+                        ),
+                        CheckedPopupMenuItem<_SortOption>(
+                          value: _SortOption.urlAsc,
+                          checked: _sortOption == _SortOption.urlAsc,
+                          child: const Text('按网址 A-Z'),
+                        ),
+                      ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(Icons.sort, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            _sortOptionLabel(_sortOption),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text('收藏 ${allBookmarks.length} / 回收站 ${allTrash.length}'),
                   ],
                 ),
@@ -840,6 +900,59 @@ class _HomePageState extends State<HomePage> {
       final String url = b.url.toLowerCase();
       return title.contains(query) || url.contains(query);
     }).toList();
+  }
+
+  List<Bookmark> _applySort(
+    List<Bookmark> source, {
+    required bool fromTrash,
+  }) {
+    final List<Bookmark> sorted = List<Bookmark>.from(source);
+    sorted.sort((Bookmark a, Bookmark b) {
+      switch (_sortOption) {
+        case _SortOption.updatedDesc:
+          if (fromTrash) {
+            final DateTime ad = a.deletedAt ?? a.updatedAt;
+            final DateTime bd = b.deletedAt ?? b.updatedAt;
+            final int deletedCmp = bd.compareTo(ad);
+            if (deletedCmp != 0) return deletedCmp;
+          }
+          final int updatedCmp = b.updatedAt.compareTo(a.updatedAt);
+          if (updatedCmp != 0) return updatedCmp;
+          return b.createdAt.compareTo(a.createdAt);
+        case _SortOption.createdDesc:
+          final int createdCmp = b.createdAt.compareTo(a.createdAt);
+          if (createdCmp != 0) return createdCmp;
+          return b.updatedAt.compareTo(a.updatedAt);
+        case _SortOption.titleAsc:
+          final String at =
+              (a.title?.trim().isNotEmpty == true ? a.title! : a.url)
+                  .toLowerCase();
+          final String bt =
+              (b.title?.trim().isNotEmpty == true ? b.title! : b.url)
+                  .toLowerCase();
+          final int titleCmp = at.compareTo(bt);
+          if (titleCmp != 0) return titleCmp;
+          return a.url.toLowerCase().compareTo(b.url.toLowerCase());
+        case _SortOption.urlAsc:
+          final int urlCmp = a.url.toLowerCase().compareTo(b.url.toLowerCase());
+          if (urlCmp != 0) return urlCmp;
+          return a.updatedAt.compareTo(b.updatedAt);
+      }
+    });
+    return sorted;
+  }
+
+  String _sortOptionLabel(_SortOption option) {
+    switch (option) {
+      case _SortOption.updatedDesc:
+        return '最近更新';
+      case _SortOption.createdDesc:
+        return '最近添加';
+      case _SortOption.titleAsc:
+        return '标题 A-Z';
+      case _SortOption.urlAsc:
+        return '网址 A-Z';
+    }
   }
 
   void _pruneSelection(List<Bookmark> bookmarks, List<Bookmark> trash) {

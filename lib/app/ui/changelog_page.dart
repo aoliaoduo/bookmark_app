@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.1',
+      date: '2026-02-17',
+      notes: <String>[
+        '首页新增排序功能，可按最近更新/最近添加/标题 A-Z/网址 A-Z 切换',
+        '排序对收藏与回收站列表都生效，并兼容搜索结果',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.0',
       date: '2026-02-17',
       notes: <String>[
@@ -250,7 +258,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.0';
+        _versionLabel = 'v0.5.1';
       });
     }
   }
