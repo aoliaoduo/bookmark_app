@@ -37,6 +37,22 @@ enum AppThemePreference {
   }
 }
 
+enum HomeSortPreference {
+  updatedDesc,
+  createdDesc,
+  titleAsc,
+  urlAsc;
+
+  static HomeSortPreference fromStorage(String? raw) {
+    for (final HomeSortPreference item in HomeSortPreference.values) {
+      if (item.name == raw) {
+        return item;
+      }
+    }
+    return HomeSortPreference.updatedDesc;
+  }
+}
+
 class AppSettings {
   const AppSettings({
     required this.deviceId,
@@ -45,6 +61,7 @@ class AppSettings {
     required this.autoSyncOnLaunch,
     required this.autoSyncOnChange,
     this.themePreference = AppThemePreference.system,
+    this.homeSortPreference = HomeSortPreference.updatedDesc,
     required this.webDavEnabled,
     required this.webDavBaseUrl,
     required this.webDavUserId,
@@ -58,6 +75,7 @@ class AppSettings {
   final bool autoSyncOnLaunch;
   final bool autoSyncOnChange;
   final AppThemePreference themePreference;
+  final HomeSortPreference homeSortPreference;
   final bool webDavEnabled;
   final String webDavBaseUrl;
   final String webDavUserId;
@@ -79,6 +97,7 @@ class AppSettings {
     bool? autoSyncOnLaunch,
     bool? autoSyncOnChange,
     AppThemePreference? themePreference,
+    HomeSortPreference? homeSortPreference,
     bool? webDavEnabled,
     String? webDavBaseUrl,
     String? webDavUserId,
@@ -92,6 +111,7 @@ class AppSettings {
       autoSyncOnLaunch: autoSyncOnLaunch ?? this.autoSyncOnLaunch,
       autoSyncOnChange: autoSyncOnChange ?? this.autoSyncOnChange,
       themePreference: themePreference ?? this.themePreference,
+      homeSortPreference: homeSortPreference ?? this.homeSortPreference,
       webDavEnabled: webDavEnabled ?? this.webDavEnabled,
       webDavBaseUrl: webDavBaseUrl ?? this.webDavBaseUrl,
       webDavUserId: webDavUserId ?? this.webDavUserId,

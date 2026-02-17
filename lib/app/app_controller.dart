@@ -413,6 +413,23 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> saveHomeSortPreference(HomeSortPreference preference) async {
+    final AppSettings? current = _settings;
+    if (current == null || current.homeSortPreference == preference) {
+      return;
+    }
+
+    final AppSettings next = current.copyWith(homeSortPreference: preference);
+    _settings = next;
+    try {
+      await _settingsStore.save(next);
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

@@ -42,6 +42,7 @@ class SettingsStore {
   static const String _autoSyncOnLaunchKey = 'auto_sync_on_launch';
   static const String _autoSyncOnChangeKey = 'auto_sync_on_change';
   static const String _themePreferenceKey = 'theme_preference';
+  static const String _homeSortPreferenceKey = 'home_sort_preference';
   static const String _webDavEnabledKey = 'webdav_enabled';
   static const String _webDavBaseUrlKey = 'webdav_base_url';
   static const String _webDavUserIdKey = 'webdav_user_id';
@@ -64,6 +65,9 @@ class SettingsStore {
       themePreference: AppThemePreference.fromStorage(
         prefs.getString(_themePreferenceKey),
       ),
+      homeSortPreference: HomeSortPreference.fromStorage(
+        prefs.getString(_homeSortPreferenceKey),
+      ),
       webDavEnabled: prefs.getBool(_webDavEnabledKey) ?? false,
       webDavBaseUrl: prefs.getString(_webDavBaseUrlKey) ?? '',
       webDavUserId: prefs.getString(_webDavUserIdKey) ?? 'default',
@@ -80,6 +84,10 @@ class SettingsStore {
     await prefs.setBool(_autoSyncOnLaunchKey, settings.autoSyncOnLaunch);
     await prefs.setBool(_autoSyncOnChangeKey, settings.autoSyncOnChange);
     await prefs.setString(_themePreferenceKey, settings.themePreference.name);
+    await prefs.setString(
+      _homeSortPreferenceKey,
+      settings.homeSortPreference.name,
+    );
     await prefs.setBool(_webDavEnabledKey, settings.webDavEnabled);
     await prefs.setString(_webDavBaseUrlKey, settings.webDavBaseUrl);
     await prefs.setString(_webDavUserIdKey, settings.webDavUserId);
@@ -96,6 +104,7 @@ class SettingsStore {
     await prefs.remove(_autoSyncOnLaunchKey);
     await prefs.remove(_autoSyncOnChangeKey);
     await prefs.remove(_themePreferenceKey);
+    await prefs.remove(_homeSortPreferenceKey);
     await prefs.remove(_webDavEnabledKey);
     await prefs.remove(_webDavBaseUrlKey);
     await prefs.remove(_webDavUserIdKey);

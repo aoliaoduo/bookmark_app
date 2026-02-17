@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.9',
+      date: '2026-02-17',
+      notes: <String>[
+        '首页排序新增持久化记忆：用户选择的排序方式会保存到本地配置',
+        '应用重启后继续沿用上次排序（如“按最近添加”），无需重复切换',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.8',
       date: '2026-02-17',
       notes: <String>[
@@ -320,7 +328,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.8';
+        _versionLabel = 'v0.5.9';
       });
     }
   }

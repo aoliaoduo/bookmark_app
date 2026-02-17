@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -85,6 +87,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _sortOption = _sortOptionFromPreference(
+      widget.controller.settings.homeSortPreference,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _triggerStartupAutoSync();
     });
@@ -176,11 +181,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     PopupMenuButton<_SortOption>(
                       tooltip: '排序',
-                      onSelected: (_SortOption value) {
-                        setState(() {
-                          _sortOption = value;
-                        });
-                      },
+                      onSelected: _onSortOptionSelected,
                       itemBuilder: (BuildContext context) =>
                           <PopupMenuEntry<_SortOption>>[
                         CheckedPopupMenuItem<_SortOption>(
@@ -972,6 +973,46 @@ class _HomePageState extends State<HomePage> {
         return '标题 A-Z';
       case _SortOption.urlAsc:
         return '网址 A-Z';
+    }
+  }
+
+  void _onSortOptionSelected(_SortOption option) {
+    if (_sortOption == option) {
+      return;
+    }
+    setState(() {
+      _sortOption = option;
+    });
+    unawaited(
+      widget.controller.saveHomeSortPreference(
+        _sortPreferenceFromOption(option),
+      ),
+    );
+  }
+
+  _SortOption _sortOptionFromPreference(HomeSortPreference preference) {
+    switch (preference) {
+      case HomeSortPreference.updatedDesc:
+        return _SortOption.updatedDesc;
+      case HomeSortPreference.createdDesc:
+        return _SortOption.createdDesc;
+      case HomeSortPreference.titleAsc:
+        return _SortOption.titleAsc;
+      case HomeSortPreference.urlAsc:
+        return _SortOption.urlAsc;
+    }
+  }
+
+  HomeSortPreference _sortPreferenceFromOption(_SortOption option) {
+    switch (option) {
+      case _SortOption.updatedDesc:
+        return HomeSortPreference.updatedDesc;
+      case _SortOption.createdDesc:
+        return HomeSortPreference.createdDesc;
+      case _SortOption.titleAsc:
+        return HomeSortPreference.titleAsc;
+      case _SortOption.urlAsc:
+        return HomeSortPreference.urlAsc;
     }
   }
 

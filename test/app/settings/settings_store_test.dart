@@ -21,6 +21,7 @@ void main() {
 
     expect(settings.webDavPassword, 'legacy-secret');
     expect(settings.themePreference, AppThemePreference.system);
+    expect(settings.homeSortPreference, HomeSortPreference.updatedDesc);
     expect(secretStore.readSync('webdav_password'), 'legacy-secret');
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('webdav_password'), isNull);
@@ -37,6 +38,7 @@ void main() {
       autoSyncOnLaunch: true,
       autoSyncOnChange: true,
       themePreference: AppThemePreference.dark,
+      homeSortPreference: HomeSortPreference.urlAsc,
       webDavEnabled: true,
       webDavBaseUrl: 'https://dav.example.com',
       webDavUserId: 'u1',
@@ -49,6 +51,7 @@ void main() {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('webdav_password'), isNull);
     expect(prefs.getString('theme_preference'), 'dark');
+    expect(prefs.getString('home_sort_preference'), 'urlAsc');
     expect(secretStore.readSync('webdav_password'), 'secret-1');
 
     await store.save(settings.copyWith(webDavPassword: ''));
@@ -63,6 +66,7 @@ void main() {
       'auto_sync_on_launch': false,
       'auto_sync_on_change': false,
       'theme_preference': 'dark',
+      'home_sort_preference': 'createdDesc',
       'webdav_enabled': true,
       'webdav_base_url': 'https://dav.example.com',
       'webdav_user_id': 'u1',
@@ -82,6 +86,7 @@ void main() {
     expect(prefs.getBool('auto_sync_on_launch'), isNull);
     expect(prefs.getBool('auto_sync_on_change'), isNull);
     expect(prefs.getString('theme_preference'), isNull);
+    expect(prefs.getString('home_sort_preference'), isNull);
     expect(prefs.getBool('webdav_enabled'), isNull);
     expect(prefs.getString('webdav_base_url'), isNull);
     expect(prefs.getString('webdav_user_id'), isNull);
