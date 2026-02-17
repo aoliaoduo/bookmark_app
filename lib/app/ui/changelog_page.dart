@@ -13,6 +13,12 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.13',
+      notes: <String>[
+        '首页顶部标题改为通用“收藏”，不再显示应用名“粮仓”',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.12',
       notes: <String>[
         '更新日志列表不再展示具体日期，统一按版本号查看历史变更',

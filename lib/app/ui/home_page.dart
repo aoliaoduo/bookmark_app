@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> {
             title: Text(
               _selectionMode
                   ? '已选择 ${_selectedIds.length} 条'
-                  : (_showTrash ? '回收站' : '粮仓'),
+                  : (_showTrash ? '回收站' : '收藏'),
             ),
             actions: _selectionMode
                 ? _buildSelectionActions(
