@@ -664,6 +664,7 @@ class _HomePageState extends State<HomePage> {
       return const Center(child: Text('还没有匹配的收藏'));
     }
 
+    final AppController controller = widget.controller;
     return ListView.builder(
       itemCount: bookmarks.length,
       itemBuilder: (BuildContext context, int index) {
@@ -762,6 +763,13 @@ class _HomePageState extends State<HomePage> {
                         tooltip: '复制链接',
                         icon: Icons.content_copy_outlined,
                         onPressed: () => _copyUrl(item.url),
+                      ),
+                      _buildInlineActionButton(
+                        tooltip: '删除到回收站',
+                        icon: Icons.delete_outline,
+                        onPressed: controller.loading
+                            ? null
+                            : () => _deleteBookmarkInline(item),
                       ),
                     ],
                   ),
@@ -1116,6 +1124,12 @@ class _HomePageState extends State<HomePage> {
     await Clipboard.setData(ClipboardData(text: url));
     if (!mounted) return;
     _showSnack('已复制链接');
+  }
+
+  Future<void> _deleteBookmarkInline(Bookmark item) async {
+    await widget.controller.deleteBookmark(item.id);
+    if (!mounted) return;
+    _showSnack('已删除到回收站');
   }
 
   Future<void> _clearAllData() async {

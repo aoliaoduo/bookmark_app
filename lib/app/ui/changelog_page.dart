@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.4.13',
+      date: '2026-02-17',
+      notes: <String>[
+        '恢复“单条删除”入口：每条收藏右侧增加直接“删除到回收站”按钮',
+        '保持列表无“更多”菜单，单条常用操作固定为打开/复制/删除',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.12',
       date: '2026-02-17',
       notes: <String>[
@@ -232,7 +240,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.12';
+        _versionLabel = 'v0.4.13';
       });
     }
   }
