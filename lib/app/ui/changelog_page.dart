@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.18',
+      notes: <String>[
+        '修复 Windows 端启动后无响应问题：玻璃按钮在顶栏的布局约束已改为安全模式',
+        '移除导致无界约束冲突的按钮内部展开布局，保证 AppBar 与窄宽度场景稳定渲染',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.17',
       notes: <String>[
         '首页关键按钮升级为实体玻璃按键：增加高光、阴影、渐变与按压反馈，点击质感更清晰',
@@ -352,7 +359,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.17';
+        _versionLabel = 'v0.5.18';
       });
     }
   }

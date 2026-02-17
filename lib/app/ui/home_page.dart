@@ -2647,7 +2647,6 @@ class _GlassTactileButtonState extends State<_GlassTactileButton> {
       child: ClipRRect(
         borderRadius: borderRadius,
         child: Stack(
-          fit: StackFit.expand,
           children: <Widget>[
             Positioned.fill(
               child: IgnorePointer(
