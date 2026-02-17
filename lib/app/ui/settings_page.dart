@@ -20,6 +20,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   late bool _webDavEnabled;
   late bool _autoRefreshOnLaunch;
+  late bool _autoSyncOnLaunch;
+  late bool _autoSyncOnChange;
   late AppThemePreference _themePreference;
 
   @override
@@ -35,6 +37,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _passwordController = TextEditingController(text: s.webDavPassword);
     _webDavEnabled = s.webDavEnabled;
     _autoRefreshOnLaunch = s.autoRefreshOnLaunch;
+    _autoSyncOnLaunch = s.autoSyncOnLaunch;
+    _autoSyncOnChange = s.autoSyncOnChange;
     _themePreference = s.themePreference;
   }
 
@@ -130,6 +134,30 @@ class _SettingsPageState extends State<SettingsPage> {
                     },
                     title: const Text('启用 WebDAV 云同步/备份'),
                   ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _autoSyncOnLaunch,
+                    onChanged: !_webDavEnabled
+                        ? null
+                        : (bool value) {
+                            setState(() {
+                              _autoSyncOnLaunch = value;
+                            });
+                          },
+                    title: const Text('启动后自动云同步'),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _autoSyncOnChange,
+                    onChanged: !_webDavEnabled
+                        ? null
+                        : (bool value) {
+                            setState(() {
+                              _autoSyncOnChange = value;
+                            });
+                          },
+                    title: const Text('新增/删除后自动云同步'),
+                  ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _baseUrlController,
@@ -177,6 +205,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final AppSettings next = widget.settings.copyWith(
       titleRefreshDays: days < 1 ? 1 : days,
       autoRefreshOnLaunch: _autoRefreshOnLaunch,
+      autoSyncOnLaunch: _autoSyncOnLaunch,
+      autoSyncOnChange: _autoSyncOnChange,
       themePreference: _themePreference,
       webDavEnabled: _webDavEnabled,
       webDavBaseUrl: _baseUrlController.text.trim(),

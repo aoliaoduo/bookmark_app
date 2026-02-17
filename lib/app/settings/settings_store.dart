@@ -39,6 +39,8 @@ class SettingsStore {
   static const String _deviceIdKey = 'device_id';
   static const String _titleRefreshDaysKey = 'title_refresh_days';
   static const String _autoRefreshOnLaunchKey = 'auto_refresh_on_launch';
+  static const String _autoSyncOnLaunchKey = 'auto_sync_on_launch';
+  static const String _autoSyncOnChangeKey = 'auto_sync_on_change';
   static const String _themePreferenceKey = 'theme_preference';
   static const String _webDavEnabledKey = 'webdav_enabled';
   static const String _webDavBaseUrlKey = 'webdav_base_url';
@@ -57,6 +59,8 @@ class SettingsStore {
       deviceId: deviceId,
       titleRefreshDays: prefs.getInt(_titleRefreshDaysKey) ?? 7,
       autoRefreshOnLaunch: prefs.getBool(_autoRefreshOnLaunchKey) ?? true,
+      autoSyncOnLaunch: prefs.getBool(_autoSyncOnLaunchKey) ?? true,
+      autoSyncOnChange: prefs.getBool(_autoSyncOnChangeKey) ?? true,
       themePreference: AppThemePreference.fromStorage(
         prefs.getString(_themePreferenceKey),
       ),
@@ -73,6 +77,8 @@ class SettingsStore {
     await prefs.setString(_deviceIdKey, settings.deviceId);
     await prefs.setInt(_titleRefreshDaysKey, settings.titleRefreshDays);
     await prefs.setBool(_autoRefreshOnLaunchKey, settings.autoRefreshOnLaunch);
+    await prefs.setBool(_autoSyncOnLaunchKey, settings.autoSyncOnLaunch);
+    await prefs.setBool(_autoSyncOnChangeKey, settings.autoSyncOnChange);
     await prefs.setString(_themePreferenceKey, settings.themePreference.name);
     await prefs.setBool(_webDavEnabledKey, settings.webDavEnabled);
     await prefs.setString(_webDavBaseUrlKey, settings.webDavBaseUrl);
@@ -87,6 +93,8 @@ class SettingsStore {
     await prefs.remove(_deviceIdKey);
     await prefs.remove(_titleRefreshDaysKey);
     await prefs.remove(_autoRefreshOnLaunchKey);
+    await prefs.remove(_autoSyncOnLaunchKey);
+    await prefs.remove(_autoSyncOnChangeKey);
     await prefs.remove(_themePreferenceKey);
     await prefs.remove(_webDavEnabledKey);
     await prefs.remove(_webDavBaseUrlKey);

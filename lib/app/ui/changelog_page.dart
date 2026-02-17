@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.0',
+      date: '2026-02-17',
+      notes: <String>[
+        '操作逻辑全面升级：新增“启动自动同步”和“变更后自动同步”两项设置开关',
+        '同步状态可视化：正在同步、最近成功时间、失败可重试提示统一展示',
+        '手动/自动同步反馈统一，成功与失败都会给出清晰提示',
+        '单条删除支持“撤销”，交互逻辑对齐主流应用习惯',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.4.13',
       date: '2026-02-17',
       notes: <String>[
@@ -240,7 +250,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.4.13';
+        _versionLabel = 'v0.5.0';
       });
     }
   }

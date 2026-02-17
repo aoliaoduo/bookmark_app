@@ -34,6 +34,8 @@ void main() {
       deviceId: 'd1',
       titleRefreshDays: 7,
       autoRefreshOnLaunch: true,
+      autoSyncOnLaunch: true,
+      autoSyncOnChange: true,
       themePreference: AppThemePreference.dark,
       webDavEnabled: true,
       webDavBaseUrl: 'https://dav.example.com',
@@ -58,6 +60,8 @@ void main() {
       'device_id': 'd1',
       'title_refresh_days': 5,
       'auto_refresh_on_launch': false,
+      'auto_sync_on_launch': false,
+      'auto_sync_on_change': false,
       'theme_preference': 'dark',
       'webdav_enabled': true,
       'webdav_base_url': 'https://dav.example.com',
@@ -75,6 +79,8 @@ void main() {
     expect(prefs.getString('device_id'), isNull);
     expect(prefs.getInt('title_refresh_days'), isNull);
     expect(prefs.getBool('auto_refresh_on_launch'), isNull);
+    expect(prefs.getBool('auto_sync_on_launch'), isNull);
+    expect(prefs.getBool('auto_sync_on_change'), isNull);
     expect(prefs.getString('theme_preference'), isNull);
     expect(prefs.getBool('webdav_enabled'), isNull);
     expect(prefs.getString('webdav_base_url'), isNull);

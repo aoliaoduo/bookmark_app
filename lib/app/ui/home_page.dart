@@ -71,15 +71,13 @@ class _HomePageState extends State<HomePage> {
 
   bool _showTrash = false;
   bool _selectionMode = false;
-  bool _startupAutoSyncStarted = false;
-  bool _startupAutoSyncRunning = false;
   final Set<String> _selectedIds = <String>{};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _runStartupAutoSync();
+      _triggerStartupAutoSync();
     });
   }
 
@@ -133,7 +131,7 @@ class _HomePageState extends State<HomePage> {
               else
                 _buildTrashHint(),
               _buildSearchArea(),
-              _buildStartupSyncBanner(),
+              _buildSyncStatusBar(controller),
               if (controller.batchRefreshing)
                 _buildBatchProgress(controller)
               else if (controller.loading)
@@ -1020,73 +1018,119 @@ class _HomePageState extends State<HomePage> {
     final bool syncReady = controller.settings.syncReady;
     return IconButton(
       tooltip: syncReady ? '云同步' : '云同步（请先在设置中完成 WebDAV 配置）',
-      onPressed:
-          !syncReady || controller.loading ? null : () => _syncNow(controller),
+      onPressed: !syncReady || controller.loading || controller.syncing
+          ? null
+          : () => _syncNow(controller),
       icon: const Icon(Icons.cloud_sync_outlined),
     );
   }
 
   Future<void> _syncNow(AppController controller) async {
-    await controller.syncNow();
+    final bool success = await controller.syncNow(userInitiated: true);
     if (!mounted) return;
-    if (controller.error != null) {
-      _showSnack('云同步失败：${_syncErrorText(controller.error!)}');
+    if (!success) {
+      controller.clearError();
+      _showSnack('云同步失败：${_syncErrorText(controller.syncError ?? '')}');
       return;
     }
     _showSnack('云同步完成');
   }
 
-  Future<void> _runStartupAutoSync() async {
-    if (_startupAutoSyncStarted) return;
-    _startupAutoSyncStarted = true;
-
+  Future<void> _triggerStartupAutoSync() async {
     final AppController controller = widget.controller;
-    if (!controller.settings.syncReady) {
+    if (!controller.settings.syncReady ||
+        !controller.settings.autoSyncOnLaunch) {
       return;
     }
-
-    if (mounted) {
-      setState(() {
-        _startupAutoSyncRunning = true;
-      });
-    }
-
-    await controller.syncNow();
+    final bool success = await controller.runStartupSyncIfNeeded();
     if (!mounted) return;
-    setState(() {
-      _startupAutoSyncRunning = false;
-    });
-
-    if (controller.error != null) {
-      _showSnack('自动云同步失败：${_syncErrorText(controller.error!)}');
+    if (!success && controller.syncError != null) {
+      _showSnack('自动云同步失败：${_syncErrorText(controller.syncError!)}');
       return;
     }
-    _showSnack('自动云同步完成');
+    if (success) {
+      _showSnack('自动云同步完成');
+    }
   }
 
-  Widget _buildStartupSyncBanner() {
+  Widget _buildSyncStatusBar(AppController controller) {
+    Widget child = const SizedBox.shrink();
+    String stateKey = 'empty';
+
+    if (controller.syncing) {
+      stateKey = 'syncing';
+      child = Row(
+        children: <Widget>[
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '正在同步云端数据...',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      );
+    } else if (controller.syncError != null &&
+        controller.settings.syncReady &&
+        controller.settings.autoSyncOnChange) {
+      stateKey = 'error';
+      child = InkWell(
+        onTap: () => _syncNow(controller),
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.error_outline,
+              size: 16,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '同步失败，点此重试：${_syncErrorText(controller.syncError!)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (controller.lastSyncAt != null && controller.settings.syncReady) {
+      stateKey = 'success';
+      final DateTime at = controller.lastSyncAt!.toLocal();
+      final String hh = at.hour.toString().padLeft(2, '0');
+      final String mm = at.minute.toString().padLeft(2, '0');
+      child = Row(
+        children: <Widget>[
+          Icon(
+            Icons.cloud_done_outlined,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '最近云同步：$hh:$mm',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      );
+    }
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
-      child: _startupAutoSyncRunning
-          ? Padding(
-              key: const ValueKey<String>('startup-sync-running'),
+      child: child is SizedBox
+          ? child
+          : Padding(
+              key: ValueKey<String>(stateKey),
               padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
-              child: Row(
-                children: <Widget>[
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '正在自动云同步...',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            )
-          : const SizedBox.shrink(),
+              child: child,
+            ),
     );
   }
 
@@ -1129,7 +1173,19 @@ class _HomePageState extends State<HomePage> {
   Future<void> _deleteBookmarkInline(Bookmark item) async {
     await widget.controller.deleteBookmark(item.id);
     if (!mounted) return;
-    _showSnack('已删除到回收站');
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('已删除到回收站'),
+        action: SnackBarAction(
+          label: '撤销',
+          onPressed: () {
+            widget.controller.restoreBookmark(item.id);
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _clearAllData() async {

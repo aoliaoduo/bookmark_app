@@ -28,11 +28,17 @@ class AppController extends ChangeNotifier {
   final MaintenanceService _maintenanceService;
   final SyncCoordinator _syncCoordinator;
   Timer? _refreshTimer;
+  Timer? _autoSyncTimer;
+  bool _pendingAutoSync = false;
+  bool _startupSyncTriggered = false;
 
   AppSettings? _settings;
   List<Bookmark> _bookmarks = const <Bookmark>[];
   List<Bookmark> _trashBookmarks = const <Bookmark>[];
   bool _loading = false;
+  bool _syncing = false;
+  DateTime? _lastSyncAt;
+  String? _syncError;
   bool _batchRefreshing = false;
   int _batchProcessed = 0;
   int _batchTotal = 0;
@@ -43,6 +49,9 @@ class AppController extends ChangeNotifier {
   List<Bookmark> get bookmarks => _bookmarks;
   List<Bookmark> get trashBookmarks => _trashBookmarks;
   bool get loading => _loading;
+  bool get syncing => _syncing;
+  DateTime? get lastSyncAt => _lastSyncAt;
+  String? get syncError => _syncError;
   bool get batchRefreshing => _batchRefreshing;
   int get batchProcessed => _batchProcessed;
   int get batchTotal => _batchTotal;
@@ -84,6 +93,7 @@ class AppController extends ChangeNotifier {
       await reloadBookmarks();
       await _repository.refreshTitle(bookmark.id);
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -97,6 +107,7 @@ class AppController extends ChangeNotifier {
     try {
       await _repository.refreshTitle(bookmarkId);
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -110,6 +121,7 @@ class AppController extends ChangeNotifier {
     try {
       await _repository.clearNote(bookmarkId);
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -128,6 +140,7 @@ class AppController extends ChangeNotifier {
         onProgress: _onBatchProgress,
       );
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
       return updated;
     } catch (e) {
@@ -148,6 +161,7 @@ class AppController extends ChangeNotifier {
         onProgress: _onBatchProgress,
       );
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
       return updated;
     } catch (e) {
@@ -169,6 +183,7 @@ class AppController extends ChangeNotifier {
         onProgress: _onBatchProgress,
       );
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
       return updated;
     } catch (e) {
@@ -189,6 +204,7 @@ class AppController extends ChangeNotifier {
     try {
       final int affected = await _repository.softDeleteMany(bookmarkIds);
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
       return affected;
     } catch (e) {
@@ -208,6 +224,7 @@ class AppController extends ChangeNotifier {
     try {
       final int affected = await _repository.restoreFromTrashMany(bookmarkIds);
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
       return affected;
     } catch (e) {
@@ -329,6 +346,7 @@ class AppController extends ChangeNotifier {
         removeSimilar: removeSimilar,
       );
       await reloadBookmarks();
+      _scheduleAutoSync();
       _error = null;
       return result;
     } catch (e) {
@@ -339,17 +357,8 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> syncNow() async {
-    _setLoading(true);
-    try {
-      await _syncCoordinator.syncNow(settings);
-      await reloadBookmarks();
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _setLoading(false);
-    }
+  Future<bool> syncNow({bool userInitiated = true}) async {
+    return _runSync(userInitiated: userInitiated);
   }
 
   Future<void> backupNow() async {
@@ -369,7 +378,11 @@ class AppController extends ChangeNotifier {
     try {
       await _settingsStore.save(next);
       _settings = next;
+      _startupSyncTriggered = false;
       _restartRefreshTimer();
+      if (next.autoSyncOnLaunch) {
+        unawaited(runStartupSyncIfNeeded());
+      }
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -385,6 +398,9 @@ class AppController extends ChangeNotifier {
       await _settingsStore.clearAll();
       _settings = await _settingsStore.load();
       await reloadBookmarks();
+      _startupSyncTriggered = false;
+      _lastSyncAt = null;
+      _syncError = null;
       _restartRefreshTimer();
       _error = null;
     } catch (e) {
@@ -441,6 +457,71 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _autoSyncTimer?.cancel();
     super.dispose();
+  }
+
+  Future<bool> runStartupSyncIfNeeded() async {
+    if (_startupSyncTriggered) return false;
+    _startupSyncTriggered = true;
+
+    final AppSettings? current = _settings;
+    if (current == null || !current.syncReady || !current.autoSyncOnLaunch) {
+      return false;
+    }
+    return _runSync(userInitiated: false);
+  }
+
+  void _scheduleAutoSync() {
+    final AppSettings? current = _settings;
+    if (current == null || !current.syncReady || !current.autoSyncOnChange) {
+      return;
+    }
+    _autoSyncTimer?.cancel();
+    _autoSyncTimer = Timer(const Duration(seconds: 2), () {
+      unawaited(_runSync(userInitiated: false));
+    });
+  }
+
+  Future<bool> _runSync({required bool userInitiated}) async {
+    final AppSettings? current = _settings;
+    if (current == null || !current.syncReady) {
+      return false;
+    }
+
+    if (_syncing) {
+      if (!userInitiated) {
+        _pendingAutoSync = true;
+      }
+      return false;
+    }
+
+    _syncing = true;
+    notifyListeners();
+    bool success = false;
+    try {
+      await _syncCoordinator.syncNow(current);
+      await reloadBookmarks();
+      _lastSyncAt = DateTime.now();
+      _syncError = null;
+      _error = null;
+      success = true;
+    } catch (e) {
+      _syncError = e.toString();
+      if (userInitiated) {
+        _error = e.toString();
+      }
+      success = false;
+    } finally {
+      _syncing = false;
+      notifyListeners();
+    }
+
+    if (!userInitiated && _pendingAutoSync) {
+      _pendingAutoSync = false;
+      _scheduleAutoSync();
+    }
+
+    return success;
   }
 }

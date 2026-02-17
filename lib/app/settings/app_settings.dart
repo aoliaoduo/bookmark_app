@@ -42,6 +42,8 @@ class AppSettings {
     required this.deviceId,
     required this.titleRefreshDays,
     required this.autoRefreshOnLaunch,
+    required this.autoSyncOnLaunch,
+    required this.autoSyncOnChange,
     this.themePreference = AppThemePreference.system,
     required this.webDavEnabled,
     required this.webDavBaseUrl,
@@ -53,6 +55,8 @@ class AppSettings {
   final String deviceId;
   final int titleRefreshDays;
   final bool autoRefreshOnLaunch;
+  final bool autoSyncOnLaunch;
+  final bool autoSyncOnChange;
   final AppThemePreference themePreference;
   final bool webDavEnabled;
   final String webDavBaseUrl;
@@ -72,6 +76,8 @@ class AppSettings {
     String? deviceId,
     int? titleRefreshDays,
     bool? autoRefreshOnLaunch,
+    bool? autoSyncOnLaunch,
+    bool? autoSyncOnChange,
     AppThemePreference? themePreference,
     bool? webDavEnabled,
     String? webDavBaseUrl,
@@ -83,6 +89,8 @@ class AppSettings {
       deviceId: deviceId ?? this.deviceId,
       titleRefreshDays: titleRefreshDays ?? this.titleRefreshDays,
       autoRefreshOnLaunch: autoRefreshOnLaunch ?? this.autoRefreshOnLaunch,
+      autoSyncOnLaunch: autoSyncOnLaunch ?? this.autoSyncOnLaunch,
+      autoSyncOnChange: autoSyncOnChange ?? this.autoSyncOnChange,
       themePreference: themePreference ?? this.themePreference,
       webDavEnabled: webDavEnabled ?? this.webDavEnabled,
       webDavBaseUrl: webDavBaseUrl ?? this.webDavBaseUrl,
