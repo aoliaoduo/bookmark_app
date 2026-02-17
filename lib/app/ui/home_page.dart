@@ -851,28 +851,60 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildInputArea(AppController controller) {
     final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color fieldBase = isDark
+        ? theme.colorScheme.surface.withValues(alpha: 0.72)
+        : Colors.white.withValues(alpha: 0.8);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
       child: Row(
         children: <Widget>[
           Expanded(
-            child: _buildGlassPanel(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-              child: TextField(
-                controller: _urlController,
-                enabled: !controller.loading,
-                decoration: const InputDecoration(
-                  hintText: '输入网址',
-                  prefixIcon: Icon(Icons.link_rounded, size: 18),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  focusedErrorBorder: InputBorder.none,
-                  filled: false,
+            child: Container(
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: fieldBase,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: isDark ? 0.62 : 0.86,
+                  ),
                 ),
-                onSubmitted: (_) => _addUrl(),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: theme.colorScheme.shadow
+                        .withValues(alpha: isDark ? 0.17 : 0.09),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.link_rounded,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _urlController,
+                      enabled: !controller.loading,
+                      textAlignVertical: TextAlignVertical.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(height: 1.1),
+                      decoration: InputDecoration.collapsed(
+                        hintText: '输入网址',
+                        hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.92),
+                        ),
+                      ),
+                      onSubmitted: (_) => _addUrl(),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -881,9 +913,9 @@ class _HomePageState extends State<HomePage> {
             tooltip: '收藏',
             onPressed: controller.loading ? null : _addUrl,
             radius: 16,
-            size: const Size(116, 50),
+            size: const Size(108, 48),
             tintColor: theme.colorScheme.primary,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[

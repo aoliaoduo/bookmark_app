@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.20',
+      notes: <String>[
+        '输入网址区域改为单层轻玻璃容器，移除重纹理外壳，解决“框中框”观感',
+        '输入区整体瘦身：输入框与收藏按钮高度下调，主操作区更紧凑',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.19',
       notes: <String>[
         '输入区视觉重构：去掉整行外层玻璃壳，改为“左侧输入框 + 右侧收藏按钮”独立结构',
@@ -366,7 +373,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.19';
+        _versionLabel = 'v0.5.20';
       });
     }
   }
