@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.8',
+      date: '2026-02-17',
+      notes: <String>[
+        '同步诊断弹窗新增“复制诊断”按钮，可一键复制完整诊断文本到剪贴板',
+        '复制内容包含状态、时间、耗时、重试次数、上传下载统计与错误信息，便于快速排障',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.7',
       date: '2026-02-17',
       notes: <String>[
@@ -312,7 +320,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.7';
+        _versionLabel = 'v0.5.8';
       });
     }
   }

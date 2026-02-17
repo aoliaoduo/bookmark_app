@@ -1415,9 +1415,31 @@ class _HomePageState extends State<HomePage> {
                   SelectableText(error),
                 ],
                 const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('关闭'),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(
+                              text: _syncDiagnosticsPlainText(report),
+                            ),
+                          );
+                          if (!mounted) return;
+                          _showSnack('已复制同步诊断');
+                        },
+                        icon: const Icon(Icons.copy_all_outlined),
+                        label: const Text('复制诊断'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('关闭'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1437,6 +1459,36 @@ class _HomePageState extends State<HomePage> {
     final int minutes = value.inMinutes;
     final int seconds = value.inSeconds % 60;
     return '${minutes}m ${seconds}s';
+  }
+
+  String _syncDiagnosticsPlainText(SyncRunDiagnostics report) {
+    final String status = report.success ? '成功' : '失败';
+    final StringBuffer buffer = StringBuffer()
+      ..writeln('同步诊断')
+      ..writeln('状态: $status')
+      ..writeln(
+          '开始: ${_formatDateTime(report.startedAt, includeSeconds: true)}')
+      ..writeln(
+          '结束: ${_formatDateTime(report.finishedAt, includeSeconds: true)}')
+      ..writeln('耗时: ${_formatDuration(report.duration)}')
+      ..writeln('尝试次数: ${report.attemptCount} (重试 ${report.retryCount} 次)')
+      ..writeln(_syncApplySummary(report))
+      ..writeln('待上传操作: ${report.localPendingOps}')
+      ..writeln('实际上传: ${report.pushedOps}')
+      ..writeln('下载批次: ${report.pulledBatchCount}')
+      ..writeln('下载操作: ${report.pulledOps}')
+      ..writeln('应用更新: ${report.appliedUpserts}')
+      ..writeln('应用删除: ${report.appliedDeletes}')
+      ..writeln('过滤同设备: ${report.filteredSelfDeviceOps}')
+      ..writeln('过滤重复操作: ${report.filteredDuplicateOps}')
+      ..writeln('过滤过期操作: ${report.filteredStaleOps}');
+    final String? error = report.errorMessage;
+    if (error != null && error.trim().isNotEmpty) {
+      buffer
+        ..writeln('错误信息:')
+        ..writeln(error.trim());
+    }
+    return buffer.toString();
   }
 
   Widget _buildInlineActionButton({
