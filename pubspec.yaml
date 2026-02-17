@@ -1,7 +1,7 @@
 name: bookmark_app
 description: Local-first bookmark app with WebDAV backup/sync.
 publish_to: none
-version: 0.5.15
+version: 0.5.16
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

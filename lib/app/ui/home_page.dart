@@ -152,88 +152,42 @@ class _HomePageState extends State<HomePage> {
                     compactActions: compactActions,
                   ),
           ),
-          body: Column(
+          body: Stack(
             children: <Widget>[
-              if (!_showTrash)
-                _buildInputArea(controller)
-              else
-                _buildTrashHint(),
-              _buildSearchArea(),
-              _buildSyncStatusBar(controller),
-              if (controller.batchRefreshing)
-                _buildBatchProgress(controller)
-              else if (controller.loading)
-                const LinearProgressIndicator(),
-              if (controller.error != null)
-                MaterialBanner(
-                  content: Text(controller.error!),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: controller.clearError,
-                      child: const Text('关闭'),
-                    ),
-                  ],
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        _showTrash
-                            ? '回收站模式'
-                            : '自动更新周期: 每 ${controller.settings.titleRefreshDays} 天',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    PopupMenuButton<_SortOption>(
-                      tooltip: '排序',
-                      onSelected: _onSortOptionSelected,
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<_SortOption>>[
-                        CheckedPopupMenuItem<_SortOption>(
-                          value: _SortOption.updatedDesc,
-                          checked: _sortOption == _SortOption.updatedDesc,
-                          child: const Text('按最近更新'),
-                        ),
-                        CheckedPopupMenuItem<_SortOption>(
-                          value: _SortOption.createdDesc,
-                          checked: _sortOption == _SortOption.createdDesc,
-                          child: const Text('按最近添加'),
-                        ),
-                        CheckedPopupMenuItem<_SortOption>(
-                          value: _SortOption.titleAsc,
-                          checked: _sortOption == _SortOption.titleAsc,
-                          child: const Text('按标题 A-Z'),
-                        ),
-                        CheckedPopupMenuItem<_SortOption>(
-                          value: _SortOption.urlAsc,
-                          checked: _sortOption == _SortOption.urlAsc,
-                          child: const Text('按网址 A-Z'),
+              Positioned.fill(child: _buildAtmosphereBackground()),
+              Column(
+                children: <Widget>[
+                  if (!_showTrash)
+                    _buildInputArea(controller)
+                  else
+                    _buildTrashHint(),
+                  _buildSearchArea(),
+                  _buildSyncStatusBar(controller),
+                  if (controller.batchRefreshing)
+                    _buildBatchProgress(controller)
+                  else if (controller.loading)
+                    const LinearProgressIndicator(),
+                  if (controller.error != null)
+                    MaterialBanner(
+                      content: Text(controller.error!),
+                      actions: <Widget>[
+                        TextButton(
+                          onPressed: controller.clearError,
+                          child: const Text('关闭'),
                         ),
                       ],
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.sort, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            _sortOptionLabel(_sortOption),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Text('收藏 ${allBookmarks.length} / 回收站 ${allTrash.length}'),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: _showTrash
-                    ? _buildTrashList(trash)
-                    : _buildBookmarkList(bookmarks),
+                  _buildMetaBar(
+                    controller: controller,
+                    allBookmarks: allBookmarks,
+                    allTrash: allTrash,
+                  ),
+                  Expanded(
+                    child: _showTrash
+                        ? _buildTrashList(trash)
+                        : _buildBookmarkList(bookmarks),
+                  ),
+                ],
               ),
             ],
           ),
@@ -614,34 +568,268 @@ class _HomePageState extends State<HomePage> {
     return actions;
   }
 
-  Widget _buildInputArea(AppController controller) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      child: Row(
+  Widget _buildAtmosphereBackground() {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    return IgnorePointer(
+      child: Stack(
         children: <Widget>[
-          Expanded(
-            child: TextField(
-              controller: _urlController,
-              enabled: !controller.loading,
-              decoration: const InputDecoration(
-                hintText: '输入网址',
+          Positioned(
+            top: -170,
+            right: -120,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: <Color>[
+                    theme.colorScheme.primary
+                        .withValues(alpha: isDark ? 0.22 : 0.16),
+                    theme.colorScheme.primary.withValues(alpha: 0),
+                  ],
+                ),
               ),
-              onSubmitted: (_) => _addUrl(),
             ),
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 56,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(104, 56),
+          Positioned(
+            bottom: -180,
+            left: -130,
+            child: Container(
+              width: 340,
+              height: 340,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: <Color>[
+                    theme.colorScheme.secondary.withValues(
+                      alpha: isDark ? 0.16 : 0.11,
+                    ),
+                    theme.colorScheme.secondary.withValues(alpha: 0),
+                  ],
+                ),
               ),
-              onPressed: controller.loading ? null : _addUrl,
-              icon: const Icon(Icons.add_link),
-              label: const Text('收藏'),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGlassPanel({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(10),
+  }) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.surface.withValues(alpha: 0.72)
+            : Colors.white.withValues(alpha: 0.84),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.55 : 0.9,
+          ),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: theme.colorScheme.shadow
+                .withValues(alpha: isDark ? 0.26 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildMetaBar({
+    required AppController controller,
+    required List<Bookmark> allBookmarks,
+    required List<Bookmark> allTrash,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool narrow = constraints.maxWidth < 620;
+          final Widget sortButton = PopupMenuButton<_SortOption>(
+            tooltip: '排序',
+            onSelected: _onSortOptionSelected,
+            itemBuilder: (BuildContext context) =>
+                <PopupMenuEntry<_SortOption>>[
+              CheckedPopupMenuItem<_SortOption>(
+                value: _SortOption.updatedDesc,
+                checked: _sortOption == _SortOption.updatedDesc,
+                child: const Text('按最近更新'),
+              ),
+              CheckedPopupMenuItem<_SortOption>(
+                value: _SortOption.createdDesc,
+                checked: _sortOption == _SortOption.createdDesc,
+                child: const Text('按最近添加'),
+              ),
+              CheckedPopupMenuItem<_SortOption>(
+                value: _SortOption.titleAsc,
+                checked: _sortOption == _SortOption.titleAsc,
+                child: const Text('按标题 A-Z'),
+              ),
+              CheckedPopupMenuItem<_SortOption>(
+                value: _SortOption.urlAsc,
+                checked: _sortOption == _SortOption.urlAsc,
+                child: const Text('按网址 A-Z'),
+              ),
+            ],
+            child: _buildMetaChip(
+              icon: Icons.sort_rounded,
+              label: _sortOptionLabel(_sortOption),
+            ),
+          );
+          final Widget countChip = _buildMetaChip(
+            icon: Icons.bookmarks_outlined,
+            label: '收藏 ${allBookmarks.length} / 回收站 ${allTrash.length}',
+          );
+          final Widget modeText = Row(
+            children: <Widget>[
+              Icon(
+                _showTrash ? Icons.delete_outline : Icons.schedule_rounded,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _showTrash
+                      ? '回收站模式：可恢复或永久删除'
+                      : '自动更新周期：每 ${controller.settings.titleRefreshDays} 天',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
+            ],
+          );
+
+          if (narrow) {
+            return _buildGlassPanel(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  modeText,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      sortButton,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: countChip,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return _buildGlassPanel(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            child: Row(
+              children: <Widget>[
+                Expanded(child: modeText),
+                const SizedBox(width: 8),
+                sortButton,
+                const SizedBox(width: 8),
+                countChip,
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMetaChip({
+    required IconData icon,
+    required String label,
+  }) {
+    final ThemeData theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.85),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputArea(AppController controller) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      child: _buildGlassPanel(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: TextField(
+                controller: _urlController,
+                enabled: !controller.loading,
+                decoration: const InputDecoration(
+                  hintText: '输入网址',
+                  prefixIcon: Icon(Icons.link_rounded, size: 18),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  filled: false,
+                ),
+                onSubmitted: (_) => _addUrl(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 50,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(108, 50),
+                ),
+                onPressed: controller.loading ? null : _addUrl,
+                icon: const Icon(Icons.add_link),
+                label: const Text('收藏'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -650,29 +838,12 @@ class _HomePageState extends State<HomePage> {
     final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      child: Container(
-        height: 40,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant,
-          ),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: theme.colorScheme.shadow.withValues(
-                alpha: theme.brightness == Brightness.dark ? 0.24 : 0.08,
-              ),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-          color: theme.colorScheme.surface.withValues(alpha: 0.9),
-        ),
-        padding: const EdgeInsets.only(left: 10),
+      child: _buildGlassPanel(
+        padding: const EdgeInsets.fromLTRB(8, 2, 4, 2),
         child: Row(
           children: <Widget>[
             Icon(
-              Icons.search,
+              Icons.search_rounded,
               size: 18,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -691,6 +862,7 @@ class _HomePageState extends State<HomePage> {
                   focusedErrorBorder: InputBorder.none,
                   filled: false,
                   isCollapsed: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
@@ -712,11 +884,23 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTrashHint() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          '当前查看回收站，可恢复或永久删除条目',
-          style: Theme.of(context).textTheme.bodySmall,
+      child: _buildGlassPanel(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.delete_sweep_outlined,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '当前查看回收站，可恢复或永久删除条目',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -731,15 +915,18 @@ class _HomePageState extends State<HomePage> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: Column(
-        children: <Widget>[
-          LinearProgressIndicator(value: controller.batchProgress),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ),
-        ],
+      child: _buildGlassPanel(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        child: Column(
+          children: <Widget>[
+            LinearProgressIndicator(value: controller.batchProgress),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -759,23 +946,45 @@ class _HomePageState extends State<HomePage> {
             ? item.title!
             : (issue == null ? '(未获取标题)' : '(标题抓取失败)');
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          elevation: 0,
           child: ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
             leading: _selectionMode
                 ? Checkbox(
                     value: _selectedIds.contains(item.id),
                     onChanged: (_) => _toggleSelected(item.id),
                   )
                 : null,
-            title: Text(titleText),
+            title: Text(
+              titleText,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(item.url),
+                const SizedBox(height: 2),
+                Text(
+                  item.url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   '添加: ${_formatDateTime(item.createdAt)}  更新: ${_formatDateTime(item.updatedAt)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.92),
+                      ),
                 ),
                 if (issue != null) ...<Widget>[
                   const SizedBox(height: 6),
@@ -830,7 +1039,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ],
             ),
-            isThreeLine: true,
+            isThreeLine: false,
             onTap: () {
               if (_selectionMode) {
                 _toggleSelected(item.id);
@@ -882,8 +1091,10 @@ class _HomePageState extends State<HomePage> {
         final String deletedAt =
             item.deletedAt == null ? '-' : _formatDateTime(item.deletedAt!);
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          elevation: 0,
           child: ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
             leading: _selectionMode
                 ? Checkbox(
                     value: _selectedIds.contains(item.id),
@@ -892,21 +1103,30 @@ class _HomePageState extends State<HomePage> {
                 : null,
             title: Text(
               item.title?.trim().isNotEmpty == true ? item.title! : item.url,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
                   '添加: ${_formatDateTime(item.createdAt)}  更新: ${_formatDateTime(item.updatedAt)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 Text(
                   '删除: $deletedAt',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
-            isThreeLine: true,
+            isThreeLine: false,
             onTap: () {
               if (_selectionMode) {
                 _toggleSelected(item.id);
@@ -1776,13 +1996,35 @@ class _HomePageState extends State<HomePage> {
     required IconData icon,
     required VoidCallback? onPressed,
   }) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-      constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-      splashRadius: 18,
-      icon: Icon(icon, size: 21),
+    final ThemeData theme = Theme.of(context);
+    final bool enabled = onPressed != null;
+    return Container(
+      margin: const EdgeInsets.only(left: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: enabled ? 0.72 : 0.36,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(
+            alpha: enabled ? 0.8 : 0.45,
+          ),
+        ),
+      ),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+        splashRadius: 18,
+        icon: Icon(
+          icon,
+          size: 19,
+          color: enabled
+              ? theme.colorScheme.onSurfaceVariant
+              : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      ),
     );
   }
 

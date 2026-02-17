@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.16',
+      notes: <String>[
+        '全局视觉升级：统一卡片、输入框、按钮圆角与阴影层级，整体观感更干净',
+        '首页面板重绘：输入区、搜索区、信息栏改为统一玻璃感面板，信息密度更合理',
+        '列表卡片与行内按钮样式重做：标题/链接/时间层级更清晰，操作按钮更精致',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.15',
       notes: <String>[
         '首页顶栏升级为“收藏/回收站”分段切换，替代单独回收站按钮，减少空白并提升切换效率',

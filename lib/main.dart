@@ -122,42 +122,88 @@ class _BookmarkAppState extends State<BookmarkApp> {
       textTheme: textTheme,
       primaryTextTheme: textTheme,
       scaffoldBackgroundColor:
-          isDark ? const Color(0xFF12191A) : const Color(0xFFF4F7F8),
+          isDark ? const Color(0xFF0E1618) : const Color(0xFFEFF4F6),
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.surface,
+        backgroundColor:
+            isDark ? const Color(0xFF132023) : const Color(0xFFF8FBFC),
         foregroundColor: colorScheme.onSurface,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: 62,
+        titleTextStyle: textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+        ),
       ),
       cardTheme: CardThemeData(
-        color: colorScheme.surface,
-        elevation: 3,
+        color: isDark ? const Color(0xFF172428) : const Color(0xFFF8FBFC),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         shadowColor: colorScheme.shadow.withValues(alpha: isDark ? 0.45 : 0.14),
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           side: BorderSide(
             color: colorScheme.outlineVariant.withValues(
-              alpha: isDark ? 0.6 : 1,
+              alpha: isDark ? 0.52 : 0.9,
             ),
           ),
         ),
       ),
+      listTileTheme: ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        iconColor: colorScheme.onSurfaceVariant,
+      ),
       inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
         filled: true,
-        fillColor: colorScheme.surface,
+        fillColor: isDark
+            ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.48)
+            : Colors.white.withValues(alpha: 0.88),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.92),
+        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.95),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
             color: colorScheme.primary,
-            width: 1.4,
+            width: 1.6,
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: colorScheme.onSurfaceVariant,
+          backgroundColor: isDark
+              ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.58)
+              : colorScheme.surface.withValues(alpha: 0.9),
+          disabledBackgroundColor:
+              colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          minimumSize: const Size(38, 38),
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
       ),
@@ -170,22 +216,48 @@ class _BookmarkAppState extends State<BookmarkApp> {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
+        backgroundColor:
+            isDark ? const Color(0xFF1D2A2D) : const Color(0xFF203438),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: const Color(0xFFF1F7F8),
+        ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
           textStyle: WidgetStatePropertyAll<TextStyle?>(
-            textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+            textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          textStyle: textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w500,
+          minimumSize: const Size(0, 46),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
+          elevation: 0,
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 46),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
     );
