@@ -10,6 +10,37 @@ import '../core/domain/bookmark.dart';
 import '../core/sync/sync_engine.dart';
 import '../core/sync/webdav_sync_provider.dart';
 
+class SyncRunDiagnostics {
+  const SyncRunDiagnostics({
+    required this.startedAt,
+    required this.finishedAt,
+    required this.attemptCount,
+    required this.success,
+    required this.engineReport,
+    this.errorMessage,
+  });
+
+  final DateTime startedAt;
+  final DateTime finishedAt;
+  final int attemptCount;
+  final bool success;
+  final SyncEngineReport? engineReport;
+  final String? errorMessage;
+
+  Duration get duration => finishedAt.difference(startedAt);
+  int get retryCount => attemptCount <= 1 ? 0 : attemptCount - 1;
+
+  int get localPendingOps => engineReport?.localPendingOps ?? 0;
+  int get pushedOps => engineReport?.pushedOps ?? 0;
+  int get pulledBatchCount => engineReport?.pulledBatchCount ?? 0;
+  int get pulledOps => engineReport?.pulledOps ?? 0;
+  int get filteredDuplicateOrSelfOps =>
+      engineReport?.filteredDuplicateOrSelfOps ?? 0;
+  int get filteredStaleOps => engineReport?.filteredStaleOps ?? 0;
+  int get appliedUpserts => engineReport?.appliedUpserts ?? 0;
+  int get appliedDeletes => engineReport?.appliedDeletes ?? 0;
+}
+
 class SyncCoordinator {
   SyncCoordinator({required BookmarkRepository repository})
       : _repository = repository;
@@ -22,8 +53,9 @@ class SyncCoordinator {
 
   final BookmarkRepository _repository;
 
-  Future<void> syncNow(AppSettings settings) async {
+  Future<SyncRunDiagnostics> syncNow(AppSettings settings) async {
     _assertSyncReady(settings);
+    final DateTime startedAt = DateTime.now();
 
     final WebDavConfig config = WebDavConfig(
       baseUrl: _normalizeBaseUrl(settings.webDavBaseUrl),
@@ -38,7 +70,27 @@ class SyncCoordinator {
       deviceId: settings.deviceId,
     );
 
-    await _runWithRetry(engine.syncOnce);
+    final _RetryOutcome<SyncEngineReport> outcome = await _runWithRetry(
+      engine.syncOnce,
+    );
+    final DateTime finishedAt = DateTime.now();
+    if (outcome.value != null) {
+      return SyncRunDiagnostics(
+        startedAt: startedAt,
+        finishedAt: finishedAt,
+        attemptCount: outcome.attemptCount,
+        success: true,
+        engineReport: outcome.value,
+      );
+    }
+    return SyncRunDiagnostics(
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      attemptCount: outcome.attemptCount,
+      success: false,
+      engineReport: null,
+      errorMessage: outcome.error?.toString(),
+    );
   }
 
   Future<void> backupNow(AppSettings settings) async {
@@ -56,12 +108,15 @@ class SyncCoordinator {
       ),
     );
 
-    await _runWithRetry(() {
+    final _RetryOutcome<void> outcome = await _runWithRetry(() {
       return backupService.uploadSnapshot(
         userId: settings.webDavUserId,
         bookmarks: bookmarks,
       );
     });
+    if (outcome.error != null) {
+      _throwWithStack(outcome.error!, outcome.stackTrace);
+    }
   }
 
   void _assertSyncReady(AppSettings settings) {
@@ -93,25 +148,36 @@ class SyncCoordinator {
         );
   }
 
-  Future<void> _runWithRetry(Future<void> Function() task) async {
+  Future<_RetryOutcome<T>> _runWithRetry<T>(Future<T> Function() task) async {
     Object? lastError;
     StackTrace? lastStack;
 
     for (int attempt = 1; attempt <= _maxAttempts; attempt += 1) {
       try {
-        await task();
-        return;
+        final T value = await task();
+        return _RetryOutcome<T>(
+          value: value,
+          attemptCount: attempt,
+        );
       } catch (error, stack) {
         lastError = error;
         lastStack = stack;
         if (!_isTransientError(error) || attempt >= _maxAttempts) {
-          rethrow;
+          return _RetryOutcome<T>(
+            error: lastError,
+            stackTrace: lastStack,
+            attemptCount: attempt,
+          );
         }
         await Future<void>.delayed(_retryDelay[attempt - 1]);
       }
     }
 
-    Error.throwWithStackTrace(lastError!, lastStack!);
+    return _RetryOutcome<T>(
+      error: lastError,
+      stackTrace: lastStack,
+      attemptCount: _maxAttempts,
+    );
   }
 
   bool _isTransientError(Object error) {
@@ -139,4 +205,25 @@ class SyncCoordinator {
         msg.contains('network is unreachable') ||
         msg.contains('temporarily unavailable');
   }
+
+  Never _throwWithStack(Object error, StackTrace? stack) {
+    if (stack != null) {
+      Error.throwWithStackTrace(error, stack);
+    }
+    throw error;
+  }
+}
+
+class _RetryOutcome<T> {
+  const _RetryOutcome({
+    this.value,
+    this.error,
+    this.stackTrace,
+    required this.attemptCount,
+  });
+
+  final T? value;
+  final Object? error;
+  final StackTrace? stackTrace;
+  final int attemptCount;
 }

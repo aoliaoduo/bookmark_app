@@ -39,6 +39,7 @@ class AppController extends ChangeNotifier {
   bool _syncing = false;
   DateTime? _lastSyncAt;
   String? _syncError;
+  SyncRunDiagnostics? _lastSyncDiagnostics;
   bool _batchRefreshing = false;
   int _batchProcessed = 0;
   int _batchTotal = 0;
@@ -52,6 +53,7 @@ class AppController extends ChangeNotifier {
   bool get syncing => _syncing;
   DateTime? get lastSyncAt => _lastSyncAt;
   String? get syncError => _syncError;
+  SyncRunDiagnostics? get lastSyncDiagnostics => _lastSyncDiagnostics;
   bool get batchRefreshing => _batchRefreshing;
   int get batchProcessed => _batchProcessed;
   int get batchTotal => _batchTotal;
@@ -401,6 +403,7 @@ class AppController extends ChangeNotifier {
       _startupSyncTriggered = false;
       _lastSyncAt = null;
       _syncError = null;
+      _lastSyncDiagnostics = null;
       _restartRefreshTimer();
       _error = null;
     } catch (e) {
@@ -500,14 +503,32 @@ class AppController extends ChangeNotifier {
     notifyListeners();
     bool success = false;
     try {
-      await _syncCoordinator.syncNow(current);
-      await reloadBookmarks();
-      _lastSyncAt = DateTime.now();
-      _syncError = null;
-      _error = null;
-      success = true;
+      final SyncRunDiagnostics report = await _syncCoordinator.syncNow(current);
+      _lastSyncDiagnostics = report;
+      if (report.success) {
+        await reloadBookmarks();
+        _lastSyncAt = report.finishedAt;
+        _syncError = null;
+        _error = null;
+        success = true;
+      } else {
+        final String message = report.errorMessage ?? '同步失败';
+        _syncError = message;
+        if (userInitiated) {
+          _error = message;
+        }
+        success = false;
+      }
     } catch (e) {
       _syncError = e.toString();
+      _lastSyncDiagnostics = SyncRunDiagnostics(
+        startedAt: DateTime.now(),
+        finishedAt: DateTime.now(),
+        attemptCount: 1,
+        success: false,
+        engineReport: null,
+        errorMessage: e.toString(),
+      );
       if (userInitiated) {
         _error = e.toString();
       }

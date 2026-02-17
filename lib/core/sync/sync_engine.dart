@@ -15,6 +15,32 @@ abstract class LocalStore {
   Future<void> deleteBookmark(String bookmarkId);
 }
 
+class SyncEngineReport {
+  const SyncEngineReport({
+    required this.localPendingOps,
+    required this.pushedOps,
+    required this.pulledBatchCount,
+    required this.pulledOps,
+    required this.filteredDuplicateOrSelfOps,
+    required this.filteredStaleOps,
+    required this.appliedUpserts,
+    required this.appliedDeletes,
+    required this.cursorBefore,
+    required this.cursorAfter,
+  });
+
+  final int localPendingOps;
+  final int pushedOps;
+  final int pulledBatchCount;
+  final int pulledOps;
+  final int filteredDuplicateOrSelfOps;
+  final int filteredStaleOps;
+  final int appliedUpserts;
+  final int appliedDeletes;
+  final DateTime cursorBefore;
+  final DateTime cursorAfter;
+}
+
 class SyncEngine {
   SyncEngine({
     required this.localStore,
@@ -28,8 +54,9 @@ class SyncEngine {
   final String userId;
   final String deviceId;
 
-  Future<void> syncOnce() async {
+  Future<SyncEngineReport> syncOnce() async {
     final List<SyncOp> localOps = await localStore.loadPendingOps();
+    final int pendingOpsCount = localOps.length;
     if (localOps.isNotEmpty) {
       await syncProvider.pushOps(
         userId: userId,
@@ -50,12 +77,17 @@ class SyncEngine {
     DateTime maxPulled = since;
     final Set<String> seenOpIds = <String>{};
     final Map<String, SyncOp> latestByBookmarkId = <String, SyncOp>{};
+    int pulledOpsCount = 0;
+    int filteredDuplicateOrSelfOps = 0;
     for (final PulledSyncBatch pulled in remoteBatches) {
+      pulledOpsCount += pulled.batch.ops.length;
       for (final SyncOp op in pulled.batch.ops) {
         if (op.deviceId == deviceId) {
+          filteredDuplicateOrSelfOps += 1;
           continue;
         }
         if (!seenOpIds.add(op.opId)) {
+          filteredDuplicateOrSelfOps += 1;
           continue;
         }
         final String bookmarkId = op.bookmark.id;
@@ -77,25 +109,43 @@ class SyncEngine {
         }
         return a.opId.compareTo(b.opId);
       });
+    int filteredStaleOps = 0;
+    int appliedDeletes = 0;
+    int appliedUpserts = 0;
     for (final SyncOp op in latestOps) {
       final Bookmark? local = await localStore.findBookmarkById(op.bookmark.id);
       final DateTime? tombstoneAt = await localStore.findTombstoneAt(
         op.bookmark.id,
       );
       if (!_shouldApplyRemoteOp(local, tombstoneAt, op)) {
+        filteredStaleOps += 1;
         continue;
       }
       if (op.type == SyncOpType.delete || op.bookmark.isDeleted) {
         final DateTime deletedAt = _logicalTimestamp(op);
         await localStore.saveTombstone(op.bookmark.id, deletedAt);
         await localStore.deleteBookmark(op.bookmark.id);
+        appliedDeletes += 1;
         continue;
       }
       await localStore.upsertBookmark(_applyMergePolicy(op.bookmark));
       await localStore.clearTombstone(op.bookmark.id);
+      appliedUpserts += 1;
     }
 
     await localStore.saveLastPulledAt(maxPulled);
+    return SyncEngineReport(
+      localPendingOps: pendingOpsCount,
+      pushedOps: pendingOpsCount,
+      pulledBatchCount: remoteBatches.length,
+      pulledOps: pulledOpsCount,
+      filteredDuplicateOrSelfOps: filteredDuplicateOrSelfOps,
+      filteredStaleOps: filteredStaleOps,
+      appliedUpserts: appliedUpserts,
+      appliedDeletes: appliedDeletes,
+      cursorBefore: since,
+      cursorAfter: maxPulled,
+    );
   }
 
   Bookmark _applyMergePolicy(Bookmark incoming) {

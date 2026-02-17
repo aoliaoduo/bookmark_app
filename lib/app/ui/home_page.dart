@@ -10,6 +10,7 @@ import '../app_controller.dart';
 import '../export/export_service.dart';
 import '../maintenance/maintenance_service.dart';
 import '../settings/app_settings.dart';
+import '../sync_coordinator.dart';
 import 'about_page.dart';
 import 'changelog_page.dart';
 import 'settings_page.dart';
@@ -1160,12 +1161,13 @@ class _HomePageState extends State<HomePage> {
   Future<void> _syncNow(AppController controller) async {
     final bool success = await controller.syncNow(userInitiated: true);
     if (!mounted) return;
+    final SyncRunDiagnostics? report = controller.lastSyncDiagnostics;
     if (!success) {
       controller.clearError();
       _showSnack('云同步失败：${_syncErrorText(controller.syncError ?? '')}');
       return;
     }
-    _showSnack('云同步完成');
+    _showSnack(_syncSuccessBrief(report));
   }
 
   Future<void> _triggerStartupAutoSync() async {
@@ -1181,11 +1183,12 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     if (success) {
-      _showSnack('自动云同步完成');
+      _showSnack(_syncSuccessBrief(controller.lastSyncDiagnostics, auto: true));
     }
   }
 
   Widget _buildSyncStatusBar(AppController controller) {
+    final SyncRunDiagnostics? report = controller.lastSyncDiagnostics;
     Widget child = const SizedBox.shrink();
     String stateKey = 'empty';
 
@@ -1203,38 +1206,94 @@ class _HomePageState extends State<HomePage> {
             '正在同步云端数据...',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (report != null) ...<Widget>[
+            const Spacer(),
+            IconButton(
+              tooltip: '查看上次同步详情',
+              onPressed: () => _openSyncDiagnostics(controller),
+              icon: const Icon(Icons.analytics_outlined, size: 18),
+              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+            ),
+          ],
+        ],
+      );
+    } else if (report != null && report.success) {
+      stateKey = 'success';
+      final DateTime at = report.finishedAt.toLocal();
+      final String hh = at.hour.toString().padLeft(2, '0');
+      final String mm = at.minute.toString().padLeft(2, '0');
+      final String retryText =
+          report.retryCount > 0 ? ' · 重试${report.retryCount}' : '';
+      child = Row(
+        children: <Widget>[
+          Icon(
+            Icons.cloud_done_outlined,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '最近云同步：$hh:$mm · 上传${report.pushedOps} 下载${report.pulledOps}$retryText',
+              style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            tooltip: '查看同步诊断',
+            onPressed: () => _openSyncDiagnostics(controller),
+            icon: const Icon(Icons.analytics_outlined, size: 18),
+            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+            constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+          ),
         ],
       );
     } else if (controller.syncError != null &&
         controller.settings.syncReady &&
         controller.settings.autoSyncOnChange) {
       stateKey = 'error';
-      child = InkWell(
-        onTap: () => _syncNow(controller),
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          children: <Widget>[
-            Icon(
-              Icons.error_outline,
-              size: 16,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '同步失败，点此重试：${_syncErrorText(controller.syncError!)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
+      child = Row(
+        children: <Widget>[
+          Expanded(
+            child: InkWell(
+              onTap: () => _syncNow(controller),
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.error_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '同步失败，点此重试：${_syncErrorText(controller.syncError!)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          if (report != null)
+            IconButton(
+              tooltip: '查看同步诊断',
+              onPressed: () => _openSyncDiagnostics(controller),
+              icon: const Icon(Icons.analytics_outlined, size: 18),
+              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+            ),
+        ],
       );
     } else if (controller.lastSyncAt != null && controller.settings.syncReady) {
-      stateKey = 'success';
+      stateKey = 'legacy-success';
       final DateTime at = controller.lastSyncAt!.toLocal();
       final String hh = at.hour.toString().padLeft(2, '0');
       final String mm = at.minute.toString().padLeft(2, '0');
@@ -1279,6 +1338,92 @@ class _HomePageState extends State<HomePage> {
       return firstLine;
     }
     return '${firstLine.substring(0, 60)}...';
+  }
+
+  String _syncSuccessBrief(SyncRunDiagnostics? report, {bool auto = false}) {
+    final String prefix = auto ? '自动云同步完成' : '云同步完成';
+    if (report == null) {
+      return prefix;
+    }
+    final String retry =
+        report.retryCount > 0 ? '，重试 ${report.retryCount} 次' : '';
+    return '$prefix：上传 ${report.pushedOps}，下载 ${report.pulledOps}$retry';
+  }
+
+  Future<void> _openSyncDiagnostics(AppController controller) async {
+    final SyncRunDiagnostics? report = controller.lastSyncDiagnostics;
+    if (report == null) {
+      _showSnack('暂无同步诊断数据');
+      return;
+    }
+
+    final ThemeData theme = Theme.of(context);
+    final String status = report.success ? '成功' : '失败';
+    final String? error = report.errorMessage;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  '同步诊断',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text('状态：$status'),
+                Text('开始：${_formatDateTime(report.startedAt)}'),
+                Text('结束：${_formatDateTime(report.finishedAt)}'),
+                Text('耗时：${_formatDuration(report.duration)}'),
+                Text('尝试次数：${report.attemptCount}（重试 ${report.retryCount} 次）'),
+                const SizedBox(height: 10),
+                Text('待上传操作：${report.localPendingOps}'),
+                Text('实际上传：${report.pushedOps}'),
+                Text('下载批次：${report.pulledBatchCount}'),
+                Text('下载操作：${report.pulledOps}'),
+                Text('应用更新：${report.appliedUpserts}'),
+                Text('应用删除：${report.appliedDeletes}'),
+                Text('过滤重复/同设备：${report.filteredDuplicateOrSelfOps}'),
+                Text('过滤过期操作：${report.filteredStaleOps}'),
+                if (error != null && error.trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    '错误信息',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(error),
+                ],
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('关闭'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDuration(Duration value) {
+    if (value.inMilliseconds < 1000) {
+      return '${value.inMilliseconds}ms';
+    }
+    if (value.inSeconds < 60) {
+      return '${value.inSeconds}s';
+    }
+    final int minutes = value.inMinutes;
+    final int seconds = value.inSeconds % 60;
+    return '${minutes}m ${seconds}s';
   }
 
   Widget _buildInlineActionButton({

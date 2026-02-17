@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.6',
+      date: '2026-02-17',
+      notes: <String>[
+        '新增同步诊断面板：可查看最近一次同步的开始/结束时间、耗时、重试次数与失败原因',
+        '同步统计增强：展示上传/下载数量、应用更新/删除数量、过滤重复与过期操作数量',
+        '同步结果提示升级：手动和启动自动同步完成后会显示本次上传/下载与重试摘要',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.5',
       date: '2026-02-17',
       notes: <String>[
@@ -294,7 +303,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.5';
+        _versionLabel = 'v0.5.6';
       });
     }
   }

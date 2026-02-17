@@ -38,13 +38,19 @@ void main() {
       deviceId: 'd1',
     );
 
-    await engine.syncOnce();
+    final SyncEngineReport report = await engine.syncOnce();
 
     expect(local.savedCursor, serverCursor);
     expect(local.markedOpIds, isEmpty);
     expect(local.upserted.length, 1);
     expect(local.upserted.single.id, 'b-1');
     expect(local.deletedIds, isEmpty);
+    expect(report.localPendingOps, 0);
+    expect(report.pushedOps, 0);
+    expect(report.pulledBatchCount, 1);
+    expect(report.pulledOps, 1);
+    expect(report.appliedUpserts, 1);
+    expect(report.appliedDeletes, 0);
   });
 
   test('syncOnce uploads deletes and applies pulled delete locally', () async {
@@ -102,7 +108,7 @@ void main() {
       deviceId: 'd1',
     );
 
-    await engine.syncOnce();
+    final SyncEngineReport report = await engine.syncOnce();
 
     expect(provider.pushedOps.length, 2);
     expect(
@@ -113,6 +119,12 @@ void main() {
     expect(local.upserted.length, 1);
     expect(local.upserted.single.id, 'remote-keep');
     expect(local.deletedIds, <String>['remote-trash']);
+    expect(report.localPendingOps, 2);
+    expect(report.pushedOps, 2);
+    expect(report.pulledBatchCount, 1);
+    expect(report.pulledOps, 2);
+    expect(report.appliedUpserts, 1);
+    expect(report.appliedDeletes, 1);
   });
 
   test('syncOnce ignores same-device and duplicated pulled ops', () async {
@@ -163,11 +175,14 @@ void main() {
       deviceId: 'd1',
     );
 
-    await engine.syncOnce();
+    final SyncEngineReport report = await engine.syncOnce();
 
     expect(local.upserted.length, 1);
     expect(local.upserted.single.id, 'remote-keep');
     expect(local.savedCursor, DateTime.utc(2026, 2, 16, 14));
+    expect(report.pulledOps, 3);
+    expect(report.filteredDuplicateOrSelfOps, 2);
+    expect(report.appliedUpserts, 1);
   });
 }
 
