@@ -133,11 +133,9 @@ class _HomePageState extends State<HomePage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              _selectionMode
-                  ? '已选择 ${_selectedIds.length} 条'
-                  : (_showTrash ? '回收站' : '收藏'),
-            ),
+            title: _selectionMode
+                ? Text('已选择 ${_selectedIds.length} 条')
+                : (_showTrash ? const Text('回收站') : null),
             actions: _selectionMode
                 ? _buildSelectionActions(
                     controller,
