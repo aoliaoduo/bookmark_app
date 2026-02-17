@@ -745,6 +745,11 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(item.url),
+                const SizedBox(height: 4),
+                Text(
+                  '添加: ${_formatDateTime(item.createdAt)}  更新: ${_formatDateTime(item.updatedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 if (issue != null) ...<Widget>[
                   const SizedBox(height: 6),
                   InkWell(
@@ -798,7 +803,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ],
             ),
-            isThreeLine: issue != null,
+            isThreeLine: true,
             onTap: () {
               if (_selectionMode) {
                 _toggleSelected(item.id);
@@ -847,7 +852,8 @@ class _HomePageState extends State<HomePage> {
       itemCount: trash.length,
       itemBuilder: (BuildContext context, int index) {
         final Bookmark item = trash[index];
-        final String deletedAt = item.deletedAt?.toLocal().toString() ?? '-';
+        final String deletedAt =
+            item.deletedAt == null ? '-' : _formatDateTime(item.deletedAt!);
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: ListTile(
@@ -860,7 +866,20 @@ class _HomePageState extends State<HomePage> {
             title: Text(
               item.title?.trim().isNotEmpty == true ? item.title! : item.url,
             ),
-            subtitle: Text('删除时间: $deletedAt'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '添加: ${_formatDateTime(item.createdAt)}  更新: ${_formatDateTime(item.updatedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Text(
+                  '删除: $deletedAt',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            isThreeLine: true,
             onTap: () {
               if (_selectionMode) {
                 _toggleSelected(item.id);
@@ -1668,6 +1687,16 @@ class _HomePageState extends State<HomePage> {
     if (mb < 1024) return '${mb.toStringAsFixed(1)}MB';
     final double gb = mb / 1024;
     return '${gb.toStringAsFixed(2)}GB';
+  }
+
+  String _formatDateTime(DateTime value) {
+    final DateTime local = value.toLocal();
+    final String yyyy = local.year.toString().padLeft(4, '0');
+    final String mm = local.month.toString().padLeft(2, '0');
+    final String dd = local.day.toString().padLeft(2, '0');
+    final String hh = local.hour.toString().padLeft(2, '0');
+    final String min = local.minute.toString().padLeft(2, '0');
+    return '$yyyy-$mm-$dd $hh:$min';
   }
 
   void _showSnack(String text) {

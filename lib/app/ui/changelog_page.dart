@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.2',
+      date: '2026-02-17',
+      notes: <String>[
+        '首页列表新增时间信息展示：添加时间、更新时间',
+        '回收站条目补充时间信息展示：添加时间、更新时间、删除时间',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.1',
       date: '2026-02-17',
       notes: <String>[
@@ -258,7 +266,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.1';
+        _versionLabel = 'v0.5.2';
       });
     }
   }
