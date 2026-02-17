@@ -64,6 +64,11 @@ class BookmarkRepository implements LocalStore {
     return _bookmarkFromRow(rows.first);
   }
 
+  @override
+  Future<Bookmark?> findBookmarkById(String bookmarkId) {
+    return findById(bookmarkId);
+  }
+
   Future<Bookmark> addUrl(String rawInput) async {
     final String normalized = _normalizeUrl(rawInput);
     final String now = DateTime.now().toUtc().toIso8601String();

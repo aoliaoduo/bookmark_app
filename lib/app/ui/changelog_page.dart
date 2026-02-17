@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.4',
+      date: '2026-02-17',
+      notes: <String>[
+        '新增同步一致性回归测试矩阵，覆盖“删除防复活、远端旧删除忽略、远端恢复生效、同时间戳冲突”等场景',
+        '同步引擎改为按“每个书签只应用最新远端操作”进行收敛，降低乱序批次导致的数据回退风险',
+        '拉取应用前先对比本地逻辑时间，自动跳过落后于本地状态的远端旧操作',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.3',
       date: '2026-02-17',
       notes: <String>[
@@ -276,7 +285,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.3';
+        _versionLabel = 'v0.5.4';
       });
     }
   }

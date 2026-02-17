@@ -175,14 +175,20 @@ class _FakeLocalStore implements LocalStore {
   _FakeLocalStore({
     required List<SyncOp> pendingOps,
     required DateTime lastPulled,
+    List<Bookmark> initialBookmarks = const <Bookmark>[],
   })  : _pendingOps = pendingOps,
-        _lastPulled = lastPulled;
+        _lastPulled = lastPulled {
+    for (final Bookmark bookmark in initialBookmarks) {
+      _records[bookmark.id] = bookmark;
+    }
+  }
 
   final List<SyncOp> _pendingOps;
   final DateTime _lastPulled;
   final List<Bookmark> upserted = <Bookmark>[];
   final List<String> deletedIds = <String>[];
   final List<String> markedOpIds = <String>[];
+  final Map<String, Bookmark> _records = <String, Bookmark>{};
   DateTime? savedCursor;
 
   @override
@@ -190,6 +196,11 @@ class _FakeLocalStore implements LocalStore {
 
   @override
   Future<List<SyncOp>> loadPendingOps() async => _pendingOps;
+
+  @override
+  Future<Bookmark?> findBookmarkById(String bookmarkId) async {
+    return _records[bookmarkId];
+  }
 
   @override
   Future<void> markOpsAsPushed(List<String> opIds) async {
@@ -204,11 +215,13 @@ class _FakeLocalStore implements LocalStore {
   @override
   Future<void> upsertBookmark(Bookmark bookmark) async {
     upserted.add(bookmark);
+    _records[bookmark.id] = bookmark;
   }
 
   @override
   Future<void> deleteBookmark(String bookmarkId) async {
     deletedIds.add(bookmarkId);
+    _records.remove(bookmarkId);
   }
 }
 
