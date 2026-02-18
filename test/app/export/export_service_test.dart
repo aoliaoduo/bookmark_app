@@ -61,6 +61,19 @@ void main() {
       expect(content, '[https://example.com/only](https://example.com/only)\n');
     });
 
+    test('buildMarkdownContent matches export markdown format', () {
+      final List<Bookmark> bookmarks = <Bookmark>[
+        _bookmark(id: '1', url: 'https://example.com/1', title: '标题1'),
+        _bookmark(id: '2', url: 'https://example.com/2', title: null),
+      ];
+
+      final String markdown = service.buildMarkdownContent(bookmarks);
+      expect(
+        markdown,
+        '[标题1](https://example.com/1)\n\n[https://example.com/2](https://example.com/2)\n',
+      );
+    });
+
     test('default filename supports md extension', () {
       final String fileName =
           service.defaultFileName(format: ExportFormat.md, prefix: 'bookmarks');

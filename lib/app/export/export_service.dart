@@ -69,24 +69,28 @@ class ExportService {
         await file.writeAsString(csv.toString());
         break;
       case ExportFormat.md:
-        final StringBuffer markdown = StringBuffer();
-        for (int i = 0; i < bookmarks.length; i++) {
-          final Bookmark b = bookmarks[i];
-          final String title = _escapeMarkdownLinkText(
-            (b.title ?? '').trim().isEmpty ? b.url : b.title!.trim(),
-          );
-          final String url = _escapeMarkdownLinkUrl(b.url);
-          markdown.writeln('[$title]($url)');
-          if (i != bookmarks.length - 1) {
-            markdown.writeln();
-          }
-        }
-        await file.writeAsString(markdown.toString());
+        await file.writeAsString(buildMarkdownContent(bookmarks));
         break;
     }
 
     return ExportResult(
         path: file.path, count: bookmarks.length, format: format);
+  }
+
+  String buildMarkdownContent(List<Bookmark> bookmarks) {
+    final StringBuffer markdown = StringBuffer();
+    for (int i = 0; i < bookmarks.length; i++) {
+      final Bookmark b = bookmarks[i];
+      final String title = _escapeMarkdownLinkText(
+        (b.title ?? '').trim().isEmpty ? b.url : b.title!.trim(),
+      );
+      final String url = _escapeMarkdownLinkUrl(b.url);
+      markdown.writeln('[$title]($url)');
+      if (i != bookmarks.length - 1) {
+        markdown.writeln();
+      }
+    }
+    return markdown.toString();
   }
 
   String _normalizeTargetPath(String targetPath, ExportFormat format) {

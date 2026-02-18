@@ -119,6 +119,31 @@ class SyncCoordinator {
     }
   }
 
+  Future<void> backupMarkdownNow({
+    required AppSettings settings,
+    required String markdown,
+  }) async {
+    _assertSyncReady(settings);
+
+    final WebDavBackupService backupService = WebDavBackupService(
+      config: WebDavConfig(
+        baseUrl: _normalizeBaseUrl(settings.webDavBaseUrl),
+        username: settings.webDavUsername,
+        password: settings.webDavPassword,
+      ),
+    );
+
+    final _RetryOutcome<void> outcome = await _runWithRetry(() {
+      return backupService.uploadMarkdownSnapshot(
+        userId: settings.webDavUserId,
+        markdown: markdown,
+      );
+    });
+    if (outcome.error != null) {
+      _throwWithStack(outcome.error!, outcome.stackTrace);
+    }
+  }
+
   void _assertSyncReady(AppSettings settings) {
     if (!settings.syncReady) {
       throw StateError('请先在设置页配置 WebDAV 信息');

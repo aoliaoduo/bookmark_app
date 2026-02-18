@@ -77,6 +77,49 @@ class WebDavBackupService {
     }
   }
 
+  Future<void> uploadMarkdownSnapshot({
+    required String userId,
+    required String markdown,
+    DateTime? timestamp,
+  }) async {
+    final DateTime now = (timestamp ?? DateTime.now()).toUtc();
+    final String name = _markdownFileName(now);
+    final String markdownDir = _markdownDir(userId);
+    final String path = '$markdownDir/$name';
+
+    await _mkcol('/BookmarksApp');
+    await _mkcol('/BookmarksApp/users');
+    await _mkcol(_userDir(userId));
+    await _mkcol(markdownDir);
+
+    final Uri uri = _buildUri(path);
+    final http.Response response;
+    try {
+      response = await _client
+          .put(
+            uri,
+            headers: _headers(contentType: 'text/markdown; charset=utf-8'),
+            body: markdown,
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException catch (e) {
+      throw WebDavRequestException(
+        'Markdown snapshot upload timed out',
+        path: path,
+        cause: e,
+      );
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw WebDavRequestException(
+        'Markdown snapshot upload failed',
+        statusCode: response.statusCode,
+        path: path,
+        responseBody: _decodeResponseBody(response),
+      );
+    }
+  }
+
   Future<List<Bookmark>> downloadSnapshot({
     required String userId,
     required String snapshotFileName,
@@ -151,12 +194,22 @@ class WebDavBackupService {
     return 'bookmarks_$ts.json';
   }
 
+  String _markdownFileName(DateTime now) {
+    final String ts =
+        now.toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
+    return 'bookmarks_links_$ts.md';
+  }
+
   String _userDir(String userId) {
     return '/BookmarksApp/users/${_encodePathSegment(userId)}';
   }
 
   String _snapshotsDir(String userId) {
     return '${_userDir(userId)}/snapshots';
+  }
+
+  String _markdownDir(String userId) {
+    return '${_userDir(userId)}/markdown';
   }
 
   String _snapshotDigest(List<Map<String, dynamic>> bookmarks) {

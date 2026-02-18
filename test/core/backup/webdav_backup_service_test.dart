@@ -206,6 +206,53 @@ void main() {
       expect(url, isNot(contains('/dav/dav/')));
     }
   });
+
+  test('uploadMarkdownSnapshot uploads markdown file content', () async {
+    String? uploadedBody;
+    String? uploadedType;
+    final _RecordingHttpClient client = _RecordingHttpClient((
+      http.BaseRequest request,
+    ) async {
+      if (request.method == 'MKCOL') {
+        return _response(201);
+      }
+      if (request.method == 'PUT') {
+        final http.Request req = request as http.Request;
+        uploadedBody = req.body;
+        uploadedType = req.headers['content-type'];
+        return _response(200);
+      }
+      return _response(404);
+    });
+
+    final WebDavBackupService service = WebDavBackupService(
+      config: const WebDavConfig(
+        baseUrl: 'https://dav.example.com',
+        username: 'u',
+        password: 'p',
+      ),
+      client: client,
+    );
+
+    const String markdown =
+        '[标题1](https://example.com/1)\n\n[标题2](https://example.com/2)\n';
+    await service.uploadMarkdownSnapshot(
+      userId: 'u/1 a',
+      markdown: markdown,
+      timestamp: DateTime.utc(2026, 2, 18, 1, 2, 3),
+    );
+
+    final http.BaseRequest putRequest = client.requests.firstWhere(
+      (http.BaseRequest r) => r.method == 'PUT',
+    );
+    expect(
+      putRequest.url.toString(),
+      contains('/BookmarksApp/users/u%2F1%20a/markdown/bookmarks_links_'),
+    );
+    expect(putRequest.url.toString(), endsWith('.md'));
+    expect(uploadedType, contains('text/markdown'));
+    expect(uploadedBody, markdown);
+  });
 }
 
 class _RecordingHttpClient extends http.BaseClient {

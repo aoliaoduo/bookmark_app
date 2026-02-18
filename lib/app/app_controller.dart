@@ -513,10 +513,28 @@ class AppController extends ChangeNotifier {
     _startupSyncTriggered = true;
 
     final AppSettings? current = _settings;
-    if (current == null || !current.syncReady || !current.autoSyncOnLaunch) {
+    if (current == null || !current.syncReady) {
       return false;
     }
-    return _runSync(userInitiated: false);
+
+    bool syncSuccess = false;
+    if (current.autoSyncOnLaunch) {
+      syncSuccess = await _runSync(userInitiated: false);
+    }
+
+    try {
+      final String markdown = _exportService.buildMarkdownContent(_bookmarks);
+      await _syncCoordinator.backupMarkdownNow(
+        settings: current,
+        markdown: markdown,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Startup markdown backup failed: $e');
+      }
+    }
+
+    return syncSuccess;
   }
 
   void _scheduleAutoSync() {

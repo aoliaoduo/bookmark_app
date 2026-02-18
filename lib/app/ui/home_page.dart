@@ -1822,8 +1822,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _triggerStartupAutoSync() async {
     final AppController controller = widget.controller;
-    if (!controller.settings.syncReady ||
-        !controller.settings.autoSyncOnLaunch) {
+    if (!controller.settings.syncReady) {
       return;
     }
     final bool success = await controller.runStartupSyncIfNeeded();

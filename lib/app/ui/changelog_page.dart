@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.29',
+      notes: <String>[
+        '启动流程新增 Markdown 云备份：每次启动会把当前链接列表按 Markdown 格式上传到云端',
+        'Markdown 备份格式与“导出 MD”完全一致，内容为 [标题](链接) 并保留空行分隔',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.28',
       notes: <String>[
         '降低“变更后自动云同步”频率：从短延迟触发改为合并触发',
@@ -429,7 +436,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.28';
+        _versionLabel = 'v0.5.29';
       });
     }
   }
