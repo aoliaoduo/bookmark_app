@@ -907,12 +907,21 @@ class _HomePageState extends State<HomePage> {
                       enabled: !controller.loading,
                       textAlignVertical: TextAlignVertical.center,
                       style: theme.textTheme.bodyLarge?.copyWith(height: 1.1),
-                      decoration: InputDecoration.collapsed(
+                      decoration: InputDecoration(
                         hintText: '输入网址',
                         hintStyle: theme.textTheme.bodyLarge?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant
                               .withValues(alpha: 0.92),
                         ),
+                        filled: false,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                       ),
                       onSubmitted: (_) => _addUrl(),
                     ),

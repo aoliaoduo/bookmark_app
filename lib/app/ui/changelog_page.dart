@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.22',
+      notes: <String>[
+        '修复“输入网址”区域仍出现内层框的问题：输入框改为完全无内层装饰，不再继承全局填充样式',
+        '输入框边框、背景、焦点框统一移除，只保留外层单一容器视觉，避免框中框',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.21',
       notes: <String>[
         '统一顶部主交互视觉：收藏/回收站切换、输入框、收藏按钮改为同一单层玻璃语言',
@@ -381,7 +388,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.21';
+        _versionLabel = 'v0.5.22';
       });
     }
   }
