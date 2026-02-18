@@ -13,6 +13,20 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.26',
+      notes: <String>[
+        '图标二次校正：书签主体重新居中（含纵向中心位修正）',
+        '基于新居中稿再次重生成 Windows/Android 启动图标资源',
+      ],
+    ),
+    _ChangelogEntry(
+      version: 'v0.5.25',
+      notes: <String>[
+        '应用图标重绘：移除“链接”图形，仅保留书签主体',
+        '装饰圆尺寸下调，右上与左下圆形不再过大，整体更简洁',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.24',
       notes: <String>[
         '协作流程更新：任务所需包/工具允许由 Codex 按需自行安装（优先 scoop/官方渠道）',
@@ -401,7 +415,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.24';
+        _versionLabel = 'v0.5.26';
       });
     }
   }
