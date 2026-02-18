@@ -13,6 +13,12 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.24',
+      notes: <String>[
+        '协作流程更新：任务所需包/工具允许由 Codex 按需自行安装（优先 scoop/官方渠道）',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.23',
       notes: <String>[
         '应用图标对称性修复：主图形重新居中，上下边距统一，避免视觉偏移',
@@ -395,7 +401,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.23';
+        _versionLabel = 'v0.5.24';
       });
     }
   }
