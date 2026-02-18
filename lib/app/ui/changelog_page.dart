@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.27',
+      notes: <String>[
+        '应用图标最终定稿：仅保留居中书签主体，移除附加元素',
+        '图标中心点精确对齐画布中心，并重新生成 Windows/Android 启动图标',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.26',
       notes: <String>[
         '图标二次校正：书签主体重新居中（含纵向中心位修正）',
@@ -415,7 +422,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.26';
+        _versionLabel = 'v0.5.27';
       });
     }
   }

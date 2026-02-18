@@ -4,19 +4,12 @@
       <stop offset="0" stop-color="#0F766E"/>
       <stop offset="1" stop-color="#115E59"/>
     </linearGradient>
-    <linearGradient id="card" x1="240" y1="220" x2="760" y2="820" gradientUnits="userSpaceOnUse">
+    <linearGradient id="mark" x1="250" y1="260" x2="760" y2="840" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ECFEFF"/>
       <stop offset="1" stop-color="#CCFBF1"/>
     </linearGradient>
   </defs>
 
-  <g transform="translate(0 8)">
-    <rect x="80" y="80" width="864" height="864" rx="220" fill="url(#bg)"/>
-    <circle cx="788" cy="246" r="88" fill="#2DD4BF" fill-opacity="0.35"/>
-    <circle cx="260" cy="780" r="104" fill="#14B8A6" fill-opacity="0.28"/>
-
-    <g transform="translate(-35 12)">
-      <path d="M300 220h424c39 0 70 31 70 70v462c0 14-16 22-27 13l-145-117c-13-11-32-11-45 0L433 765c-12 9-28 1-28-13V290c0-39 31-70 70-70z" fill="url(#card)"/>
-    </g>
-  </g>
+  <rect x="80" y="80" width="864" height="864" rx="220" fill="url(#bg)"/>
+  <path d="M322 252h380c30 0 54 24 54 54v454c0 11-13 17-22 10L523 603a18 18 0 0 0-22 0L290 770c-9 7-22 1-22-10V306c0-30 24-54 54-54z" fill="url(#mark)"/>
 </svg>
