@@ -27,10 +27,13 @@ class AppController extends ChangeNotifier {
   final ExportService _exportService;
   final MaintenanceService _maintenanceService;
   final SyncCoordinator _syncCoordinator;
+  static const Duration _autoSyncDebounce = Duration(seconds: 12);
+  static const Duration _autoSyncMinInterval = Duration(minutes: 3);
   Timer? _refreshTimer;
   Timer? _autoSyncTimer;
   bool _pendingAutoSync = false;
   bool _startupSyncTriggered = false;
+  DateTime? _lastAutoSyncStartedAt;
 
   AppSettings? _settings;
   List<Bookmark> _bookmarks = const <Bookmark>[];
@@ -521,25 +524,50 @@ class AppController extends ChangeNotifier {
     if (current == null || !current.syncReady || !current.autoSyncOnChange) {
       return;
     }
+    if (_syncing) {
+      _pendingAutoSync = true;
+      return;
+    }
+    final DateTime now = DateTime.now();
+    final Duration delay = _calculateAutoSyncDelay(now);
     _autoSyncTimer?.cancel();
-    _autoSyncTimer = Timer(const Duration(seconds: 2), () {
-      unawaited(_runSync(userInitiated: false));
+    _autoSyncTimer = Timer(delay, () {
+      unawaited(_runSync(userInitiated: false, autoScheduled: true));
     });
   }
 
-  Future<bool> _runSync({required bool userInitiated}) async {
+  Duration _calculateAutoSyncDelay(DateTime now) {
+    final DateTime? last = _lastAutoSyncStartedAt;
+    if (last == null) {
+      return _autoSyncDebounce;
+    }
+    final DateTime cooldownEndsAt = last.add(_autoSyncMinInterval);
+    if (cooldownEndsAt.isAfter(now)) {
+      final Duration cooldown = cooldownEndsAt.difference(now);
+      return cooldown > _autoSyncDebounce ? cooldown : _autoSyncDebounce;
+    }
+    return _autoSyncDebounce;
+  }
+
+  Future<bool> _runSync({
+    required bool userInitiated,
+    bool autoScheduled = false,
+  }) async {
     final AppSettings? current = _settings;
     if (current == null || !current.syncReady) {
       return false;
     }
 
     if (_syncing) {
-      if (!userInitiated) {
+      if (autoScheduled) {
         _pendingAutoSync = true;
       }
       return false;
     }
 
+    if (autoScheduled) {
+      _lastAutoSyncStartedAt = DateTime.now();
+    }
     _syncing = true;
     notifyListeners();
     bool success = false;
@@ -579,7 +607,7 @@ class AppController extends ChangeNotifier {
       notifyListeners();
     }
 
-    if (!userInitiated && _pendingAutoSync) {
+    if (_pendingAutoSync) {
       _pendingAutoSync = false;
       _scheduleAutoSync();
     }

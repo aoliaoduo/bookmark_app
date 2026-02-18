@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.28',
+      notes: <String>[
+        '降低“变更后自动云同步”频率：从短延迟触发改为合并触发',
+        '新增自动同步最小间隔与冷却窗口，连续操作会批量合并后再同步，减少云端请求次数',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.27',
       notes: <String>[
         '应用图标最终定稿：仅保留居中书签主体，移除附加元素',
@@ -422,7 +429,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.27';
+        _versionLabel = 'v0.5.28';
       });
     }
   }
