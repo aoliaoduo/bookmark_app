@@ -1,47 +1,97 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    html, body {
-      margin: 0;
-      width: 1024px;
-      height: 1024px;
-      overflow: hidden;
-      background: transparent;
-    }
-    svg {
-      display: block;
-      width: 1024px;
-      height: 1024px;
-    }
-  </style>
-</head>
-<body>
-  <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bg" x1="160" y1="120" x2="900" y2="900" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#0F766E"/>
-        <stop offset="1" stop-color="#115E59"/>
-      </linearGradient>
-      <linearGradient id="card" x1="240" y1="220" x2="760" y2="820" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#ECFEFF"/>
-        <stop offset="1" stop-color="#CCFBF1"/>
-      </linearGradient>
-    </defs>
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            html,
+            body {
+                margin: 0;
+                width: 1024px;
+                height: 1024px;
+                overflow: hidden;
+                background: transparent;
+            }
+            svg {
+                display: block;
+                width: 1024px;
+                height: 1024px;
+            }
+        </style>
+    </head>
+    <body>
+        <svg
+            width="1024"
+            height="1024"
+            viewBox="0 0 1024 1024"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <defs>
+                <linearGradient
+                    id="bg"
+                    x1="160"
+                    y1="120"
+                    x2="900"
+                    y2="900"
+                    gradientUnits="userSpaceOnUse"
+                >
+                    <stop offset="0" stop-color="#0F766E" />
+                    <stop offset="1" stop-color="#115E59" />
+                </linearGradient>
+                <linearGradient
+                    id="card"
+                    x1="240"
+                    y1="220"
+                    x2="760"
+                    y2="820"
+                    gradientUnits="userSpaceOnUse"
+                >
+                    <stop offset="0" stop-color="#ECFEFF" />
+                    <stop offset="1" stop-color="#CCFBF1" />
+                </linearGradient>
+            </defs>
 
-    <rect x="80" y="80" width="864" height="864" rx="220" fill="url(#bg)"/>
-    <circle cx="788" cy="246" r="108" fill="#2DD4BF" fill-opacity="0.35"/>
-    <circle cx="260" cy="780" r="132" fill="#14B8A6" fill-opacity="0.28"/>
+            <g transform="translate(0 8)">
+                <rect
+                    x="80"
+                    y="80"
+                    width="864"
+                    height="864"
+                    rx="220"
+                    fill="url(#bg)"
+                />
+                <circle
+                    cx="788"
+                    cy="246"
+                    r="108"
+                    fill="#2DD4BF"
+                    fill-opacity="0.35"
+                />
+                <circle
+                    cx="260"
+                    cy="780"
+                    r="132"
+                    fill="#14B8A6"
+                    fill-opacity="0.28"
+                />
 
-    <path d="M300 220h424c39 0 70 31 70 70v462c0 14-16 22-27 13l-145-117c-13-11-32-11-45 0L433 765c-12 9-28 1-28-13V290c0-39 31-70 70-70z" fill="url(#card)"/>
+                <path
+                    d="M300 220h424c39 0 70 31 70 70v462c0 14-16 22-27 13l-145-117c-13-11-32-11-45 0L433 765c-12 9-28 1-28-13V290c0-39 31-70 70-70z"
+                    fill="url(#card)"
+                />
 
-    <g fill="none" stroke="#115E59" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M432 438l86-86a92 92 0 0 1 130 130l-76 76"/>
-      <path d="M592 586l-86 86a92 92 0 1 1-130-130l76-76"/>
-    </g>
+                <g
+                    fill="none"
+                    stroke="#115E59"
+                    stroke-width="56"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M432 438l86-86a92 92 0 0 1 130 130l-76 76" />
+                    <path d="M592 586l-86 86a92 92 0 1 1-130-130l76-76" />
+                </g>
 
-    <circle cx="512" cy="512" r="18" fill="#0F766E"/>
-  </svg>
-</body>
+                <circle cx="512" cy="512" r="18" fill="#0F766E" />
+            </g>
+        </svg>
+    </body>
 </html>

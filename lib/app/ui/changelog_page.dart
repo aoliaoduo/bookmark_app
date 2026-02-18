@@ -13,6 +13,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.23',
+      notes: <String>[
+        '应用图标对称性修复：主图形重新居中，上下边距统一，避免视觉偏移',
+        '重新生成 Windows/Android 启动图标资源，确保各端图标比例与位置一致',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.22',
       notes: <String>[
         '修复“输入网址”区域仍出现内层框的问题：输入框改为完全无内层装饰，不再继承全局填充样式',
@@ -388,7 +395,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.22';
+        _versionLabel = 'v0.5.23';
       });
     }
   }
