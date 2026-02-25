@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.31',
+      notes: <String>[
+        '修复 Windows 迁移数据风险：迁移时会同时处理 bookmark_app.db / -wal / -shm，避免 WAL 未合并导致的新数据丢失。',
+        '强化 WebDAV 安全策略：仅允许 HTTPS Base URL，并在设置保存、就绪判断与同步执行前多层校验。',
+        '修复 Base URL 规范化误截断：仅在路径段精确匹配 BookmarksApp 且属于约定目录结构时才裁剪。',
+        '优化仓库性能：批量 ID 加载改为 IN 查询；sync_outbox 新增 bookmark_id 索引字段并优先按索引删除。',
+        '优化启动同步行为：启动同步失败时不再继续发起 Markdown 备份请求。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.30',
       notes: <String>[
         '修复启动同步语义：关闭“启动后自动云同步”时，不再在启动时上传 Markdown 备份。',

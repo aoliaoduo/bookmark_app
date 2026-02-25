@@ -26,11 +26,11 @@ class WebDavSyncProvider implements SyncProvider {
     required WebDavConfig config,
     http.Client? client,
     Duration requestTimeout = const Duration(seconds: 25),
-  }) : _config = config,
-       _client = client ?? http.Client(),
-       _ownsClient = client == null,
-       _baseUri = _parseBaseUri(config.baseUrl),
-       _requestTimeout = requestTimeout;
+  })  : _config = config,
+        _client = client ?? http.Client(),
+        _ownsClient = client == null,
+        _baseUri = _parseBaseUri(config.baseUrl),
+        _requestTimeout = requestTimeout;
 
   final WebDavConfig _config;
   final http.Client _client;
@@ -387,16 +387,18 @@ class WebDavSyncProvider implements SyncProvider {
 
   static Uri _parseBaseUri(String rawBaseUrl) {
     final Uri uri = Uri.parse(rawBaseUrl.trim());
-    final String normalizedPath = uri.path.isEmpty
-        ? ''
-        : uri.path.replaceFirst(RegExp(r'/+$'), '');
+    if (uri.scheme.toLowerCase() != 'https' || !uri.hasAuthority) {
+      throw ArgumentError('WebDAV base URL must use https://');
+    }
+    final String normalizedPath =
+        uri.path.isEmpty ? '' : uri.path.replaceFirst(RegExp(r'/+$'), '');
     return uri.replace(path: normalizedPath, query: null, fragment: null);
   }
 
   Iterable<XmlElement> _findAllByLocalName(XmlNode node, String localName) {
     return node.descendants.whereType<XmlElement>().where(
-      (XmlElement element) => element.name.local == localName,
-    );
+          (XmlElement element) => element.name.local == localName,
+        );
   }
 
   String _encodePathSegment(String raw) {
@@ -497,9 +499,8 @@ class WebDavRequestException implements Exception {
     }
     if (responseBody != null && responseBody!.trim().isNotEmpty) {
       final String trimmed = responseBody!.trim();
-      final String snippet = trimmed.length <= 180
-          ? trimmed
-          : '${trimmed.substring(0, 180)}...';
+      final String snippet =
+          trimmed.length <= 180 ? trimmed : '${trimmed.substring(0, 180)}...';
       buffer.write(', body=$snippet');
     }
     if (cause != null) {

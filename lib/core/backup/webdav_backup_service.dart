@@ -13,11 +13,11 @@ class WebDavBackupService {
     required WebDavConfig config,
     http.Client? client,
     Duration requestTimeout = const Duration(seconds: 25),
-  }) : _config = config,
-       _client = client ?? http.Client(),
-       _ownsClient = client == null,
-       _baseUri = _parseBaseUri(config.baseUrl),
-       _requestTimeout = requestTimeout;
+  })  : _config = config,
+        _client = client ?? http.Client(),
+        _ownsClient = client == null,
+        _baseUri = _parseBaseUri(config.baseUrl),
+        _requestTimeout = requestTimeout;
 
   final WebDavConfig _config;
   final http.Client _client;
@@ -47,9 +47,8 @@ class WebDavBackupService {
     await _mkcol(snapshotsDir);
 
     final Uri uri = _buildUri(path);
-    final List<Map<String, dynamic>> bookmarkObjects = bookmarks
-        .map((Bookmark b) => b.toJson())
-        .toList();
+    final List<Map<String, dynamic>> bookmarkObjects =
+        bookmarks.map((Bookmark b) => b.toJson()).toList();
     final String digest = _snapshotDigest(bookmarkObjects);
     final String payload = jsonEncode(<String, dynamic>{
       'schemaVersion': 2,
@@ -138,9 +137,8 @@ class WebDavBackupService {
     final Uri uri = _buildUri(path);
     final http.Response response;
     try {
-      response = await _client
-          .get(uri, headers: _headers())
-          .timeout(_requestTimeout);
+      response =
+          await _client.get(uri, headers: _headers()).timeout(_requestTimeout);
     } on TimeoutException catch (e) {
       throw WebDavRequestException(
         'Snapshot download timed out',
@@ -159,9 +157,8 @@ class WebDavBackupService {
     final Map<String, dynamic> json = _decodeJsonObject(response);
     final List<dynamic> rawBookmarks =
         json['bookmarks'] as List<dynamic>? ?? const <dynamic>[];
-    final List<Map<String, dynamic>> bookmarkObjects = rawBookmarks
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .toList();
+    final List<Map<String, dynamic>> bookmarkObjects =
+        rawBookmarks.map((dynamic e) => e as Map<String, dynamic>).toList();
     _validateSnapshot(json, bookmarkObjects);
     return bookmarkObjects.map(Bookmark.fromJson).toList();
   }
@@ -196,18 +193,14 @@ class WebDavBackupService {
   }
 
   String _snapshotFileName(DateTime now) {
-    final String ts = now
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .replaceAll('.', '-');
+    final String ts =
+        now.toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
     return 'bookmarks_$ts.json';
   }
 
   String _markdownFileName(DateTime now) {
-    final String ts = now
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .replaceAll('.', '-');
+    final String ts =
+        now.toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
     return 'bookmarks_links_$ts.md';
   }
 
@@ -279,9 +272,11 @@ class WebDavBackupService {
 
   static Uri _parseBaseUri(String rawBaseUrl) {
     final Uri uri = Uri.parse(rawBaseUrl.trim());
-    final String normalizedPath = uri.path.isEmpty
-        ? ''
-        : uri.path.replaceFirst(RegExp(r'/+$'), '');
+    if (uri.scheme.toLowerCase() != 'https' || !uri.hasAuthority) {
+      throw ArgumentError('WebDAV base URL must use https://');
+    }
+    final String normalizedPath =
+        uri.path.isEmpty ? '' : uri.path.replaceFirst(RegExp(r'/+$'), '');
     return uri.replace(path: normalizedPath, query: null, fragment: null);
   }
 

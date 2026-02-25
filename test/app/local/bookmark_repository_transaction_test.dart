@@ -117,6 +117,7 @@ CREATE TABLE bookmarks(
 CREATE TABLE sync_outbox(
   op_id TEXT PRIMARY KEY,
   op_type TEXT NOT NULL,
+  bookmark_id TEXT,
   bookmark_json TEXT NOT NULL,
   occurred_at TEXT NOT NULL,
   device_id TEXT NOT NULL,

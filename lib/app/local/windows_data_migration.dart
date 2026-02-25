@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 class WindowsDataMigration {
   static const List<String> _filesToMigrate = <String>[
     'bookmark_app.db',
+    'bookmark_app.db-wal',
+    'bookmark_app.db-shm',
     'shared_preferences.json',
     'flutter_secure_storage.dat',
   ];
@@ -52,7 +54,10 @@ class WindowsDataMigration {
     if (!shouldCopy) {
       final int sourceSize = await source.length();
       final int targetSize = await target.length();
-      shouldCopy = sourceSize > targetSize;
+      final DateTime sourceModifiedAt = await source.lastModified();
+      final DateTime targetModifiedAt = await target.lastModified();
+      shouldCopy = sourceSize != targetSize ||
+          sourceModifiedAt.isAfter(targetModifiedAt);
     }
 
     if (!shouldCopy) {

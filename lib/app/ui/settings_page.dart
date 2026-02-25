@@ -202,6 +202,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _save() {
     final int days = int.tryParse(_daysController.text.trim()) ?? 7;
+    final String baseUrl = _baseUrlController.text.trim();
+    if (_webDavEnabled &&
+        baseUrl.isNotEmpty &&
+        !AppSettings.isSecureWebDavBaseUrl(baseUrl)) {
+      _showSnack('WebDAV Base URL 必须使用 https://');
+      return;
+    }
     final AppSettings next = widget.settings.copyWith(
       titleRefreshDays: days < 1 ? 1 : days,
       autoRefreshOnLaunch: _autoRefreshOnLaunch,
@@ -209,11 +216,18 @@ class _SettingsPageState extends State<SettingsPage> {
       autoSyncOnChange: _autoSyncOnChange,
       themePreference: _themePreference,
       webDavEnabled: _webDavEnabled,
-      webDavBaseUrl: _baseUrlController.text.trim(),
+      webDavBaseUrl: baseUrl,
       webDavUserId: _userIdController.text.trim(),
       webDavUsername: _usernameController.text.trim(),
       webDavPassword: _passwordController.text,
     );
     Navigator.of(context).pop(next);
+  }
+
+  void _showSnack(String message) {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }

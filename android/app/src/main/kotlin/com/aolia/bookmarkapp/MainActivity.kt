@@ -1,4 +1,4 @@
-package com.example.bookmark_app
+package com.aolia.bookmarkapp
 
 import io.flutter.embedding.android.FlutterActivity
 

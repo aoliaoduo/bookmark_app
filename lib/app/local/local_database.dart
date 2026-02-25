@@ -49,7 +49,7 @@ class LocalDatabase {
 
     return openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onConfigure: (Database db) async {
         await _configurePragmas(db);
       },
@@ -73,6 +73,7 @@ CREATE TABLE bookmarks(
 CREATE TABLE sync_outbox(
   op_id TEXT PRIMARY KEY,
   op_type TEXT NOT NULL,
+  bookmark_id TEXT,
   bookmark_json TEXT NOT NULL,
   occurred_at TEXT NOT NULL,
   device_id TEXT NOT NULL,
@@ -99,6 +100,9 @@ CREATE TABLE sync_tombstones(
           'CREATE INDEX idx_outbox_pushed ON sync_outbox(pushed, occurred_at)',
         );
         await db.execute(
+          'CREATE INDEX idx_outbox_bookmark_pending ON sync_outbox(bookmark_id, pushed, occurred_at)',
+        );
+        await db.execute(
           'CREATE INDEX idx_bookmarks_updated ON bookmarks(updated_at)',
         );
         await db.execute(
@@ -118,6 +122,15 @@ CREATE TABLE IF NOT EXISTS sync_tombstones(
             'CREATE INDEX IF NOT EXISTS idx_tombstones_expire ON sync_tombstones(expire_at)',
           );
         }
+        if (oldVersion < 3) {
+          await _tryExecute(
+            db,
+            'ALTER TABLE sync_outbox ADD COLUMN bookmark_id TEXT',
+          );
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_outbox_bookmark_pending ON sync_outbox(bookmark_id, pushed, occurred_at)',
+          );
+        }
       },
     );
   }
@@ -134,12 +147,20 @@ CREATE TABLE IF NOT EXISTS sync_tombstones(
   Future<void> _tryExecute(Database db, String sql) async {
     try {
       await db.execute(sql);
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Ignored SQLite execute error: $sql; $e');
+      }
+    }
   }
 
   Future<void> _tryRawQuery(Database db, String sql) async {
     try {
       await db.rawQuery(sql);
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Ignored SQLite query error: $sql; $e');
+      }
+    }
   }
 }

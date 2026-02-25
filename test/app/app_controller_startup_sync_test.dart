@@ -44,9 +44,29 @@ void main() {
       expect(harness.syncCoordinator.markdownBackupCalls, 1);
     },
   );
+
+  test(
+    'runStartupSyncIfNeeded skips markdown backup when startup sync fails',
+    () async {
+      final _Harness harness = await _createHarness(
+        autoSyncOnLaunch: true,
+        syncShouldSucceed: false,
+      );
+      addTearDown(harness.dispose);
+
+      final bool success = await harness.controller.runStartupSyncIfNeeded();
+
+      expect(success, isFalse);
+      expect(harness.syncCoordinator.syncCalls, 1);
+      expect(harness.syncCoordinator.markdownBackupCalls, 0);
+    },
+  );
 }
 
-Future<_Harness> _createHarness({required bool autoSyncOnLaunch}) async {
+Future<_Harness> _createHarness({
+  required bool autoSyncOnLaunch,
+  bool syncShouldSucceed = true,
+}) async {
   final Database db = await _openDb();
   final AppSettings settings = _buildSettings(
     autoSyncOnLaunch: autoSyncOnLaunch,
@@ -59,6 +79,7 @@ Future<_Harness> _createHarness({required bool autoSyncOnLaunch}) async {
   final _FakeSettingsStore settingsStore = _FakeSettingsStore(settings);
   final _RecordingSyncCoordinator syncCoordinator = _RecordingSyncCoordinator(
     repository: repository,
+    syncShouldSucceed: syncShouldSucceed,
   );
   final AppController controller = AppController(
     repository: repository,
@@ -125,10 +146,14 @@ class _FakeSettingsStore extends SettingsStore {
 }
 
 class _RecordingSyncCoordinator extends SyncCoordinator {
-  _RecordingSyncCoordinator({required super.repository});
+  _RecordingSyncCoordinator({
+    required super.repository,
+    required this.syncShouldSucceed,
+  });
 
   int syncCalls = 0;
   int markdownBackupCalls = 0;
+  final bool syncShouldSucceed;
 
   @override
   Future<SyncRunDiagnostics> syncNow(AppSettings settings) async {
@@ -138,8 +163,9 @@ class _RecordingSyncCoordinator extends SyncCoordinator {
       startedAt: at,
       finishedAt: at,
       attemptCount: 1,
-      success: true,
+      success: syncShouldSucceed,
       engineReport: null,
+      errorMessage: syncShouldSucceed ? null : 'forced startup sync failure',
     );
   }
 
@@ -175,6 +201,7 @@ CREATE TABLE bookmarks(
 CREATE TABLE sync_outbox(
   op_id TEXT PRIMARY KEY,
   op_type TEXT NOT NULL,
+  bookmark_id TEXT,
   bookmark_json TEXT NOT NULL,
   occurred_at TEXT NOT NULL,
   device_id TEXT NOT NULL,

@@ -82,12 +82,31 @@ class AppSettings {
   final String webDavUsername;
   final String webDavPassword;
 
+  bool get webDavUsesHttps {
+    return isSecureWebDavBaseUrl(webDavBaseUrl);
+  }
+
   bool get syncReady {
     return webDavEnabled &&
+        webDavUsesHttps &&
         webDavBaseUrl.trim().isNotEmpty &&
         webDavUserId.trim().isNotEmpty &&
         webDavUsername.trim().isNotEmpty &&
         webDavPassword.isNotEmpty;
+  }
+
+  static bool isSecureWebDavBaseUrl(String input) {
+    final String trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri == null) {
+      return false;
+    }
+    return uri.scheme.toLowerCase() == 'https' &&
+        uri.hasAuthority &&
+        uri.host.trim().isNotEmpty;
   }
 
   AppSettings copyWith({

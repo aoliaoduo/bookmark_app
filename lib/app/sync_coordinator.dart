@@ -3,12 +3,64 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import 'local/bookmark_repository.dart';
-import 'settings/app_settings.dart';
 import '../core/backup/webdav_backup_service.dart';
 import '../core/domain/bookmark.dart';
 import '../core/sync/sync_engine.dart';
 import '../core/sync/webdav_sync_provider.dart';
+import 'local/bookmark_repository.dart';
+import 'settings/app_settings.dart';
+
+String normalizeWebDavBaseUrl(String input) {
+  final String trimmed = input.trim();
+  if (trimmed.isEmpty) return trimmed;
+  final String noTrailingSlash = trimmed.endsWith('/')
+      ? trimmed.substring(0, trimmed.length - 1)
+      : trimmed;
+  final Uri? parsed = Uri.tryParse(noTrailingSlash);
+  if (parsed == null || !parsed.hasScheme || !parsed.hasAuthority) {
+    return noTrailingSlash;
+  }
+
+  final List<String> segments = parsed.pathSegments;
+  final int markerIndex = segments.indexWhere(
+    (String segment) => segment.toLowerCase() == 'bookmarksapp',
+  );
+  if (markerIndex < 0 || !_shouldTrimBookmarksAppTail(segments, markerIndex)) {
+    return _toUriWithoutQueryOrFragment(
+      parsed,
+      path: parsed.path,
+    ).toString().replaceFirst(RegExp(r'/$'), '');
+  }
+
+  final List<String> normalizedSegments = segments.sublist(0, markerIndex);
+  final String normalizedPath =
+      normalizedSegments.isEmpty ? '' : '/${normalizedSegments.join('/')}';
+  return _toUriWithoutQueryOrFragment(
+    parsed,
+    path: normalizedPath,
+  ).toString().replaceFirst(RegExp(r'/$'), '');
+}
+
+bool _shouldTrimBookmarksAppTail(List<String> segments, int markerIndex) {
+  if (markerIndex == segments.length - 1) {
+    return true;
+  }
+  if (markerIndex + 1 >= segments.length) {
+    return false;
+  }
+  final String nextSegment = segments[markerIndex + 1].toLowerCase();
+  return nextSegment == 'users' || nextSegment == 'ussers';
+}
+
+Uri _toUriWithoutQueryOrFragment(Uri parsed, {required String path}) {
+  return Uri(
+    scheme: parsed.scheme,
+    userInfo: parsed.userInfo,
+    host: parsed.host,
+    port: parsed.hasPort ? parsed.port : null,
+    path: path,
+  );
+}
 
 class SyncRunDiagnostics {
   const SyncRunDiagnostics({
@@ -43,7 +95,7 @@ class SyncRunDiagnostics {
 
 class SyncCoordinator {
   SyncCoordinator({required BookmarkRepository repository})
-    : _repository = repository;
+      : _repository = repository;
 
   static const int _maxAttempts = 3;
   static const List<Duration> _retryDelay = <Duration>[
@@ -58,7 +110,7 @@ class SyncCoordinator {
     final DateTime startedAt = DateTime.now();
 
     final WebDavConfig config = WebDavConfig(
-      baseUrl: _normalizeBaseUrl(settings.webDavBaseUrl),
+      baseUrl: normalizeWebDavBaseUrl(settings.webDavBaseUrl),
       username: settings.webDavUsername,
       password: settings.webDavPassword,
     );
@@ -107,7 +159,7 @@ class SyncCoordinator {
 
     final WebDavBackupService backupService = WebDavBackupService(
       config: WebDavConfig(
-        baseUrl: _normalizeBaseUrl(settings.webDavBaseUrl),
+        baseUrl: normalizeWebDavBaseUrl(settings.webDavBaseUrl),
         username: settings.webDavUsername,
         password: settings.webDavPassword,
       ),
@@ -137,7 +189,7 @@ class SyncCoordinator {
 
     final WebDavBackupService backupService = WebDavBackupService(
       config: WebDavConfig(
-        baseUrl: _normalizeBaseUrl(settings.webDavBaseUrl),
+        baseUrl: normalizeWebDavBaseUrl(settings.webDavBaseUrl),
         username: settings.webDavUsername,
         password: settings.webDavPassword,
       ),
@@ -163,30 +215,9 @@ class SyncCoordinator {
     if (!settings.syncReady) {
       throw StateError('请先在设置页配置 WebDAV 信息');
     }
-  }
-
-  String _normalizeBaseUrl(String input) {
-    final String trimmed = input.trim();
-    if (trimmed.isEmpty) return trimmed;
-    final String noTrailingSlash = trimmed.endsWith('/')
-        ? trimmed.substring(0, trimmed.length - 1)
-        : trimmed;
-    final Uri? parsed = Uri.tryParse(noTrailingSlash);
-    if (parsed == null || !parsed.hasScheme || !parsed.hasAuthority) {
-      return noTrailingSlash;
+    if (!settings.webDavUsesHttps) {
+      throw StateError('WebDAV Base URL 必须使用 https://');
     }
-
-    final String marker = '/bookmarksapp';
-    final String lowerPath = parsed.path.toLowerCase();
-    final int markerIndex = lowerPath.indexOf(marker);
-    final String normalizedPath = markerIndex >= 0
-        ? parsed.path.substring(0, markerIndex)
-        : parsed.path;
-
-    return parsed
-        .replace(path: normalizedPath)
-        .toString()
-        .replaceFirst(RegExp(r'/$'), '');
   }
 
   Future<_RetryOutcome<T>> _runWithRetry<T>(Future<T> Function() task) async {

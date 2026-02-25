@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 class SlimDownResult {
@@ -96,7 +97,10 @@ class MaintenanceService {
   Future<List<Map<String, Object?>>> _tryRawQuery(String sql) async {
     try {
       return await _db.rawQuery(sql);
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Ignored maintenance rawQuery error: $sql; $e');
+      }
       return <Map<String, Object?>>[];
     }
   }
@@ -104,7 +108,11 @@ class MaintenanceService {
   Future<void> _tryExecute(String sql) async {
     try {
       await _db.execute(sql);
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Ignored maintenance execute error: $sql; $e');
+      }
+    }
   }
 
   Future<int> _safeDbSize() async {
@@ -112,7 +120,10 @@ class MaintenanceService {
       final File file = File(_db.path);
       if (!await file.exists()) return 0;
       return (await file.length());
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Ignored db size stat error: ${_db.path}; $e');
+      }
       return 0;
     }
   }
