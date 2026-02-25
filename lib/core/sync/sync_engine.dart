@@ -7,6 +7,14 @@ abstract class LocalStore {
   Future<void> markOpsAsPushed(List<String> opIds);
   Future<DateTime> lastPulledAt();
   Future<void> saveLastPulledAt(DateTime timestamp);
+  Future<List<String>> lastPulledPathsAtCursor() async => const <String>[];
+  Future<void> saveLastPulledCursor({
+    required DateTime timestamp,
+    required List<String> pathsAtTimestamp,
+  }) async {
+    await saveLastPulledAt(timestamp);
+  }
+
   Future<Bookmark?> findBookmarkById(String bookmarkId);
   Future<DateTime?> findTombstoneAt(String bookmarkId);
   Future<void> saveTombstone(String bookmarkId, DateTime deletedAt);
@@ -71,12 +79,19 @@ class SyncEngine {
     }
 
     final DateTime since = await localStore.lastPulledAt();
+    final Set<String> pathsAtCursor =
+        (await localStore.lastPulledPathsAtCursor())
+            .map((String path) => path.trim())
+            .where((String path) => path.isNotEmpty)
+            .toSet();
     final List<PulledSyncBatch> remoteBatches = await syncProvider.pullOpsSince(
       userId: userId,
       since: since,
+      pathsAtCursor: pathsAtCursor,
     );
 
     DateTime maxPulled = since;
+    final Set<String> maxCursorPaths = <String>{...pathsAtCursor};
     final Set<String> seenOpIds = <String>{};
     final Map<String, SyncOp> latestByBookmarkId = <String, SyncOp>{};
     int pulledOpsCount = 0;
@@ -101,6 +116,11 @@ class SyncEngine {
       }
       if (pulled.cursorAt.isAfter(maxPulled)) {
         maxPulled = pulled.cursorAt;
+        maxCursorPaths
+          ..clear()
+          ..add(pulled.sourcePath);
+      } else if (pulled.cursorAt.isAtSameMomentAs(maxPulled)) {
+        maxCursorPaths.add(pulled.sourcePath);
       }
     }
 
@@ -136,7 +156,10 @@ class SyncEngine {
       appliedUpserts += 1;
     }
 
-    await localStore.saveLastPulledAt(maxPulled);
+    await localStore.saveLastPulledCursor(
+      timestamp: maxPulled,
+      pathsAtTimestamp: maxCursorPaths.toList()..sort(),
+    );
     return SyncEngineReport(
       localPendingOps: pendingOpsCount,
       pushedOps: pendingOpsCount,

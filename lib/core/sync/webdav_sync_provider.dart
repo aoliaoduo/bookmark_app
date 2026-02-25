@@ -99,8 +99,11 @@ class WebDavSyncProvider implements SyncProvider {
   Future<List<PulledSyncBatch>> pullOpsSince({
     required String userId,
     required DateTime since,
+    Set<String> pathsAtCursor = const <String>{},
   }) async {
     final String encodedUserId = _encodePathSegment(userId);
+    final Set<String> normalizedCursorPaths =
+        pathsAtCursor.map((String path) => _normalizePath(path)).toSet();
     final List<String> roots = <String>[
       '/BookmarksApp/users/$encodedUserId/devices/',
       '/BookmarksApp/ussers/$encodedUserId/devices/',
@@ -121,9 +124,15 @@ class WebDavSyncProvider implements SyncProvider {
 
     for (final _DavEntry file in files) {
       final String relativePath = file.path;
+      final String normalizedPath = _normalizePath(relativePath);
       if (!relativePath.contains('/ops/')) continue;
       final DateTime? lastModified = file.lastModified;
       if (lastModified != null && lastModified.isBefore(since)) {
+        continue;
+      }
+      if (lastModified != null &&
+          lastModified.isAtSameMomentAs(since) &&
+          normalizedCursorPaths.contains(normalizedPath)) {
         continue;
       }
 
@@ -147,6 +156,7 @@ class WebDavSyncProvider implements SyncProvider {
           PulledSyncBatch(
             batch: batch,
             cursorAt: lastModified ?? batch.createdAt,
+            sourcePath: normalizedPath,
           ),
         );
       } else if (!(response.statusCode == 404 || response.statusCode == 409)) {

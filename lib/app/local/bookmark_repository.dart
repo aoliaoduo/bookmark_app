@@ -33,6 +33,8 @@ class BookmarkRepository implements LocalStore {
   final Uuid _uuid = const Uuid();
   static const Duration _tombstoneRetention = Duration(days: 365);
   static const int _idQueryChunkSize = 400;
+  static const String _lastPulledAtKey = 'last_pulled_at';
+  static const String _lastPulledPathsKey = 'last_pulled_paths_at_cursor';
 
   void dispose() {
     _metadataService.close();
@@ -533,7 +535,7 @@ class BookmarkRepository implements LocalStore {
     final List<Map<String, Object?>> rows = await _db.query(
       'sync_state',
       where: 'key = ?',
-      whereArgs: <Object?>['last_pulled_at'],
+      whereArgs: <Object?>[_lastPulledAtKey],
       limit: 1,
     );
     if (rows.isEmpty) {
@@ -544,13 +546,70 @@ class BookmarkRepository implements LocalStore {
 
   @override
   Future<void> saveLastPulledAt(DateTime timestamp) async {
-    await _db.insert(
-        'sync_state',
-        <String, Object?>{
-          'key': 'last_pulled_at',
-          'value': timestamp.toUtc().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await saveLastPulledCursor(
+      timestamp: timestamp,
+      pathsAtTimestamp: const <String>[],
+    );
+  }
+
+  @override
+  Future<List<String>> lastPulledPathsAtCursor() async {
+    final List<Map<String, Object?>> rows = await _db.query(
+      'sync_state',
+      where: 'key = ?',
+      whereArgs: <Object?>[_lastPulledPathsKey],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return const <String>[];
+    }
+
+    final String raw = (rows.first['value'] as String?)?.trim() ?? '';
+    if (raw.isEmpty) {
+      return const <String>[];
+    }
+    try {
+      final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
+      final Set<String> unique = decoded
+          .map((dynamic item) => item.toString().trim())
+          .where((String item) => item.isNotEmpty)
+          .toSet();
+      final List<String> result = unique.toList()..sort();
+      return result;
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  @override
+  Future<void> saveLastPulledCursor({
+    required DateTime timestamp,
+    required List<String> pathsAtTimestamp,
+  }) async {
+    final List<String> normalizedPaths = pathsAtTimestamp
+        .map((String path) => path.trim())
+        .where((String path) => path.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    await _db.transaction((Transaction txn) async {
+      await txn.insert(
+          'sync_state',
+          <String, Object?>{
+            'key': _lastPulledAtKey,
+            'value': timestamp.toUtc().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+
+      await txn.insert(
+          'sync_state',
+          <String, Object?>{
+            'key': _lastPulledPathsKey,
+            'value': jsonEncode(normalizedPaths),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    });
   }
 
   @override

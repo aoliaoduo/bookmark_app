@@ -189,15 +189,79 @@ void main() {
     expect(report.filteredDuplicateOps, 1);
     expect(report.appliedUpserts, 1);
   });
+
+  test('syncOnce passes cursor paths to provider and persists new max paths',
+      () async {
+    final DateTime since = DateTime.utc(2026, 2, 16, 14, 0, 0);
+    final _FakeLocalStore local = _FakeLocalStore(
+      pendingOps: const <SyncOp>[],
+      lastPulled: since,
+      lastPulledPathsAtCursor: <String>['/ops/already-seen.json'],
+    );
+    final _FakeSyncProvider provider = _FakeSyncProvider(
+      pulled: <PulledSyncBatch>[
+        PulledSyncBatch(
+          batch: SyncBatch(
+            deviceId: 'remote-device',
+            createdAt: since,
+            ops: <SyncOp>[
+              SyncOp(
+                opId: 'op-a',
+                type: SyncOpType.upsert,
+                bookmark: _bookmark('b-a'),
+                occurredAt: since,
+                deviceId: 'remote-device',
+              ),
+            ],
+          ),
+          cursorAt: since.add(const Duration(minutes: 1)),
+          sourcePath: '/ops/new-a.json',
+        ),
+        PulledSyncBatch(
+          batch: SyncBatch(
+            deviceId: 'remote-device',
+            createdAt: since,
+            ops: <SyncOp>[
+              SyncOp(
+                opId: 'op-b',
+                type: SyncOpType.upsert,
+                bookmark: _bookmark('b-b'),
+                occurredAt: since,
+                deviceId: 'remote-device',
+              ),
+            ],
+          ),
+          cursorAt: since.add(const Duration(minutes: 1)),
+          sourcePath: '/ops/new-b.json',
+        ),
+      ],
+    );
+
+    final SyncEngine engine = SyncEngine(
+      localStore: local,
+      syncProvider: provider,
+      userId: 'u1',
+      deviceId: 'd1',
+    );
+
+    await engine.syncOnce();
+
+    expect(provider.lastPathsAtCursor, <String>{'/ops/already-seen.json'});
+    expect(local.savedCursor, since.add(const Duration(minutes: 1)));
+    expect(
+        local.savedCursorPaths, <String>['/ops/new-a.json', '/ops/new-b.json']);
+  });
 }
 
 class _FakeLocalStore implements LocalStore {
   _FakeLocalStore({
     required List<SyncOp> pendingOps,
     required DateTime lastPulled,
+    List<String> lastPulledPathsAtCursor = const <String>[],
     List<Bookmark> initialBookmarks = const <Bookmark>[],
   })  : _pendingOps = pendingOps,
-        _lastPulled = lastPulled {
+        _lastPulled = lastPulled,
+        _lastPulledPathsAtCursor = lastPulledPathsAtCursor {
     for (final Bookmark bookmark in initialBookmarks) {
       _records[bookmark.id] = bookmark;
     }
@@ -205,18 +269,25 @@ class _FakeLocalStore implements LocalStore {
 
   final List<SyncOp> _pendingOps;
   final DateTime _lastPulled;
+  final List<String> _lastPulledPathsAtCursor;
   final List<Bookmark> upserted = <Bookmark>[];
   final List<String> deletedIds = <String>[];
   final List<String> markedOpIds = <String>[];
   final Map<String, Bookmark> _records = <String, Bookmark>{};
   final Map<String, DateTime> _tombstones = <String, DateTime>{};
   DateTime? savedCursor;
+  List<String> savedCursorPaths = const <String>[];
 
   @override
   Future<DateTime> lastPulledAt() async => _lastPulled;
 
   @override
   Future<List<SyncOp>> loadPendingOps() async => _pendingOps;
+
+  @override
+  Future<List<String>> lastPulledPathsAtCursor() async {
+    return _lastPulledPathsAtCursor;
+  }
 
   @override
   Future<Bookmark?> findBookmarkById(String bookmarkId) async {
@@ -236,6 +307,15 @@ class _FakeLocalStore implements LocalStore {
   @override
   Future<void> saveLastPulledAt(DateTime timestamp) async {
     savedCursor = timestamp;
+  }
+
+  @override
+  Future<void> saveLastPulledCursor({
+    required DateTime timestamp,
+    required List<String> pathsAtTimestamp,
+  }) async {
+    savedCursor = timestamp;
+    savedCursorPaths = pathsAtTimestamp;
   }
 
   @override
@@ -266,12 +346,15 @@ class _FakeSyncProvider implements SyncProvider {
 
   final List<PulledSyncBatch> pulled;
   final List<SyncOp> pushedOps = <SyncOp>[];
+  Set<String> lastPathsAtCursor = const <String>{};
 
   @override
   Future<List<PulledSyncBatch>> pullOpsSince({
     required String userId,
     required DateTime since,
+    Set<String> pathsAtCursor = const <String>{},
   }) async {
+    lastPathsAtCursor = pathsAtCursor;
     return pulled;
   }
 

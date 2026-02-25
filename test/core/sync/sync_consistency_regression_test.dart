@@ -366,8 +366,10 @@ class _MemoryLocalStore implements LocalStore {
     required List<SyncOp> pendingOps,
     List<Bookmark> initialBookmarks = const <Bookmark>[],
     Map<String, DateTime> initialTombstones = const <String, DateTime>{},
+    List<String> lastPulledPathsAtCursor = const <String>[],
   })  : _lastPulled = lastPulled,
-        _pendingOps = pendingOps {
+        _pendingOps = pendingOps,
+        _lastPulledPathsAtCursor = lastPulledPathsAtCursor {
     for (final Bookmark bookmark in initialBookmarks) {
       _bookmarks[bookmark.id] = bookmark;
     }
@@ -376,6 +378,7 @@ class _MemoryLocalStore implements LocalStore {
 
   final DateTime _lastPulled;
   final List<SyncOp> _pendingOps;
+  final List<String> _lastPulledPathsAtCursor;
   final Map<String, Bookmark> _bookmarks = <String, Bookmark>{};
 
   final List<String> markedOpIds = <String>[];
@@ -383,6 +386,7 @@ class _MemoryLocalStore implements LocalStore {
   final List<Bookmark> upsertedBookmarks = <Bookmark>[];
   final Map<String, DateTime> _tombstones = <String, DateTime>{};
   DateTime? savedLastPulled;
+  List<String> savedPathsAtCursor = <String>[];
 
   @override
   Future<DateTime> lastPulledAt() async => _lastPulled;
@@ -398,6 +402,20 @@ class _MemoryLocalStore implements LocalStore {
   @override
   Future<void> saveLastPulledAt(DateTime timestamp) async {
     savedLastPulled = timestamp;
+  }
+
+  @override
+  Future<List<String>> lastPulledPathsAtCursor() async {
+    return _lastPulledPathsAtCursor;
+  }
+
+  @override
+  Future<void> saveLastPulledCursor({
+    required DateTime timestamp,
+    required List<String> pathsAtTimestamp,
+  }) async {
+    savedLastPulled = timestamp;
+    savedPathsAtCursor = List<String>.from(pathsAtTimestamp);
   }
 
   @override
@@ -442,6 +460,7 @@ class _StaticSyncProvider implements SyncProvider {
   Future<List<PulledSyncBatch>> pullOpsSince({
     required String userId,
     required DateTime since,
+    Set<String> pathsAtCursor = const <String>{},
   }) async {
     return pulled;
   }

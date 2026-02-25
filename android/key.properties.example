@@ -1,0 +1,9 @@
+# Android release signing template
+# 1. Copy this file to `android/key.properties`
+# 2. Fill in your real keystore values
+# 3. Keep `android/key.properties` private (already ignored by git)
+
+storeFile=../keystore/release.keystore
+storePassword=change_me
+keyAlias=release
+keyPassword=change_me

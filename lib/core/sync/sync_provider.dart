@@ -4,10 +4,12 @@ class PulledSyncBatch {
   const PulledSyncBatch({
     required this.batch,
     required this.cursorAt,
+    this.sourcePath = '',
   });
 
   final SyncBatch batch;
   final DateTime cursorAt;
+  final String sourcePath;
 }
 
 abstract class SyncProvider {
@@ -20,5 +22,6 @@ abstract class SyncProvider {
   Future<List<PulledSyncBatch>> pullOpsSince({
     required String userId,
     required DateTime since,
+    Set<String> pathsAtCursor = const <String>{},
   });
 }

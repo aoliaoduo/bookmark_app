@@ -13,6 +13,14 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.32',
+      notes: <String>[
+        '优化 WebDAV 拉取游标：在相同时间戳场景按文件路径去重，减少重复下载请求。',
+        '同步游标状态增强：本地持久化 cursor 对应路径集，兼顾性能与正确性。',
+        '补充 Android 发布签名模板：新增 key.properties.example 便于配置正式签名。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.31',
       notes: <String>[
         '修复 Windows 迁移数据风险：迁移时会同时处理 bookmark_app.db / -wal / -shm，避免 WAL 未合并导致的新数据丢失。',
