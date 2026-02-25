@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app_controller.dart';
@@ -11,6 +10,7 @@ import 'app/settings/app_settings.dart';
 import 'app/settings/settings_store.dart';
 import 'app/ui/home_page.dart';
 import 'core/metadata/metadata_fetch_service.dart';
+import 'platform/platform_services.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -264,13 +264,7 @@ class _BookmarkAppState extends State<BookmarkApp> {
   }
 
   String? _fontFamilyForPlatform() {
-    if (kIsWeb) {
-      return null;
-    }
-    if (defaultTargetPlatform == TargetPlatform.windows) {
-      return 'Microsoft YaHei';
-    }
-    return null;
+    return PlatformServices.instance.platform.preferredAppFontFamily();
   }
 
   Widget _buildHome() {

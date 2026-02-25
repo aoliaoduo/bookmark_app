@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.35',
+      notes: <String>[
+        '新增平台适配层：抽离 PlatformAdapter / FileDialogAdapter / PlatformServices，集中管理平台能力与差异。',
+        '数据库与迁移解耦平台判断：LocalDatabase 与 WindowsDataMigration 改为依赖适配层，不再内嵌平台分支。',
+        '导出路径选择适配化：HomePage 改用 FileDialogAdapter，后续可平滑接入 iOS/macOS/web 对话框实现。',
+        '新增迁移回归测试：覆盖“非 Windows 跳过迁移”与“Windows 同步迁移 db/wal/shm”场景。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.34',
       notes: <String>[
         '架构重构：新增 BookmarkUseCase / SyncUseCase / MaintenanceUseCase，AppController 收敛为状态聚合与事件分发。',

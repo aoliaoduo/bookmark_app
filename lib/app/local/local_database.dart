@@ -2,15 +2,19 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../platform/platform_adapter.dart';
+import '../../platform/platform_services.dart';
+
 class LocalDatabase {
-  LocalDatabase._();
+  LocalDatabase._({PlatformAdapter? platformAdapter})
+      : _platform = platformAdapter ?? PlatformServices.instance.platform;
 
   static final LocalDatabase instance = LocalDatabase._();
   Database? _database;
   Future<Database>? _openingDatabase;
+  final PlatformAdapter _platform;
 
   Future<Database> get database async {
     final Database? opened = _database;
@@ -37,13 +41,15 @@ class LocalDatabase {
   }
 
   Future<Database> _open() async {
-    if (!kIsWeb &&
-        (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    final PlatformCapabilities caps = _platform.capabilities;
+    if (!caps.isWeb && caps.isDesktop) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
 
-    final Directory appDir = await getApplicationSupportDirectory();
+    final Directory appDir = Directory(
+      await _platform.getApplicationSupportPath(),
+    );
     await appDir.create(recursive: true);
     final String dbPath = path.join(appDir.path, 'bookmark_app.db');
 

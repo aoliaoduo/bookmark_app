@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+
+import '../../platform/platform_adapter.dart';
+import '../../platform/platform_services.dart';
 
 class WindowsDataMigration {
   static const List<String> _filesToMigrate = <String>[
@@ -13,13 +15,16 @@ class WindowsDataMigration {
   ];
 
   static Future<void> migrateLegacyBookmarkAppData() async {
-    if (!Platform.isWindows) {
+    final PlatformAdapter platform = PlatformServices.instance.platform;
+    if (!platform.capabilities.isWindows) {
       return;
     }
 
-    final Directory currentDir = await getApplicationSupportDirectory();
+    final Directory currentDir = Directory(
+      await platform.getApplicationSupportPath(),
+    );
     final Directory legacyDir = Directory(
-      p.join(currentDir.parent.path, 'bookmark_app'),
+      p.join(p.dirname(currentDir.path), 'bookmark_app'),
     );
 
     final String currentPath = p.normalize(currentDir.path).toLowerCase();

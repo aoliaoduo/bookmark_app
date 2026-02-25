@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/domain/bookmark.dart';
 import '../../core/metadata/title_fetch_note.dart';
+import '../../platform/platform_services.dart';
 import '../app_controller.dart';
 import '../export/export_service.dart';
 import '../maintenance/maintenance_service.dart';
@@ -2529,12 +2529,13 @@ class _HomePageState extends State<HomePage> {
     required ExportFormat format,
     required String prefix,
   }) async {
+    final fileDialog = PlatformServices.instance.fileDialog;
     final String ext = _extensionForExportFormat(format);
     final String defaultName =
         '${prefix}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     try {
-      final String? savePath = await FilePicker.platform.saveFile(
+      final String? savePath = await fileDialog.saveFile(
         dialogTitle: '选择导出文件位置',
         fileName: defaultName,
       );
@@ -2547,7 +2548,7 @@ class _HomePageState extends State<HomePage> {
       // 某些平台不支持保存对话框，回退到目录选择。
     }
 
-    final String? dir = await FilePicker.platform.getDirectoryPath(
+    final String? dir = await fileDialog.pickDirectory(
       dialogTitle: '选择导出目录',
     );
     if (dir == null || dir.trim().isEmpty) {
