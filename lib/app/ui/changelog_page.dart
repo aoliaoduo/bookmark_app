@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.34',
+      notes: <String>[
+        '架构重构：新增 BookmarkUseCase / SyncUseCase / MaintenanceUseCase，AppController 收敛为状态聚合与事件分发。',
+        '初始化状态机：引入 booting / ready / degraded / failed 四态，启动失败链路状态明确。',
+        '同步门禁统一：sync 与 backup 统一串行队列调度，支持队列去重与取消，避免并发打架。',
+        '新增回归测试：覆盖初始化状态、同步排队与取消等关键行为。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.33',
       notes: <String>[
         '修复初始化失败链路：AppController.initialize 失败时会向上抛错，启动页可正确展示失败态，不再误判为初始化成功。',

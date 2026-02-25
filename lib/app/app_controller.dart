@@ -9,6 +9,16 @@ import 'maintenance/maintenance_service.dart';
 import 'settings/app_settings.dart';
 import 'settings/settings_store.dart';
 import 'sync_coordinator.dart';
+import 'usecase/bookmark_use_case.dart';
+import 'usecase/maintenance_use_case.dart';
+import 'usecase/sync_use_case.dart';
+
+enum AppBootstrapState {
+  booting,
+  ready,
+  degraded,
+  failed,
+}
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -17,23 +27,46 @@ class AppController extends ChangeNotifier {
     required ExportService exportService,
     required MaintenanceService maintenanceService,
     SyncCoordinator? syncCoordinator,
-  })  : _repository = repository,
-        _settingsStore = settingsStore,
-        _exportService = exportService,
-        _maintenanceService = maintenanceService,
-        _syncCoordinator =
-            syncCoordinator ?? SyncCoordinator(repository: repository);
+    BookmarkUseCase? bookmarkUseCase,
+    SyncUseCase? syncUseCase,
+    MaintenanceUseCase? maintenanceUseCase,
+  })  : _settingsStore = settingsStore,
+        _bookmarkUseCase = bookmarkUseCase ??
+            BookmarkUseCase(
+              repository: repository,
+              exportService: exportService,
+            ),
+        _syncUseCase = syncUseCase ??
+            SyncUseCase(
+              gateway: SyncCoordinatorGateway(
+                syncCoordinator ?? SyncCoordinator(repository: repository),
+              ),
+            ),
+        _maintenanceUseCase = maintenanceUseCase ??
+            MaintenanceUseCase(
+              repository: repository,
+              maintenanceService: maintenanceService,
+            ),
+        _ownsBookmarkUseCase = bookmarkUseCase == null,
+        _ownsSyncUseCase = syncUseCase == null {
+    _syncing = _syncUseCase.isSyncing;
+    _backingUp = _syncUseCase.isBackingUp;
+    _syncUseCase.addListener(_onSyncUseCaseChanged);
+  }
 
-  final BookmarkRepository _repository;
   final SettingsStore _settingsStore;
-  final ExportService _exportService;
-  final MaintenanceService _maintenanceService;
-  final SyncCoordinator _syncCoordinator;
+  final BookmarkUseCase _bookmarkUseCase;
+  final SyncUseCase _syncUseCase;
+  final MaintenanceUseCase _maintenanceUseCase;
+  final bool _ownsBookmarkUseCase;
+  final bool _ownsSyncUseCase;
+
   static const Duration _autoSyncDebounce = Duration(seconds: 12);
   static const Duration _autoSyncMinInterval = Duration(minutes: 3);
+  static const String _autoSyncQueueTag = 'auto-sync';
+
   Timer? _refreshTimer;
   Timer? _autoSyncTimer;
-  bool _pendingAutoSync = false;
   bool _startupSyncTriggered = false;
   DateTime? _lastAutoSyncStartedAt;
 
@@ -52,6 +85,9 @@ class AppController extends ChangeNotifier {
   int _batchTotal = 0;
   int _batchUpdated = 0;
   String? _error;
+
+  AppBootstrapState _bootstrapState = AppBootstrapState.booting;
+  String? _bootstrapMessage;
 
   AppSettings get settings {
     final AppSettings? current = _settings;
@@ -76,19 +112,39 @@ class AppController extends ChangeNotifier {
   double? get batchProgress =>
       _batchTotal <= 0 ? null : _batchProcessed / _batchTotal;
   String? get error => _error;
+  AppBootstrapState get bootstrapState => _bootstrapState;
+  String? get bootstrapMessage => _bootstrapMessage;
 
   Future<void> initialize() async {
+    _setBootstrapState(AppBootstrapState.booting);
     _setLoading(true);
     try {
       _settings = await _settingsStore.load();
       await reloadBookmarks();
+      _restartRefreshTimer();
+
+      String? degradedMessage;
       if (_settings!.autoRefreshOnLaunch) {
         await refreshStaleTitles();
+        final String? currentError = _error;
+        if (currentError != null && currentError.trim().isNotEmpty) {
+          degradedMessage = currentError;
+        }
       }
-      _restartRefreshTimer();
-      _error = null;
+
+      if (degradedMessage != null) {
+        _setBootstrapState(
+          AppBootstrapState.degraded,
+          message: degradedMessage,
+        );
+      } else {
+        _setBootstrapState(AppBootstrapState.ready);
+        _error = null;
+      }
     } catch (e) {
+      _settings = null;
       _error = e.toString();
+      _setBootstrapState(AppBootstrapState.failed, message: _error);
       rethrow;
     } finally {
       _setLoading(false);
@@ -96,21 +152,19 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> reloadBookmarks() async {
-    final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-      _repository.listBookmarks(),
-      _repository.listTrashBookmarks(),
-    ]);
-    _bookmarks = results[0] as List<Bookmark>;
-    _trashBookmarks = results[1] as List<Bookmark>;
+    final BookmarkLoadResult result =
+        await _bookmarkUseCase.loadBookmarkLists();
+    _bookmarks = result.bookmarks;
+    _trashBookmarks = result.trashBookmarks;
     notifyListeners();
   }
 
   Future<void> addUrl(String input) async {
     _setLoading(true);
     try {
-      final Bookmark bookmark = await _repository.addUrl(input);
+      final Bookmark bookmark = await _bookmarkUseCase.addUrl(input);
       await reloadBookmarks();
-      await _repository.refreshTitle(bookmark.id);
+      await _bookmarkUseCase.refreshTitle(bookmark.id);
       await reloadBookmarks();
       _scheduleAutoSync();
       _error = null;
@@ -124,7 +178,7 @@ class AppController extends ChangeNotifier {
   Future<void> refreshTitle(String bookmarkId) async {
     _setLoading(true);
     try {
-      await _repository.refreshTitle(bookmarkId);
+      await _bookmarkUseCase.refreshTitle(bookmarkId);
       await reloadBookmarks();
       _scheduleAutoSync();
       _error = null;
@@ -138,7 +192,7 @@ class AppController extends ChangeNotifier {
   Future<void> clearBookmarkNote(String bookmarkId) async {
     _setLoading(true);
     try {
-      await _repository.clearNote(bookmarkId);
+      await _bookmarkUseCase.clearBookmarkNote(bookmarkId);
       await reloadBookmarks();
       _scheduleAutoSync();
       _error = null;
@@ -153,8 +207,8 @@ class AppController extends ChangeNotifier {
     _setLoading(true);
     _beginBatchRefresh();
     try {
-      final int updated = await _repository.refreshTitlesOlderThanWithProgress(
-        Duration(days: _settings?.titleRefreshDays ?? 7),
+      final int updated = await _bookmarkUseCase.refreshStaleTitles(
+        refreshDays: _settings?.titleRefreshDays ?? 7,
         maxConcurrent: 8,
         onProgress: _onBatchProgress,
       );
@@ -175,7 +229,7 @@ class AppController extends ChangeNotifier {
     _setLoading(true);
     _beginBatchRefresh();
     try {
-      final int updated = await _repository.refreshAllTitlesWithProgress(
+      final int updated = await _bookmarkUseCase.refreshAllTitles(
         maxConcurrent: 10,
         onProgress: _onBatchProgress,
       );
@@ -196,7 +250,7 @@ class AppController extends ChangeNotifier {
     _setLoading(true);
     _beginBatchRefresh();
     try {
-      final int updated = await _repository.refreshTitlesByIdsWithProgress(
+      final int updated = await _bookmarkUseCase.refreshTitlesForBookmarks(
         bookmarkIds,
         maxConcurrent: 10,
         onProgress: _onBatchProgress,
@@ -221,7 +275,7 @@ class AppController extends ChangeNotifier {
   Future<int> deleteBookmarks(List<String> bookmarkIds) async {
     _setLoading(true);
     try {
-      final int affected = await _repository.softDeleteMany(bookmarkIds);
+      final int affected = await _bookmarkUseCase.deleteBookmarks(bookmarkIds);
       await reloadBookmarks();
       _scheduleAutoSync();
       _error = null;
@@ -241,7 +295,7 @@ class AppController extends ChangeNotifier {
   Future<int> restoreBookmarks(List<String> bookmarkIds) async {
     _setLoading(true);
     try {
-      final int affected = await _repository.restoreFromTrashMany(bookmarkIds);
+      final int affected = await _bookmarkUseCase.restoreBookmarks(bookmarkIds);
       await reloadBookmarks();
       _scheduleAutoSync();
       _error = null;
@@ -257,7 +311,7 @@ class AppController extends ChangeNotifier {
   Future<int> permanentlyDeleteTrash(List<String> bookmarkIds) async {
     _setLoading(true);
     try {
-      final int affected = await _repository.permanentlyDeleteFromTrashMany(
+      final int affected = await _bookmarkUseCase.permanentlyDeleteTrash(
         bookmarkIds,
       );
       await reloadBookmarks();
@@ -274,7 +328,7 @@ class AppController extends ChangeNotifier {
   Future<int> emptyTrash() async {
     _setLoading(true);
     try {
-      final int deleted = await _repository.emptyTrash();
+      final int deleted = await _bookmarkUseCase.emptyTrash();
       await reloadBookmarks();
       _error = null;
       return deleted;
@@ -293,13 +347,10 @@ class AppController extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final List<Bookmark> data = includeTrash
-          ? <Bookmark>[..._bookmarks, ..._trashBookmarks]
-          : _bookmarks;
-      final ExportResult result = await _exportService.exportBookmarks(
-        bookmarks: data,
+      final ExportResult result = await _bookmarkUseCase.exportAll(
         format: format,
         targetPath: targetPath,
+        includeTrash: includeTrash,
       );
       _error = null;
       return result;
@@ -319,13 +370,9 @@ class AppController extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final Set<String> idSet =
-          bookmarkIds.map((String id) => id.trim()).toSet();
-      final List<Bookmark> source = fromTrash ? _trashBookmarks : _bookmarks;
-      final List<Bookmark> selected =
-          source.where((Bookmark b) => idSet.contains(b.id)).toList();
-      final ExportResult result = await _exportService.exportBookmarks(
-        bookmarks: selected,
+      final ExportResult result = await _bookmarkUseCase.exportSelected(
+        bookmarkIds: bookmarkIds,
+        fromTrash: fromTrash,
         format: format,
         targetPath: targetPath,
       );
@@ -342,7 +389,7 @@ class AppController extends ChangeNotifier {
   Future<SlimDownResult?> slimDown() async {
     _setLoading(true);
     try {
-      final SlimDownResult result = await _maintenanceService.slimDown();
+      final SlimDownResult result = await _maintenanceUseCase.slimDown();
       await reloadBookmarks();
       _error = null;
       return result;
@@ -360,7 +407,7 @@ class AppController extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final DedupResult result = await _repository.deduplicate(
+      final DedupResult result = await _maintenanceUseCase.deduplicate(
         removeExact: removeExact,
         removeSimilar: removeSimilar,
       );
@@ -381,28 +428,28 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> backupNow() async {
-    if (_syncing || _backingUp) {
-      _error = _syncing ? '正在云同步，请稍后再云备份' : '正在云备份，请稍后重试';
+    final AppSettings? current = _settings;
+    if (current == null || !current.syncReady) {
+      _error = '请先在设置中完成 WebDAV 配置';
       notifyListeners();
       return;
     }
 
-    _backingUp = true;
-    notifyListeners();
     _setLoading(true);
     try {
-      await _syncCoordinator.backupNow(settings);
+      final SyncTaskHandle<void> handle = _syncUseCase.enqueueBackupSnapshot(
+        settings: current,
+      );
+      await handle.result;
       _error = null;
+    } on SyncTaskCanceledException {
+      if (kDebugMode) {
+        debugPrint('Backup task canceled before execution');
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
       _setLoading(false);
-      _backingUp = false;
-      notifyListeners();
-      if (_pendingAutoSync) {
-        _pendingAutoSync = false;
-        _scheduleAutoSync();
-      }
     }
   }
 
@@ -418,6 +465,9 @@ class AppController extends ChangeNotifier {
       _settings = next;
       _startupSyncTriggered = false;
       _restartRefreshTimer();
+      if (!next.syncReady || !next.autoSyncOnChange) {
+        _cancelAutoSyncScheduling();
+      }
       if (next.autoSyncOnLaunch) {
         unawaited(runStartupSyncIfNeeded());
       }
@@ -432,7 +482,9 @@ class AppController extends ChangeNotifier {
   Future<void> clearAllData() async {
     _setLoading(true);
     try {
-      await _repository.clearAllData();
+      _cancelAutoSyncScheduling();
+      _syncUseCase.cancelQueued();
+      await _bookmarkUseCase.clearAllData();
       await _settingsStore.clearAll();
       _settings = await _settingsStore.load();
       await reloadBookmarks();
@@ -440,6 +492,7 @@ class AppController extends ChangeNotifier {
       _lastSyncAt = null;
       _syncError = null;
       _lastSyncDiagnostics = null;
+      _setBootstrapState(AppBootstrapState.ready);
       _restartRefreshTimer();
       _error = null;
     } catch (e) {
@@ -464,6 +517,10 @@ class AppController extends ChangeNotifier {
       _error = e.toString();
       notifyListeners();
     }
+  }
+
+  int cancelQueuedSyncJobs({SyncJobKind? kind, String? queueTag}) {
+    return _syncUseCase.cancelQueued(kind: kind, queueTag: queueTag);
   }
 
   void clearError() {
@@ -516,16 +573,50 @@ class AppController extends ChangeNotifier {
 
     _refreshTimer = Timer.periodic(const Duration(hours: 6), (_) {
       if (!_loading) {
-        refreshStaleTitles();
+        unawaited(refreshStaleTitles());
       }
     });
+  }
+
+  void _cancelAutoSyncScheduling() {
+    _autoSyncTimer?.cancel();
+    _syncUseCase.cancelQueued(
+      kind: SyncJobKind.sync,
+      queueTag: _autoSyncQueueTag,
+    );
+  }
+
+  void _onSyncUseCaseChanged() {
+    final bool nextSyncing = _syncUseCase.isSyncing;
+    final bool nextBackingUp = _syncUseCase.isBackingUp;
+    if (_syncing == nextSyncing && _backingUp == nextBackingUp) {
+      return;
+    }
+    _syncing = nextSyncing;
+    _backingUp = nextBackingUp;
+    notifyListeners();
+  }
+
+  void _setBootstrapState(AppBootstrapState next, {String? message}) {
+    if (_bootstrapState == next && _bootstrapMessage == message) {
+      return;
+    }
+    _bootstrapState = next;
+    _bootstrapMessage = message;
+    notifyListeners();
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _autoSyncTimer?.cancel();
-    _repository.dispose();
+    _syncUseCase.removeListener(_onSyncUseCaseChanged);
+    if (_ownsSyncUseCase) {
+      _syncUseCase.dispose();
+    }
+    if (_ownsBookmarkUseCase) {
+      _bookmarkUseCase.dispose();
+    }
     super.dispose();
   }
 
@@ -544,11 +635,12 @@ class AppController extends ChangeNotifier {
     }
 
     try {
-      final String markdown = _exportService.buildMarkdownContent(_bookmarks);
-      await _syncCoordinator.backupMarkdownNow(
+      final String markdown = _bookmarkUseCase.buildMarkdownContent(_bookmarks);
+      final SyncTaskHandle<void> handle = _syncUseCase.enqueueBackupMarkdown(
         settings: current,
         markdown: markdown,
       );
+      await handle.result;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Startup markdown backup failed: $e');
@@ -561,10 +653,6 @@ class AppController extends ChangeNotifier {
   void _scheduleAutoSync() {
     final AppSettings? current = _settings;
     if (current == null || !current.syncReady || !current.autoSyncOnChange) {
-      return;
-    }
-    if (_syncing || _backingUp) {
-      _pendingAutoSync = true;
       return;
     }
     final DateTime now = DateTime.now();
@@ -597,46 +685,33 @@ class AppController extends ChangeNotifier {
       return false;
     }
 
-    if (_syncing) {
-      if (autoScheduled) {
-        _pendingAutoSync = true;
-      }
-      return false;
-    }
-    if (_backingUp) {
-      if (autoScheduled) {
-        _pendingAutoSync = true;
-      }
-      if (userInitiated) {
-        _error = '正在云备份，请稍后再云同步';
-        notifyListeners();
-      }
-      return false;
-    }
-
     if (autoScheduled) {
       _lastAutoSyncStartedAt = DateTime.now();
     }
-    _syncing = true;
-    notifyListeners();
-    bool success = false;
+
     try {
-      final SyncRunDiagnostics report = await _syncCoordinator.syncNow(current);
+      final SyncTaskHandle<SyncRunDiagnostics> handle =
+          _syncUseCase.enqueueSync(
+        settings: current,
+        queueTag: autoScheduled ? _autoSyncQueueTag : null,
+      );
+      final SyncRunDiagnostics report = await handle.result;
       _lastSyncDiagnostics = report;
       if (report.success) {
         await reloadBookmarks();
         _lastSyncAt = report.finishedAt;
         _syncError = null;
         _error = null;
-        success = true;
-      } else {
-        final String message = report.errorMessage ?? '同步失败';
-        _syncError = message;
-        if (userInitiated) {
-          _error = message;
-        }
-        success = false;
+        return true;
       }
+      final String message = report.errorMessage ?? '同步失败';
+      _syncError = message;
+      if (userInitiated) {
+        _error = message;
+      }
+      return false;
+    } on SyncTaskCanceledException {
+      return false;
     } catch (e) {
       _syncError = e.toString();
       _lastSyncDiagnostics = SyncRunDiagnostics(
@@ -650,17 +725,7 @@ class AppController extends ChangeNotifier {
       if (userInitiated) {
         _error = e.toString();
       }
-      success = false;
-    } finally {
-      _syncing = false;
-      notifyListeners();
+      return false;
     }
-
-    if (_pendingAutoSync) {
-      _pendingAutoSync = false;
-      _scheduleAutoSync();
-    }
-
-    return success;
   }
 }

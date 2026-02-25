@@ -64,6 +64,14 @@ void main() {
     },
   );
 
+  test('initialize enters ready state when bootstrap succeeds', () async {
+    final _Harness harness = await _createHarness(autoSyncOnLaunch: false);
+    addTearDown(harness.dispose);
+
+    expect(harness.controller.bootstrapState, AppBootstrapState.ready);
+    expect(harness.controller.bootstrapMessage, isNull);
+  });
+
   test('initialize rethrows when loading settings fails', () async {
     final Database db = await _openDb();
     final BookmarkRepository repository = BookmarkRepository(
@@ -87,11 +95,13 @@ void main() {
     });
 
     await expectLater(controller.initialize(), throwsException);
+    expect(controller.bootstrapState, AppBootstrapState.failed);
     expect(controller.error, contains('forced load failure'));
     expect(() => controller.settings, throwsStateError);
   });
 
-  test('syncNow is blocked while backupNow is running', () async {
+  test('syncNow queues behind backupNow and runs after backup finishes',
+      () async {
     final _Harness harness = await _createHarness(autoSyncOnLaunch: false);
     addTearDown(harness.dispose);
 
@@ -103,13 +113,17 @@ void main() {
     final Future<void> backupFuture = harness.controller.backupNow();
     await backupStarted.future;
 
-    final bool syncResult = await harness.controller.syncNow();
-    expect(syncResult, isFalse);
+    final Future<bool> syncFuture = harness.controller.syncNow();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
     expect(harness.syncCoordinator.syncCalls, 0);
-    expect(harness.controller.error, '正在云备份，请稍后再云同步');
 
     allowBackupFinish.complete();
     await backupFuture;
+
+    final bool syncResult = await syncFuture;
+    expect(syncResult, isTrue);
+    expect(harness.syncCoordinator.syncCalls, 1);
+    expect(harness.controller.error, isNull);
   });
 }
 
