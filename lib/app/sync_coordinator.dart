@@ -43,7 +43,7 @@ class SyncRunDiagnostics {
 
 class SyncCoordinator {
   SyncCoordinator({required BookmarkRepository repository})
-      : _repository = repository;
+    : _repository = repository;
 
   static const int _maxAttempts = 3;
   static const List<Duration> _retryDelay = <Duration>[
@@ -63,34 +63,39 @@ class SyncCoordinator {
       password: settings.webDavPassword,
     );
 
-    final SyncEngine engine = SyncEngine(
-      localStore: _repository,
-      syncProvider: WebDavSyncProvider(config: config),
-      userId: settings.webDavUserId,
-      deviceId: settings.deviceId,
-    );
+    final WebDavSyncProvider provider = WebDavSyncProvider(config: config);
+    try {
+      final SyncEngine engine = SyncEngine(
+        localStore: _repository,
+        syncProvider: provider,
+        userId: settings.webDavUserId,
+        deviceId: settings.deviceId,
+      );
 
-    final _RetryOutcome<SyncEngineReport> outcome = await _runWithRetry(
-      engine.syncOnce,
-    );
-    final DateTime finishedAt = DateTime.now();
-    if (outcome.value != null) {
+      final _RetryOutcome<SyncEngineReport> outcome = await _runWithRetry(
+        engine.syncOnce,
+      );
+      final DateTime finishedAt = DateTime.now();
+      if (outcome.value != null) {
+        return SyncRunDiagnostics(
+          startedAt: startedAt,
+          finishedAt: finishedAt,
+          attemptCount: outcome.attemptCount,
+          success: true,
+          engineReport: outcome.value,
+        );
+      }
       return SyncRunDiagnostics(
         startedAt: startedAt,
         finishedAt: finishedAt,
         attemptCount: outcome.attemptCount,
-        success: true,
-        engineReport: outcome.value,
+        success: false,
+        engineReport: null,
+        errorMessage: outcome.error?.toString(),
       );
+    } finally {
+      provider.close();
     }
-    return SyncRunDiagnostics(
-      startedAt: startedAt,
-      finishedAt: finishedAt,
-      attemptCount: outcome.attemptCount,
-      success: false,
-      engineReport: null,
-      errorMessage: outcome.error?.toString(),
-    );
   }
 
   Future<void> backupNow(AppSettings settings) async {
@@ -108,12 +113,17 @@ class SyncCoordinator {
       ),
     );
 
-    final _RetryOutcome<void> outcome = await _runWithRetry(() {
-      return backupService.uploadSnapshot(
-        userId: settings.webDavUserId,
-        bookmarks: bookmarks,
-      );
-    });
+    final _RetryOutcome<void> outcome;
+    try {
+      outcome = await _runWithRetry(() {
+        return backupService.uploadSnapshot(
+          userId: settings.webDavUserId,
+          bookmarks: bookmarks,
+        );
+      });
+    } finally {
+      backupService.close();
+    }
     if (outcome.error != null) {
       _throwWithStack(outcome.error!, outcome.stackTrace);
     }
@@ -133,12 +143,17 @@ class SyncCoordinator {
       ),
     );
 
-    final _RetryOutcome<void> outcome = await _runWithRetry(() {
-      return backupService.uploadMarkdownSnapshot(
-        userId: settings.webDavUserId,
-        markdown: markdown,
-      );
-    });
+    final _RetryOutcome<void> outcome;
+    try {
+      outcome = await _runWithRetry(() {
+        return backupService.uploadMarkdownSnapshot(
+          userId: settings.webDavUserId,
+          markdown: markdown,
+        );
+      });
+    } finally {
+      backupService.close();
+    }
     if (outcome.error != null) {
       _throwWithStack(outcome.error!, outcome.stackTrace);
     }
@@ -164,13 +179,14 @@ class SyncCoordinator {
     final String marker = '/bookmarksapp';
     final String lowerPath = parsed.path.toLowerCase();
     final int markerIndex = lowerPath.indexOf(marker);
-    final String normalizedPath =
-        markerIndex >= 0 ? parsed.path.substring(0, markerIndex) : parsed.path;
+    final String normalizedPath = markerIndex >= 0
+        ? parsed.path.substring(0, markerIndex)
+        : parsed.path;
 
-    return parsed.replace(path: normalizedPath).toString().replaceFirst(
-          RegExp(r'/$'),
-          '',
-        );
+    return parsed
+        .replace(path: normalizedPath)
+        .toString()
+        .replaceFirst(RegExp(r'/$'), '');
   }
 
   Future<_RetryOutcome<T>> _runWithRetry<T>(Future<T> Function() task) async {
@@ -180,10 +196,7 @@ class SyncCoordinator {
     for (int attempt = 1; attempt <= _maxAttempts; attempt += 1) {
       try {
         final T value = await task();
-        return _RetryOutcome<T>(
-          value: value,
-          attemptCount: attempt,
-        );
+        return _RetryOutcome<T>(value: value, attemptCount: attempt);
       } catch (error, stack) {
         lastError = error;
         lastStack = stack;

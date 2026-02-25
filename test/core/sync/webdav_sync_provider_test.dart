@@ -50,59 +50,61 @@ void main() {
     expect(url, contains('/users/user%2Fa%20b/devices/dev%231%2F2/ops/'));
   });
 
-  test('pullOpsSince uses server last-modified as cursor and includes equals',
-      () async {
-    final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
-    final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
+  test(
+    'pullOpsSince uses server last-modified as cursor and includes equals',
+    () async {
+      final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
+      final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
 
-    final _RecordingHttpClient client = _RecordingHttpClient((
-      http.BaseRequest request,
-    ) async {
-      final String url = request.url.toString();
-      if (request.method == 'PROPFIND') {
-        if (url.contains('/devices/devA/ops/')) {
-          return _xmlResponse(_opsPropfindXml(fileModified));
+      final _RecordingHttpClient client = _RecordingHttpClient((
+        http.BaseRequest request,
+      ) async {
+        final String url = request.url.toString();
+        if (request.method == 'PROPFIND') {
+          if (url.contains('/devices/devA/ops/')) {
+            return _xmlResponse(_opsPropfindXml(fileModified));
+          }
+          if (url.contains('/devices/devA/')) {
+            return _xmlResponse(_devicePropfindXml());
+          }
+          if (url.contains('/devices/')) {
+            return _xmlResponse(_devicesPropfindXml());
+          }
         }
-        if (url.contains('/devices/devA/')) {
-          return _xmlResponse(_devicePropfindXml());
+        if (request.method == 'GET' &&
+            url.contains('/devices/devA/ops/op1.json')) {
+          return _jsonResponse(<String, dynamic>{
+            'deviceId': 'devA',
+            'createdAt': '2020-01-01T00:00:00.000Z',
+            'ops': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'opId': 'op-1',
+                'type': 'upsert',
+                'bookmark': _bookmark('b-1').toJson(),
+                'occurredAt': '2026-02-16T11:30:00.000Z',
+                'deviceId': 'devA',
+              },
+            ],
+          });
         }
-        if (url.contains('/devices/')) {
-          return _xmlResponse(_devicesPropfindXml());
-        }
-      }
-      if (request.method == 'GET' &&
-          url.contains('/devices/devA/ops/op1.json')) {
-        return _jsonResponse(<String, dynamic>{
-          'deviceId': 'devA',
-          'createdAt': '2020-01-01T00:00:00.000Z',
-          'ops': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'opId': 'op-1',
-              'type': 'upsert',
-              'bookmark': _bookmark('b-1').toJson(),
-              'occurredAt': '2026-02-16T11:30:00.000Z',
-              'deviceId': 'devA',
-            },
-          ],
-        });
-      }
-      return _response(404);
-    });
+        return _response(404);
+      });
 
-    final WebDavSyncProvider provider = WebDavSyncProvider(
-      config: const WebDavConfig(
-        baseUrl: 'https://dav.example.com',
-        username: 'u',
-        password: 'p',
-      ),
-      client: client,
-    );
+      final WebDavSyncProvider provider = WebDavSyncProvider(
+        config: const WebDavConfig(
+          baseUrl: 'https://dav.example.com',
+          username: 'u',
+          password: 'p',
+        ),
+        client: client,
+      );
 
-    final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
-    expect(pulled.length, 1);
-    expect(pulled.single.cursorAt, since);
-    expect(pulled.single.batch.createdAt, DateTime.utc(2020, 1, 1));
-  });
+      final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
+      expect(pulled.length, 1);
+      expect(pulled.single.cursorAt, since);
+      expect(pulled.single.batch.createdAt, DateTime.utc(2020, 1, 1));
+    },
+  );
 
   test('pullOpsSince tolerates 409 during recursive PROPFIND', () async {
     final _RecordingHttpClient client = _RecordingHttpClient((
@@ -110,7 +112,7 @@ void main() {
     ) async {
       final String url = request.url.toString();
       if (request.method == 'PROPFIND') {
-        if (url.contains('/BookmarksApp/users/u%2F1/devices/devBroken/')) {
+        if (url.contains('/BookmarksApp/users/u%2F1/devices/devBroken/ops/')) {
           return _response(409);
         }
         if (url.contains('/BookmarksApp/users/u%2F1/devices/')) {
@@ -158,16 +160,19 @@ void main() {
         }
         if (url.contains('/BookmarksApp/ussers/u%2F1/devices/devA/')) {
           return _xmlResponse(
-              _devicePropfindXml(prefix: '/BookmarksApp/ussers'));
+            _devicePropfindXml(prefix: '/BookmarksApp/ussers'),
+          );
         }
         if (url.contains('/BookmarksApp/ussers/u%2F1/devices/')) {
           return _xmlResponse(
-              _devicesPropfindXml(prefix: '/BookmarksApp/ussers'));
+            _devicesPropfindXml(prefix: '/BookmarksApp/ussers'),
+          );
         }
       }
       if (request.method == 'GET' &&
           url.contains(
-              '/BookmarksApp/ussers/u%2F1/devices/devA/ops/op1.json')) {
+            '/BookmarksApp/ussers/u%2F1/devices/devA/ops/op1.json',
+          )) {
         return _jsonResponse(<String, dynamic>{
           'deviceId': 'devA',
           'createdAt': '2020-01-01T00:00:00.000Z',
@@ -199,76 +204,76 @@ void main() {
     expect(pulled.single.cursorAt, since);
   });
 
-  test('pullOpsSince strips base path from href and avoids duplicated /dav',
-      () async {
-    final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
-    final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
+  test(
+    'pullOpsSince strips base path from href and avoids duplicated /dav',
+    () async {
+      final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
+      final String fileModified = 'Mon, 16 Feb 2026 12:00:00 GMT';
 
-    final _RecordingHttpClient client = _RecordingHttpClient((
-      http.BaseRequest request,
-    ) async {
-      final String url = request.url.toString();
-      if (request.method == 'PROPFIND') {
-        if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/devA/ops/')) {
-          return _xmlResponse(
-            _opsPropfindXml(
-              fileModified,
-              prefix: '/dav/BookmarksApp/users',
-            ),
-          );
+      final _RecordingHttpClient client = _RecordingHttpClient((
+        http.BaseRequest request,
+      ) async {
+        final String url = request.url.toString();
+        if (request.method == 'PROPFIND') {
+          if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/devA/ops/')) {
+            return _xmlResponse(
+              _opsPropfindXml(fileModified, prefix: '/dav/BookmarksApp/users'),
+            );
+          }
+          if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/devA/')) {
+            return _xmlResponse(
+              _devicePropfindXml(prefix: '/dav/BookmarksApp/users'),
+            );
+          }
+          if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/')) {
+            return _xmlResponse(
+              _devicesPropfindXml(prefix: '/dav/BookmarksApp/users'),
+            );
+          }
+          if (url.contains('/dav/BookmarksApp/ussers/u%2F1/devices/')) {
+            return _response(404);
+          }
         }
-        if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/devA/')) {
-          return _xmlResponse(
-            _devicePropfindXml(prefix: '/dav/BookmarksApp/users'),
-          );
+        if (request.method == 'GET' &&
+            url.contains(
+              '/dav/BookmarksApp/users/u%2F1/devices/devA/ops/op1.json',
+            )) {
+          return _jsonResponse(<String, dynamic>{
+            'deviceId': 'devA',
+            'createdAt': '2020-01-01T00:00:00.000Z',
+            'ops': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'opId': 'op-1',
+                'type': 'upsert',
+                'bookmark': _bookmark('b-1').toJson(),
+                'occurredAt': '2026-02-16T11:30:00.000Z',
+                'deviceId': 'devA',
+              },
+            ],
+          });
         }
-        if (url.contains('/dav/BookmarksApp/users/u%2F1/devices/')) {
-          return _xmlResponse(
-            _devicesPropfindXml(prefix: '/dav/BookmarksApp/users'),
-          );
-        }
-        if (url.contains('/dav/BookmarksApp/ussers/u%2F1/devices/')) {
-          return _response(404);
-        }
+        return _response(404);
+      });
+
+      final WebDavSyncProvider provider = WebDavSyncProvider(
+        config: const WebDavConfig(
+          baseUrl: 'https://dav.example.com/dav',
+          username: 'u',
+          password: 'p',
+        ),
+        client: client,
+      );
+
+      final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
+      expect(pulled.length, 1);
+      final List<String> allUrls = client.requests
+          .map((http.BaseRequest request) => request.url.toString())
+          .toList();
+      for (final String url in allUrls) {
+        expect(url, isNot(contains('/dav/dav/')));
       }
-      if (request.method == 'GET' &&
-          url.contains(
-              '/dav/BookmarksApp/users/u%2F1/devices/devA/ops/op1.json')) {
-        return _jsonResponse(<String, dynamic>{
-          'deviceId': 'devA',
-          'createdAt': '2020-01-01T00:00:00.000Z',
-          'ops': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'opId': 'op-1',
-              'type': 'upsert',
-              'bookmark': _bookmark('b-1').toJson(),
-              'occurredAt': '2026-02-16T11:30:00.000Z',
-              'deviceId': 'devA',
-            },
-          ],
-        });
-      }
-      return _response(404);
-    });
-
-    final WebDavSyncProvider provider = WebDavSyncProvider(
-      config: const WebDavConfig(
-        baseUrl: 'https://dav.example.com/dav',
-        username: 'u',
-        password: 'p',
-      ),
-      client: client,
-    );
-
-    final pulled = await provider.pullOpsSince(userId: 'u/1', since: since);
-    expect(pulled.length, 1);
-    final List<String> allUrls = client.requests
-        .map((http.BaseRequest request) => request.url.toString())
-        .toList();
-    for (final String url in allUrls) {
-      expect(url, isNot(contains('/dav/dav/')));
-    }
-  });
+    },
+  );
 
   test('pullOpsSince decodes utf8 json bytes for Chinese text', () async {
     final DateTime since = DateTime.utc(2026, 2, 16, 12, 0, 0);
@@ -342,7 +347,7 @@ class _RecordingHttpClient extends http.BaseClient {
   _RecordingHttpClient(this._handler);
 
   final Future<http.StreamedResponse> Function(http.BaseRequest request)
-      _handler;
+  _handler;
   final List<http.BaseRequest> requests = <http.BaseRequest>[];
 
   @override

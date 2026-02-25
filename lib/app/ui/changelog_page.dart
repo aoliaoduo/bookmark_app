@@ -13,6 +13,16 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.30',
+      notes: <String>[
+        '修复启动同步语义：关闭“启动后自动云同步”时，不再在启动时上传 Markdown 备份。',
+        '修复链接打开崩溃风险：非法或不支持的 URL 现在会被安全拦截并提示。',
+        '提升稳定性：数据库懒加载加入并发保护，避免首次并发访问触发重复打开。',
+        '补齐资源释放：为 metadata/sync/backup 的 HTTP client 增加 close 生命周期管理。',
+        '优化 WebDAV 拉取扫描：改为按设备 ops 目录枚举，避免全量递归历史目录。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.29',
       notes: <String>[
         '启动流程新增 Markdown 云备份：每次启动会把当前链接列表按 Markdown 格式上传到云端',
@@ -42,16 +52,11 @@ class _ChangelogPageState extends State<ChangelogPage> {
     ),
     _ChangelogEntry(
       version: 'v0.5.25',
-      notes: <String>[
-        '应用图标重绘：移除“链接”图形，仅保留书签主体',
-        '装饰圆尺寸下调，右上与左下圆形不再过大，整体更简洁',
-      ],
+      notes: <String>['应用图标重绘：移除“链接”图形，仅保留书签主体', '装饰圆尺寸下调，右上与左下圆形不再过大，整体更简洁'],
     ),
     _ChangelogEntry(
       version: 'v0.5.24',
-      notes: <String>[
-        '协作流程更新：任务所需包/工具允许由 Codex 按需自行安装（优先 scoop/官方渠道）',
-      ],
+      notes: <String>['协作流程更新：任务所需包/工具允许由 Codex 按需自行安装（优先 scoop/官方渠道）'],
     ),
     _ChangelogEntry(
       version: 'v0.5.23',
@@ -121,21 +126,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
     ),
     _ChangelogEntry(
       version: 'v0.5.14',
-      notes: <String>[
-        '首页普通模式顶部标题已移除，不再显示“粮仓”或“收藏”文字',
-      ],
+      notes: <String>['首页普通模式顶部标题已移除，不再显示“粮仓”或“收藏”文字'],
     ),
     _ChangelogEntry(
       version: 'v0.5.13',
-      notes: <String>[
-        '首页顶部标题改为通用“收藏”，不再显示应用名“粮仓”',
-      ],
+      notes: <String>['首页顶部标题改为通用“收藏”，不再显示应用名“粮仓”'],
     ),
     _ChangelogEntry(
       version: 'v0.5.12',
-      notes: <String>[
-        '更新日志列表不再展示具体日期，统一按版本号查看历史变更',
-      ],
+      notes: <String>['更新日志列表不再展示具体日期，统一按版本号查看历史变更'],
     ),
     _ChangelogEntry(
       version: 'v0.5.11',
@@ -211,10 +210,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     ),
     _ChangelogEntry(
       version: 'v0.5.2',
-      notes: <String>[
-        '首页列表新增时间信息展示：添加时间、更新时间',
-        '回收站条目补充时间信息展示：添加时间、更新时间、删除时间',
-      ],
+      notes: <String>['首页列表新增时间信息展示：添加时间、更新时间', '回收站条目补充时间信息展示：添加时间、更新时间、删除时间'],
     ),
     _ChangelogEntry(
       version: 'v0.5.1',
@@ -345,16 +341,11 @@ class _ChangelogPageState extends State<ChangelogPage> {
     ),
     _ChangelogEntry(
       version: 'v0.3.5',
-      notes: <String>[
-        '首页标题从“网址收藏”调整为“链接收藏”',
-        '新增输入区按钮高度对齐，收藏按钮与输入框视觉统一',
-      ],
+      notes: <String>['首页标题从“网址收藏”调整为“链接收藏”', '新增输入区按钮高度对齐，收藏按钮与输入框视觉统一'],
     ),
     _ChangelogEntry(
       version: 'v0.3.4',
-      notes: <String>[
-        '修复搜索栏双层边框样式问题，统一为单层输入框视觉',
-      ],
+      notes: <String>['修复搜索栏双层边框样式问题，统一为单层输入框视觉'],
     ),
     _ChangelogEntry(
       version: 'v0.3.3',
@@ -365,17 +356,11 @@ class _ChangelogPageState extends State<ChangelogPage> {
     ),
     _ChangelogEntry(
       version: 'v0.3.2',
-      notes: <String>[
-        '修复搜索框展开时的位置冲突问题，改为固定位置展示',
-        '搜索框视觉样式进一步弱化，避免抢占主流程注意力',
-      ],
+      notes: <String>['修复搜索框展开时的位置冲突问题，改为固定位置展示', '搜索框视觉样式进一步弱化，避免抢占主流程注意力'],
     ),
     _ChangelogEntry(
       version: 'v0.3.1',
-      notes: <String>[
-        '搜索区域改为默认收起，视觉权重下调，避免干扰主操作',
-        '回收站不再单独占用 Tab，改为主页内模式切换',
-      ],
+      notes: <String>['搜索区域改为默认收起，视觉权重下调，避免干扰主操作', '回收站不再单独占用 Tab，改为主页内模式切换'],
     ),
     _ChangelogEntry(
       version: 'v0.3.0',
@@ -396,10 +381,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     ),
     _ChangelogEntry(
       version: 'v0.2.1',
-      notes: <String>[
-        '修复导出时取消需要点两次的问题（现在点一次取消即可）',
-        '优化导出路径选择交互一致性',
-      ],
+      notes: <String>['修复导出时取消需要点两次的问题（现在点一次取消即可）', '优化导出路径选择交互一致性'],
     ),
     _ChangelogEntry(
       version: 'v0.2.0',
@@ -436,7 +418,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.29';
+        _versionLabel = '-';
       });
     }
   }
@@ -485,10 +467,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
 }
 
 class _ChangelogEntry {
-  const _ChangelogEntry({
-    required this.version,
-    required this.notes,
-  });
+  const _ChangelogEntry({required this.version, required this.notes});
 
   final String version;
   final List<String> notes;

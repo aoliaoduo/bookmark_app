@@ -30,21 +30,31 @@ class UrlMetadata {
 
 class MetadataFetchService {
   MetadataFetchService({http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client(),
+      _ownsClient = client == null;
 
   final http.Client _client;
+  final bool _ownsClient;
+
+  void close() {
+    if (_ownsClient) {
+      _client.close();
+    }
+  }
 
   Future<UrlMetadata> fetchTitle(String url) async {
     final Uri uri = Uri.parse(url);
     http.Response response;
     try {
-      response = await _client.get(
-        uri,
-        headers: <String, String>{
-          'User-Agent': 'BookmarkAppBot/1.0',
-          'Accept': 'text/html,application/xhtml+xml',
-        },
-      ).timeout(const Duration(seconds: 12));
+      response = await _client
+          .get(
+            uri,
+            headers: <String, String>{
+              'User-Agent': 'BookmarkAppBot/1.0',
+              'Accept': 'text/html,application/xhtml+xml',
+            },
+          )
+          .timeout(const Duration(seconds: 12));
     } on TimeoutException {
       throw const MetadataFetchException('请求超时，请稍后重试');
     } catch (_) {

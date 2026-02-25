@@ -66,14 +66,29 @@ enum _CompactSelectionAction {
   exportSelectedMd,
 }
 
-enum _SortOption {
-  updatedDesc,
-  createdDesc,
-  titleAsc,
-  urlAsc,
-}
+enum _SortOption { updatedDesc, createdDesc, titleAsc, urlAsc }
 
 enum _TopSyncState { syncing, success, error, idle, notReady }
+
+@visibleForTesting
+Uri? parseExternalHttpUri(String raw) {
+  final String trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+
+  final Uri? uri = Uri.tryParse(trimmed);
+  if (uri == null) {
+    return null;
+  }
+
+  final String scheme = uri.scheme.toLowerCase();
+  final bool isHttp = scheme == 'http' || scheme == 'https';
+  if (!isHttp || !uri.hasAuthority || uri.host.trim().isEmpty) {
+    return null;
+  }
+  return uri;
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.controller});
@@ -323,11 +338,8 @@ class _HomePageState extends State<HomePage> {
     actions.addAll(<Widget>[
       PopupMenuButton<_HomeMenuAction>(
         tooltip: '更多功能',
-        onSelected: (_HomeMenuAction action) => _onHomeMenuAction(
-          action,
-          controller: controller,
-          trash: trash,
-        ),
+        onSelected: (_HomeMenuAction action) =>
+            _onHomeMenuAction(action, controller: controller, trash: trash),
         itemBuilder: (BuildContext context) =>
             <PopupMenuEntry<_HomeMenuAction>>[
           PopupMenuItem<_HomeMenuAction>(
@@ -407,8 +419,9 @@ class _HomePageState extends State<HomePage> {
   }) {
     final bool hasSelection = _selectedIds.isNotEmpty;
     final bool allSelected = currentTabItems.isNotEmpty &&
-        currentTabItems
-            .every((Bookmark item) => _selectedIds.contains(item.id));
+        currentTabItems.every(
+          (Bookmark item) => _selectedIds.contains(item.id),
+        );
 
     if (compactActions) {
       return <Widget>[
@@ -420,10 +433,7 @@ class _HomePageState extends State<HomePage> {
         PopupMenuButton<_CompactSelectionAction>(
           tooltip: '批量菜单',
           onSelected: (_CompactSelectionAction action) {
-            _onCompactSelectionAction(
-              action,
-              currentTabItems: currentTabItems,
-            );
+            _onCompactSelectionAction(action, currentTabItems: currentTabItems);
           },
           itemBuilder: (BuildContext context) =>
               <PopupMenuEntry<_CompactSelectionAction>>[
@@ -584,8 +594,9 @@ class _HomePageState extends State<HomePage> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: <Color>[
-                    theme.colorScheme.primary
-                        .withValues(alpha: isDark ? 0.22 : 0.16),
+                    theme.colorScheme.primary.withValues(
+                      alpha: isDark ? 0.22 : 0.16,
+                    ),
                     theme.colorScheme.primary.withValues(alpha: 0),
                   ],
                 ),
@@ -655,8 +666,9 @@ class _HomePageState extends State<HomePage> {
             offset: const Offset(-2, -2),
           ),
           BoxShadow(
-            color:
-                theme.colorScheme.shadow.withValues(alpha: isDark ? 0.24 : 0.1),
+            color: theme.colorScheme.shadow.withValues(
+              alpha: isDark ? 0.24 : 0.1,
+            ),
             blurRadius: 18,
             offset: const Offset(0, 9),
           ),
@@ -695,10 +707,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            Padding(
-              padding: padding,
-              child: child,
-            ),
+            Padding(padding: padding, child: child),
           ],
         ),
       ),
@@ -815,16 +824,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMetaChip({
-    required IconData icon,
-    required String label,
-  }) {
+  Widget _buildMetaChip({required IconData icon, required String label}) {
     final ThemeData theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color:
-            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.72,
+        ),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.85),
@@ -886,8 +893,9 @@ class _HomePageState extends State<HomePage> {
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: theme.colorScheme.shadow
-                        .withValues(alpha: isDark ? 0.2 : 0.1),
+                    color: theme.colorScheme.shadow.withValues(
+                      alpha: isDark ? 0.2 : 0.1,
+                    ),
                     blurRadius: 12,
                     offset: const Offset(0, 5),
                   ),
@@ -910,8 +918,9 @@ class _HomePageState extends State<HomePage> {
                       decoration: InputDecoration(
                         hintText: '输入网址',
                         hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.92),
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.92,
+                          ),
                         ),
                         filled: false,
                         isDense: true,
@@ -1100,9 +1109,9 @@ class _HomePageState extends State<HomePage> {
               titleText,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1120,10 +1129,9 @@ class _HomePageState extends State<HomePage> {
                 Text(
                   '添加: ${_formatDateTime(item.createdAt)}  更新: ${_formatDateTime(item.updatedAt)}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant
-                            .withValues(alpha: 0.92),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.92),
                       ),
                 ),
                 if (issue != null) ...<Widget>[
@@ -1139,27 +1147,27 @@ class _HomePageState extends State<HomePage> {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        color: Theme.of(context)
-                            .colorScheme
-                            .errorContainer
-                            .withValues(alpha: 0.72),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.errorContainer.withValues(alpha: 0.72),
                       ),
                       child: Row(
                         children: <Widget>[
                           Icon(
                             Icons.error_outline,
                             size: 16,
-                            color:
-                                Theme.of(context).colorScheme.onErrorContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onErrorContainer,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               '标题获取失败：$issue',
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onErrorContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onErrorContainer,
                               ),
                             ),
                           ),
@@ -1167,9 +1175,9 @@ class _HomePageState extends State<HomePage> {
                             '处理',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onErrorContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onErrorContainer,
                             ),
                           ),
                         ],
@@ -1206,10 +1214,9 @@ class _HomePageState extends State<HomePage> {
                       _buildInlineActionButton(
                         tooltip: '删除到回收站',
                         icon: Icons.delete_outline,
-                        tintColor: Theme.of(context)
-                            .colorScheme
-                            .errorContainer
-                            .withValues(alpha: 0.78),
+                        tintColor: Theme.of(
+                          context,
+                        ).colorScheme.errorContainer.withValues(alpha: 0.78),
                         onPressed: controller.loading
                             ? null
                             : () => _deleteBookmarkInline(item),
@@ -1249,9 +1256,9 @@ class _HomePageState extends State<HomePage> {
               item.title?.trim().isNotEmpty == true ? item.title! : item.url,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1290,10 +1297,9 @@ class _HomePageState extends State<HomePage> {
                       _buildInlineActionButton(
                         tooltip: '恢复',
                         icon: Icons.restore_from_trash,
-                        tintColor: Theme.of(context)
-                            .colorScheme
-                            .primaryContainer
-                            .withValues(alpha: 0.8),
+                        tintColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withValues(alpha: 0.8),
                         onPressed: controller.loading
                             ? null
                             : () => controller.restoreBookmark(item.id),
@@ -1316,10 +1322,7 @@ class _HomePageState extends State<HomePage> {
     }).toList();
   }
 
-  List<Bookmark> _applySort(
-    List<Bookmark> source, {
-    required bool fromTrash,
-  }) {
+  List<Bookmark> _applySort(List<Bookmark> source, {required bool fromTrash}) {
     final List<Bookmark> sorted = List<Bookmark>.from(source);
     sorted.sort((Bookmark a, Bookmark b) {
       switch (_sortOption) {
@@ -1653,8 +1656,9 @@ class _HomePageState extends State<HomePage> {
             theme.colorScheme.primaryContainer.withValues(alpha: 0.92),
           )
         : Color.alphaBlend(
-            theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: isDark ? 0.7 : 0.86),
+            theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: isDark ? 0.7 : 0.86,
+            ),
             theme.colorScheme.surface.withValues(alpha: isDark ? 0.66 : 0.9),
           );
     return Expanded(
@@ -1684,10 +1688,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTopSyncBadge(
-    AppController controller, {
-    required bool compact,
-  }) {
+  Widget _buildTopSyncBadge(AppController controller, {required bool compact}) {
     final ThemeData theme = Theme.of(context);
     final _TopSyncState state = _resolveTopSyncState(controller);
     final Color fg;
@@ -1722,10 +1723,7 @@ class _HomePageState extends State<HomePage> {
       singleLayer: true,
       radius: 999,
       tintColor: bg,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6 : 8,
-        vertical: 5,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: 5),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -1851,10 +1849,7 @@ class _HomePageState extends State<HomePage> {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           const SizedBox(width: 8),
-          Text(
-            '正在同步云端数据...',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text('正在同步云端数据...', style: Theme.of(context).textTheme.bodySmall),
           if (report != null) ...<Widget>[
             const Spacer(),
             IconButton(
@@ -1954,10 +1949,7 @@ class _HomePageState extends State<HomePage> {
             color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 8),
-          Text(
-            '最近云同步：$hh:$mm',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text('最近云同步：$hh:$mm', style: Theme.of(context).textTheme.bodySmall),
         ],
       );
     }
@@ -2037,9 +2029,11 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 10),
                 Text('状态：$status'),
                 Text(
-                    '开始：${_formatDateTime(report.startedAt, includeSeconds: true)}'),
+                  '开始：${_formatDateTime(report.startedAt, includeSeconds: true)}',
+                ),
                 Text(
-                    '结束：${_formatDateTime(report.finishedAt, includeSeconds: true)}'),
+                  '结束：${_formatDateTime(report.finishedAt, includeSeconds: true)}',
+                ),
                 Text('耗时：${_formatDuration(report.duration)}'),
                 Text('尝试次数：${report.attemptCount}（重试 ${report.retryCount} 次）'),
                 const SizedBox(height: 6),
@@ -2056,10 +2050,7 @@ class _HomePageState extends State<HomePage> {
                 Text('过滤过期操作：${report.filteredStaleOps}'),
                 if (error != null && error.trim().isNotEmpty) ...<Widget>[
                   const SizedBox(height: 10),
-                  Text(
-                    '错误信息',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text('错误信息', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 4),
                   SelectableText(error),
                 ],
@@ -2116,9 +2107,11 @@ class _HomePageState extends State<HomePage> {
       ..writeln('同步诊断')
       ..writeln('状态: $status')
       ..writeln(
-          '开始: ${_formatDateTime(report.startedAt, includeSeconds: true)}')
+        '开始: ${_formatDateTime(report.startedAt, includeSeconds: true)}',
+      )
       ..writeln(
-          '结束: ${_formatDateTime(report.finishedAt, includeSeconds: true)}')
+        '结束: ${_formatDateTime(report.finishedAt, includeSeconds: true)}',
+      )
       ..writeln('耗时: ${_formatDuration(report.duration)}')
       ..writeln('尝试次数: ${report.attemptCount} (重试 ${report.retryCount} 次)')
       ..writeln(_syncApplySummary(report))
@@ -2198,9 +2191,7 @@ class _HomePageState extends State<HomePage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('清空全部数据'),
-          content: const Text(
-            '将清空收藏、回收站、同步记录和 WebDAV 配置，且无法恢复。是否继续？',
-          ),
+          content: const Text('将清空收藏、回收站、同步记录和 WebDAV 配置，且无法恢复。是否继续？'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -2274,10 +2265,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openUrl(String raw) async {
-    final Uri uri = Uri.parse(raw);
-    final bool ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      _showSnack('打开失败，请检查链接是否可访问');
+    final Uri? uri = parseExternalHttpUri(raw);
+    if (uri == null) {
+      if (mounted) {
+        _showSnack('打开失败，请检查链接格式是否正确');
+      }
+      return;
+    }
+
+    try {
+      final bool ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && mounted) {
+        _showSnack('打开失败，请检查链接是否可访问');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showSnack('打开失败，请检查链接是否可访问');
+      }
     }
   }
 
@@ -2310,8 +2317,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteSelected() async {
-    final int affected =
-        await widget.controller.deleteBookmarks(_selectedIds.toList());
+    final int affected = await widget.controller.deleteBookmarks(
+      _selectedIds.toList(),
+    );
     if (!mounted) return;
     _showSnack('已删除 $affected 条到回收站');
     _clearSelection();
@@ -2702,10 +2710,9 @@ class _GlassTactileButtonState extends State<_GlassTactileButton> {
             blurRadius:
                 widget.singleLayer ? (_pressed ? 6 : 12) : (_pressed ? 8 : 16),
             offset: Offset(
-                0,
-                widget.singleLayer
-                    ? (_pressed ? 2.5 : 5)
-                    : (_pressed ? 3.5 : 8)),
+              0,
+              widget.singleLayer ? (_pressed ? 2.5 : 5) : (_pressed ? 3.5 : 8),
+            ),
           ),
         ],
       ),
@@ -2724,11 +2731,13 @@ class _GlassTactileButtonState extends State<_GlassTactileButton> {
                             end: Alignment.bottomRight,
                             stops: const <double>[0, 0.55, 1],
                             colors: <Color>[
-                              Colors.white
-                                  .withValues(alpha: isDark ? 0.18 : 0.38),
+                              Colors.white.withValues(
+                                alpha: isDark ? 0.18 : 0.38,
+                              ),
                               Colors.transparent,
-                              Colors.black
-                                  .withValues(alpha: isDark ? 0.2 : 0.09),
+                              Colors.black.withValues(
+                                alpha: isDark ? 0.2 : 0.09,
+                              ),
                             ],
                           ),
                         ),

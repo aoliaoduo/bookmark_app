@@ -10,10 +10,7 @@ import '../../core/sync/sync_engine.dart';
 import '../../core/sync/sync_types.dart';
 
 class DedupResult {
-  const DedupResult({
-    required this.exactRemoved,
-    required this.similarRemoved,
-  });
+  const DedupResult({required this.exactRemoved, required this.similarRemoved});
 
   final int exactRemoved;
   final int similarRemoved;
@@ -26,15 +23,19 @@ class BookmarkRepository implements LocalStore {
     required Database db,
     required MetadataFetchService metadataService,
     required String deviceId,
-  })  : _db = db,
-        _metadataService = metadataService,
-        _deviceId = deviceId;
+  }) : _db = db,
+       _metadataService = metadataService,
+       _deviceId = deviceId;
 
   final Database _db;
   final MetadataFetchService _metadataService;
   final String _deviceId;
   final Uuid _uuid = const Uuid();
   static const Duration _tombstoneRetention = Duration(days: 365);
+
+  void dispose() {
+    _metadataService.close();
+  }
 
   Future<List<Bookmark>> listBookmarks({bool includeDeleted = false}) async {
     final List<Map<String, Object?>> rows = await _db.query(
@@ -180,10 +181,7 @@ class BookmarkRepository implements LocalStore {
     if (bookmark == null || bookmark.isDeleted) return null;
     final DateTime now = DateTime.now().toUtc();
     final Bookmark updated = bookmark.copyWith(note: null, updatedAt: now);
-    await _writeBookmarkAndOutbox(
-      bookmark: updated,
-      opType: SyncOpType.upsert,
-    );
+    await _writeBookmarkAndOutbox(bookmark: updated, opType: SyncOpType.upsert);
     return updated;
   }
 
@@ -299,8 +297,10 @@ class BookmarkRepository implements LocalStore {
     int affected = 0;
     await _db.transaction((Transaction txn) async {
       for (final Bookmark bookmark in candidates) {
-        final Bookmark deleted =
-            bookmark.copyWith(deletedAt: now, updatedAt: now);
+        final Bookmark deleted = bookmark.copyWith(
+          deletedAt: now,
+          updatedAt: now,
+        );
         await _writeBookmarkAndOutbox(
           bookmark: deleted,
           opType: SyncOpType.delete,
@@ -337,16 +337,19 @@ class BookmarkRepository implements LocalStore {
       ids,
       includeDeleted: true,
     );
-    final List<Bookmark> deletedOnes =
-        candidates.where((Bookmark b) => b.isDeleted).toList();
+    final List<Bookmark> deletedOnes = candidates
+        .where((Bookmark b) => b.isDeleted)
+        .toList();
     if (deletedOnes.isEmpty) return 0;
 
     final DateTime now = DateTime.now().toUtc();
     int affected = 0;
     await _db.transaction((Transaction txn) async {
       for (final Bookmark bookmark in deletedOnes) {
-        final Bookmark restored =
-            bookmark.copyWith(deletedAt: null, updatedAt: now);
+        final Bookmark restored = bookmark.copyWith(
+          deletedAt: null,
+          updatedAt: now,
+        );
         await _writeBookmarkAndOutbox(
           bookmark: restored,
           opType: SyncOpType.upsert,
@@ -429,8 +432,10 @@ class BookmarkRepository implements LocalStore {
           if (removedIds.contains(b.id)) continue;
 
           final _SimilarEntry candidate = _buildSimilarEntry(b.url);
-          final List<_SimilarEntry> bucket =
-              buckets.putIfAbsent(candidate.bucket, () => <_SimilarEntry>[]);
+          final List<_SimilarEntry> bucket = buckets.putIfAbsent(
+            candidate.bucket,
+            () => <_SimilarEntry>[],
+          );
           final bool matched = bucket.any(
             (_SimilarEntry kept) => _isSimilarEntry(candidate, kept),
           );
@@ -453,7 +458,9 @@ class BookmarkRepository implements LocalStore {
     });
 
     return DedupResult(
-        exactRemoved: exactRemoved, similarRemoved: similarRemoved);
+      exactRemoved: exactRemoved,
+      similarRemoved: similarRemoved,
+    );
   }
 
   Future<int> permanentlyDeleteFromTrashMany(List<String> bookmarkIds) async {
@@ -537,13 +544,10 @@ class BookmarkRepository implements LocalStore {
 
   @override
   Future<void> saveLastPulledAt(DateTime timestamp) async {
-    await _db.insert(
-        'sync_state',
-        <String, Object?>{
-          'key': 'last_pulled_at',
-          'value': timestamp.toUtc().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await _db.insert('sync_state', <String, Object?>{
+      'key': 'last_pulled_at',
+      'value': timestamp.toUtc().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override
@@ -603,17 +607,14 @@ class BookmarkRepository implements LocalStore {
     DatabaseExecutor? executor,
   }) async {
     final DateTime now = DateTime.now().toUtc();
-    await (executor ?? _db).insert(
-        'sync_outbox',
-        <String, Object?>{
-          'op_id': _uuid.v4(),
-          'op_type': type.name,
-          'bookmark_json': jsonEncode(bookmark.toJson()),
-          'occurred_at': now.toIso8601String(),
-          'device_id': _deviceId,
-          'pushed': 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await (executor ?? _db).insert('sync_outbox', <String, Object?>{
+      'op_id': _uuid.v4(),
+      'op_type': type.name,
+      'bookmark_json': jsonEncode(bookmark.toJson()),
+      'occurred_at': now.toIso8601String(),
+      'device_id': _deviceId,
+      'pushed': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> _writeBookmarkAndOutbox({
@@ -651,22 +652,18 @@ class BookmarkRepository implements LocalStore {
     Bookmark bookmark, {
     DatabaseExecutor? executor,
   }) async {
-    await (executor ?? _db).insert(
-        'bookmarks',
-        <String, Object?>{
-          'id': bookmark.id,
-          'url': bookmark.url,
-          'normalized_url': bookmark.normalizedUrl,
-          'title': bookmark.title,
-          'note': bookmark.note,
-          'tags_json': jsonEncode(bookmark.tags),
-          'created_at': bookmark.createdAt.toUtc().toIso8601String(),
-          'updated_at': bookmark.updatedAt.toUtc().toIso8601String(),
-          'deleted_at': bookmark.deletedAt?.toUtc().toIso8601String(),
-          'title_updated_at':
-              bookmark.titleUpdatedAt?.toUtc().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await (executor ?? _db).insert('bookmarks', <String, Object?>{
+      'id': bookmark.id,
+      'url': bookmark.url,
+      'normalized_url': bookmark.normalizedUrl,
+      'title': bookmark.title,
+      'note': bookmark.note,
+      'tags_json': jsonEncode(bookmark.tags),
+      'created_at': bookmark.createdAt.toUtc().toIso8601String(),
+      'updated_at': bookmark.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': bookmark.deletedAt?.toUtc().toIso8601String(),
+      'title_updated_at': bookmark.titleUpdatedAt?.toUtc().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> _upsertTombstoneLocal(
@@ -676,15 +673,11 @@ class BookmarkRepository implements LocalStore {
   }) async {
     final DateTime deletedUtc = deletedAt.toUtc();
     final DateTime expireAt = deletedUtc.add(_tombstoneRetention);
-    await (executor ?? _db).insert(
-      'sync_tombstones',
-      <String, Object?>{
-        'bookmark_id': bookmarkId,
-        'deleted_at': deletedUtc.toIso8601String(),
-        'expire_at': expireAt.toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await (executor ?? _db).insert('sync_tombstones', <String, Object?>{
+      'bookmark_id': bookmarkId,
+      'deleted_at': deletedUtc.toIso8601String(),
+      'expire_at': expireAt.toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> _deleteTombstoneLocal(
@@ -753,8 +746,9 @@ class BookmarkRepository implements LocalStore {
       return 0;
     }
 
-    final int workerCount =
-        maxConcurrent < 1 ? 1 : (maxConcurrent > 16 ? 16 : maxConcurrent);
+    final int workerCount = maxConcurrent < 1
+        ? 1
+        : (maxConcurrent > 16 ? 16 : maxConcurrent);
     int nextIndex = 0;
     int updatedCount = 0;
     int processedCount = 0;
@@ -871,8 +865,9 @@ class BookmarkRepository implements LocalStore {
     final int? port = uri.hasPort ? uri.port : null;
     final bool isDefaultPort =
         (scheme == 'http' && port == 80) || (scheme == 'https' && port == 443);
-    final String portPart =
-        (port == null || isDefaultPort) ? '' : ':${port.toString()}';
+    final String portPart = (port == null || isDefaultPort)
+        ? ''
+        : ':${port.toString()}';
 
     String path = uri.path.toLowerCase();
     if (path.isEmpty) {
@@ -881,23 +876,24 @@ class BookmarkRepository implements LocalStore {
       path = path.substring(0, path.length - 1);
     }
 
-    final List<MapEntry<String, String>> query = uri.queryParametersAll.entries
-        .expand(
-          (MapEntry<String, List<String>> e) => e.value.isEmpty
-              ? <MapEntry<String, String>>[
-                  MapEntry<String, String>(e.key.toLowerCase(), ''),
-                ]
-              : e.value.map(
-                  (String v) =>
-                      MapEntry<String, String>(e.key.toLowerCase(), v),
-                ),
-        )
-        .toList()
-      ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
-        final int keyCmp = a.key.compareTo(b.key);
-        if (keyCmp != 0) return keyCmp;
-        return a.value.compareTo(b.value);
-      });
+    final List<MapEntry<String, String>> query =
+        uri.queryParametersAll.entries
+            .expand(
+              (MapEntry<String, List<String>> e) => e.value.isEmpty
+                  ? <MapEntry<String, String>>[
+                      MapEntry<String, String>(e.key.toLowerCase(), ''),
+                    ]
+                  : e.value.map(
+                      (String v) =>
+                          MapEntry<String, String>(e.key.toLowerCase(), v),
+                    ),
+            )
+            .toList()
+          ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+            final int keyCmp = a.key.compareTo(b.key);
+            if (keyCmp != 0) return keyCmp;
+            return a.value.compareTo(b.value);
+          });
 
     final String queryPart = query.isEmpty
         ? ''
@@ -933,26 +929,28 @@ class BookmarkRepository implements LocalStore {
     final String firstPath = pathSegments.isEmpty ? '/' : pathSegments.first;
     final Set<String> pathTokens = _urlTokens(path);
 
-    final List<MapEntry<String, String>> nonTrackingQuery = uri
-        .queryParametersAll.entries
-        .where((MapEntry<String, List<String>> e) =>
-            !_trackingQueryKeys.contains(e.key.toLowerCase()))
-        .expand(
-          (MapEntry<String, List<String>> e) => e.value.isEmpty
-              ? <MapEntry<String, String>>[
-                  MapEntry<String, String>(e.key.toLowerCase(), ''),
-                ]
-              : e.value.map(
-                  (String v) =>
-                      MapEntry<String, String>(e.key.toLowerCase(), v),
-                ),
-        )
-        .toList()
-      ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
-        final int keyCmp = a.key.compareTo(b.key);
-        if (keyCmp != 0) return keyCmp;
-        return a.value.compareTo(b.value);
-      });
+    final List<MapEntry<String, String>> nonTrackingQuery =
+        uri.queryParametersAll.entries
+            .where(
+              (MapEntry<String, List<String>> e) =>
+                  !_trackingQueryKeys.contains(e.key.toLowerCase()),
+            )
+            .expand(
+              (MapEntry<String, List<String>> e) => e.value.isEmpty
+                  ? <MapEntry<String, String>>[
+                      MapEntry<String, String>(e.key.toLowerCase(), ''),
+                    ]
+                  : e.value.map(
+                      (String v) =>
+                          MapEntry<String, String>(e.key.toLowerCase(), v),
+                    ),
+            )
+            .toList()
+          ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+            final int keyCmp = a.key.compareTo(b.key);
+            if (keyCmp != 0) return keyCmp;
+            return a.value.compareTo(b.value);
+          });
 
     final String queryPart = nonTrackingQuery.isEmpty
         ? ''
@@ -1024,10 +1022,7 @@ class BookmarkRepository implements LocalStore {
     if (a.isEmpty) return b.length;
     if (b.isEmpty) return a.length;
 
-    final List<int> previous = List<int>.generate(
-      b.length + 1,
-      (int i) => i,
-    );
+    final List<int> previous = List<int>.generate(b.length + 1, (int i) => i);
     final List<int> current = List<int>.filled(b.length + 1, 0);
 
     for (int i = 1; i <= a.length; i += 1) {

@@ -10,11 +10,30 @@ class LocalDatabase {
 
   static final LocalDatabase instance = LocalDatabase._();
   Database? _database;
+  Future<Database>? _openingDatabase;
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _open();
-    return _database!;
+    final Database? opened = _database;
+    if (opened != null) {
+      return opened;
+    }
+
+    final Future<Database>? opening = _openingDatabase;
+    if (opening != null) {
+      return opening;
+    }
+
+    final Future<Database> openFuture = _open();
+    _openingDatabase = openFuture;
+    try {
+      final Database db = await openFuture;
+      _database = db;
+      return db;
+    } finally {
+      if (identical(_openingDatabase, openFuture)) {
+        _openingDatabase = null;
+      }
+    }
   }
 
   Future<Database> _open() async {

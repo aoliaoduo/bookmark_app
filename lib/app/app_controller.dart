@@ -16,11 +16,13 @@ class AppController extends ChangeNotifier {
     required SettingsStore settingsStore,
     required ExportService exportService,
     required MaintenanceService maintenanceService,
-  })  : _repository = repository,
-        _settingsStore = settingsStore,
-        _exportService = exportService,
-        _maintenanceService = maintenanceService,
-        _syncCoordinator = SyncCoordinator(repository: repository);
+    SyncCoordinator? syncCoordinator,
+  }) : _repository = repository,
+       _settingsStore = settingsStore,
+       _exportService = exportService,
+       _maintenanceService = maintenanceService,
+       _syncCoordinator =
+           syncCoordinator ?? SyncCoordinator(repository: repository);
 
   final BookmarkRepository _repository;
   final SettingsStore _settingsStore;
@@ -308,11 +310,13 @@ class AppController extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final Set<String> idSet =
-          bookmarkIds.map((String id) => id.trim()).toSet();
+      final Set<String> idSet = bookmarkIds
+          .map((String id) => id.trim())
+          .toSet();
       final List<Bookmark> source = fromTrash ? _trashBookmarks : _bookmarks;
-      final List<Bookmark> selected =
-          source.where((Bookmark b) => idSet.contains(b.id)).toList();
+      final List<Bookmark> selected = source
+          .where((Bookmark b) => idSet.contains(b.id))
+          .toList();
       final ExportResult result = await _exportService.exportBookmarks(
         bookmarks: selected,
         format: format,
@@ -505,6 +509,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     _refreshTimer?.cancel();
     _autoSyncTimer?.cancel();
+    _repository.dispose();
     super.dispose();
   }
 
@@ -513,14 +518,11 @@ class AppController extends ChangeNotifier {
     _startupSyncTriggered = true;
 
     final AppSettings? current = _settings;
-    if (current == null || !current.syncReady) {
+    if (current == null || !current.syncReady || !current.autoSyncOnLaunch) {
       return false;
     }
 
-    bool syncSuccess = false;
-    if (current.autoSyncOnLaunch) {
-      syncSuccess = await _runSync(userInitiated: false);
-    }
+    final bool syncSuccess = await _runSync(userInitiated: false);
 
     try {
       final String markdown = _exportService.buildMarkdownContent(_bookmarks);

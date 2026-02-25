@@ -26,13 +26,15 @@ class WebDavSyncProvider implements SyncProvider {
     required WebDavConfig config,
     http.Client? client,
     Duration requestTimeout = const Duration(seconds: 25),
-  })  : _config = config,
-        _client = client ?? http.Client(),
-        _baseUri = _parseBaseUri(config.baseUrl),
-        _requestTimeout = requestTimeout;
+  }) : _config = config,
+       _client = client ?? http.Client(),
+       _ownsClient = client == null,
+       _baseUri = _parseBaseUri(config.baseUrl),
+       _requestTimeout = requestTimeout;
 
   final WebDavConfig _config;
   final http.Client _client;
+  final bool _ownsClient;
   final Uri _baseUri;
   final Duration _requestTimeout;
 
@@ -106,7 +108,9 @@ class WebDavSyncProvider implements SyncProvider {
     final List<_DavEntry> files = <_DavEntry>[];
     final Set<String> seenFilePaths = <String>{};
     for (final String root in roots) {
-      final List<_DavEntry> listed = await _listJsonFilesRecursively(root);
+      final List<_DavEntry> listed = await _listOpsJsonFilesForDevicesRoot(
+        root,
+      );
       for (final _DavEntry entry in listed) {
         if (seenFilePaths.add(_normalizePath(entry.path))) {
           files.add(entry);
@@ -127,10 +131,7 @@ class WebDavSyncProvider implements SyncProvider {
       final http.Response response;
       try {
         response = await _client
-            .get(
-              uri,
-              headers: _headers(),
-            )
+            .get(uri, headers: _headers())
             .timeout(_requestTimeout);
       } on TimeoutException catch (e) {
         throw WebDavRequestException(
@@ -158,14 +159,18 @@ class WebDavSyncProvider implements SyncProvider {
       }
     }
 
-    result.sort(
-      (PulledSyncBatch a, PulledSyncBatch b) {
-        final int cursorCompare = a.cursorAt.compareTo(b.cursorAt);
-        if (cursorCompare != 0) return cursorCompare;
-        return a.batch.createdAt.compareTo(b.batch.createdAt);
-      },
-    );
+    result.sort((PulledSyncBatch a, PulledSyncBatch b) {
+      final int cursorCompare = a.cursorAt.compareTo(b.cursorAt);
+      if (cursorCompare != 0) return cursorCompare;
+      return a.batch.createdAt.compareTo(b.batch.createdAt);
+    });
     return result;
+  }
+
+  void close() {
+    if (_ownsClient) {
+      _client.close();
+    }
   }
 
   Map<String, String> _headers({String? contentType}) {
@@ -201,25 +206,28 @@ class WebDavSyncProvider implements SyncProvider {
     }
   }
 
-  Future<List<_DavEntry>> _listJsonFilesRecursively(String rootPath) async {
-    final String normalizedRoot = _normalizePath(rootPath);
+  Future<List<_DavEntry>> _listOpsJsonFilesForDevicesRoot(
+    String devicesRootPath,
+  ) async {
+    final String normalizedRoot = _normalizePath(devicesRootPath);
+    final List<_DavEntry> devices = await _propfind(normalizedRoot);
     final List<_DavEntry> files = <_DavEntry>[];
-    final Set<String> visited = <String>{};
-    final List<String> pending = <String>[normalizedRoot];
 
-    while (pending.isNotEmpty) {
-      final String current = pending.removeLast();
-      if (!visited.add(current)) {
+    for (final _DavEntry device in devices) {
+      if (!device.isCollection || _samePath(device.path, normalizedRoot)) {
         continue;
       }
 
-      final List<_DavEntry> entries = await _propfind(current);
+      final String normalizedDevice = _normalizePath(
+        device.path,
+      ).replaceFirst(RegExp(r'/+$'), '');
+      final String opsPath = '$normalizedDevice/ops/';
+      final List<_DavEntry> entries = await _propfind(opsPath);
       for (final _DavEntry entry in entries) {
-        if (_samePath(entry.path, current)) continue;
-
-        if (entry.isCollection) {
-          pending.add(entry.path);
-        } else if (entry.path.toLowerCase().endsWith('.json')) {
+        if (_samePath(entry.path, opsPath) || entry.isCollection) {
+          continue;
+        }
+        if (entry.path.toLowerCase().endsWith('.json')) {
           files.add(entry);
         }
       }
@@ -278,8 +286,10 @@ class WebDavSyncProvider implements SyncProvider {
 
       final String pathValue = _pathFromHref(hrefRaw);
       bool isCollection = false;
-      for (final XmlElement rt
-          in _findAllByLocalName(element, 'resourcetype')) {
+      for (final XmlElement rt in _findAllByLocalName(
+        element,
+        'resourcetype',
+      )) {
         if (_findAllByLocalName(rt, 'collection').isNotEmpty) {
           isCollection = true;
           break;
@@ -288,8 +298,10 @@ class WebDavSyncProvider implements SyncProvider {
 
       DateTime? lastModified;
       XmlElement? modifiedNode;
-      for (final XmlElement node
-          in _findAllByLocalName(element, 'getlastmodified')) {
+      for (final XmlElement node in _findAllByLocalName(
+        element,
+        'getlastmodified',
+      )) {
         modifiedNode = node;
         break;
       }
@@ -335,8 +347,9 @@ class WebDavSyncProvider implements SyncProvider {
   }
 
   String _normalizedBasePath() {
-    final String normalized =
-        _normalizePath(_baseUri.path).replaceFirst(RegExp(r'/+$'), '');
+    final String normalized = _normalizePath(
+      _baseUri.path,
+    ).replaceFirst(RegExp(r'/+$'), '');
     if (normalized == '/') {
       return '';
     }
@@ -374,15 +387,16 @@ class WebDavSyncProvider implements SyncProvider {
 
   static Uri _parseBaseUri(String rawBaseUrl) {
     final Uri uri = Uri.parse(rawBaseUrl.trim());
-    final String normalizedPath =
-        uri.path.isEmpty ? '' : uri.path.replaceFirst(RegExp(r'/+$'), '');
+    final String normalizedPath = uri.path.isEmpty
+        ? ''
+        : uri.path.replaceFirst(RegExp(r'/+$'), '');
     return uri.replace(path: normalizedPath, query: null, fragment: null);
   }
 
   Iterable<XmlElement> _findAllByLocalName(XmlNode node, String localName) {
-    return node.descendants
-        .whereType<XmlElement>()
-        .where((XmlElement element) => element.name.local == localName);
+    return node.descendants.whereType<XmlElement>().where(
+      (XmlElement element) => element.name.local == localName,
+    );
   }
 
   String _encodePathSegment(String raw) {
@@ -483,8 +497,9 @@ class WebDavRequestException implements Exception {
     }
     if (responseBody != null && responseBody!.trim().isNotEmpty) {
       final String trimmed = responseBody!.trim();
-      final String snippet =
-          trimmed.length <= 180 ? trimmed : '${trimmed.substring(0, 180)}...';
+      final String snippet = trimmed.length <= 180
+          ? trimmed
+          : '${trimmed.substring(0, 180)}...';
       buffer.write(', body=$snippet');
     }
     if (cause != null) {

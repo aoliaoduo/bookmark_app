@@ -29,7 +29,7 @@ class _AboutPageState extends State<AboutPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionLabel = 'v0.5.29';
+        _versionLabel = '-';
       });
     }
   }
@@ -43,9 +43,9 @@ class _AboutPageState extends State<AboutPage> {
         children: <Widget>[
           Text(
             '粮仓 App',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
           Text(
@@ -79,8 +79,8 @@ class _AboutPageState extends State<AboutPage> {
                   Text(
                     '技术栈',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   const _TechItem(
@@ -88,10 +88,7 @@ class _AboutPageState extends State<AboutPage> {
                     desc: '跨平台 UI 框架（Android / Windows）',
                   ),
                   const _TechItem(name: 'Dart', desc: '应用核心语言'),
-                  const _TechItem(
-                    name: 'SQLite (sqflite)',
-                    desc: '本地优先数据存储',
-                  ),
+                  const _TechItem(name: 'SQLite (sqflite)', desc: '本地优先数据存储'),
                   const _TechItem(name: 'WebDAV', desc: '云同步与云备份协议'),
                   const _TechItem(
                     name: 'HTTP + html parser',

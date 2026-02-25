@@ -62,7 +62,7 @@
 
 文件路径：
 
-`/BookmarksApp/users/{userId}/snapshots/bookmarks_{date}.json.gz`
+`/BookmarksApp/users/{userId}/snapshots/bookmarks_{date}.json`
 
 内容为全量导出（含软删除记录），推荐 gzip 压缩。
 
