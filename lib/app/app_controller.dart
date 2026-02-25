@@ -1,8 +1,9 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
 import '../core/domain/bookmark.dart';
+import '../core/security/sensitive_data_sanitizer.dart';
 import 'export/export_service.dart';
 import 'local/bookmark_repository.dart';
 import 'maintenance/maintenance_service.dart';
@@ -143,7 +144,7 @@ class AppController extends ChangeNotifier {
       }
     } catch (e) {
       _settings = null;
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       _setBootstrapState(AppBootstrapState.failed, message: _error);
       rethrow;
     } finally {
@@ -169,7 +170,7 @@ class AppController extends ChangeNotifier {
       _scheduleAutoSync();
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
     } finally {
       _setLoading(false);
     }
@@ -183,7 +184,7 @@ class AppController extends ChangeNotifier {
       _scheduleAutoSync();
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
     } finally {
       _setLoading(false);
     }
@@ -197,7 +198,7 @@ class AppController extends ChangeNotifier {
       _scheduleAutoSync();
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
     } finally {
       _setLoading(false);
     }
@@ -217,7 +218,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return updated;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _endBatchRefresh();
@@ -238,7 +239,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return updated;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _endBatchRefresh();
@@ -260,7 +261,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return updated;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _endBatchRefresh();
@@ -281,7 +282,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return affected;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _setLoading(false);
@@ -301,7 +302,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return affected;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _setLoading(false);
@@ -318,7 +319,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return affected;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _setLoading(false);
@@ -333,7 +334,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return deleted;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return 0;
     } finally {
       _setLoading(false);
@@ -355,7 +356,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return result;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return null;
     } finally {
       _setLoading(false);
@@ -379,7 +380,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return result;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return null;
     } finally {
       _setLoading(false);
@@ -394,7 +395,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return result;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return null;
     } finally {
       _setLoading(false);
@@ -416,7 +417,7 @@ class AppController extends ChangeNotifier {
       _error = null;
       return result;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       return null;
     } finally {
       _setLoading(false);
@@ -430,7 +431,7 @@ class AppController extends ChangeNotifier {
   Future<void> backupNow() async {
     final AppSettings? current = _settings;
     if (current == null || !current.syncReady) {
-      _error = '请先在设置中完成 WebDAV 配置';
+      _error = '璇峰厛鍦ㄨ缃腑瀹屾垚 WebDAV 閰嶇疆';
       notifyListeners();
       return;
     }
@@ -447,7 +448,7 @@ class AppController extends ChangeNotifier {
         debugPrint('Backup task canceled before execution');
       }
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
     } finally {
       _setLoading(false);
     }
@@ -459,7 +460,7 @@ class AppController extends ChangeNotifier {
       if (next.webDavEnabled &&
           next.webDavBaseUrl.trim().isNotEmpty &&
           !next.webDavUsesHttps) {
-        throw const FormatException('WebDAV Base URL 必须使用 https://');
+        throw const FormatException('WebDAV Base URL 蹇呴』浣跨敤 https://');
       }
       await _settingsStore.save(next);
       _settings = next;
@@ -473,7 +474,7 @@ class AppController extends ChangeNotifier {
       }
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
     } finally {
       _setLoading(false);
     }
@@ -496,7 +497,7 @@ class AppController extends ChangeNotifier {
       _restartRefreshTimer();
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
     } finally {
       _setLoading(false);
     }
@@ -514,7 +515,7 @@ class AppController extends ChangeNotifier {
       await _settingsStore.save(next);
       _error = null;
     } catch (e) {
-      _error = e.toString();
+      _error = _safeErrorMessage(e);
       notifyListeners();
     }
   }
@@ -606,6 +607,14 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _safeErrorMessage(Object error) {
+    return SensitiveDataSanitizer.sanitizeObject(error);
+  }
+
+  String _safeErrorText(String message) {
+    return SensitiveDataSanitizer.sanitizeText(message);
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
@@ -643,7 +652,9 @@ class AppController extends ChangeNotifier {
       await handle.result;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Startup markdown backup failed: $e');
+        debugPrint(
+          'Startup markdown backup failed: ${_safeErrorMessage(e)}',
+        );
       }
     }
 
@@ -704,7 +715,9 @@ class AppController extends ChangeNotifier {
         _error = null;
         return true;
       }
-      final String message = report.errorMessage ?? '同步失败';
+      final String message = _safeErrorText(
+        report.errorMessage ?? '同步失败',
+      );
       _syncError = message;
       if (userInitiated) {
         _error = message;
@@ -713,17 +726,17 @@ class AppController extends ChangeNotifier {
     } on SyncTaskCanceledException {
       return false;
     } catch (e) {
-      _syncError = e.toString();
+      _syncError = _safeErrorMessage(e);
       _lastSyncDiagnostics = SyncRunDiagnostics(
         startedAt: DateTime.now(),
         finishedAt: DateTime.now(),
         attemptCount: 1,
         success: false,
         engineReport: null,
-        errorMessage: e.toString(),
+        errorMessage: _safeErrorMessage(e),
       );
       if (userInitiated) {
-        _error = e.toString();
+        _error = _safeErrorMessage(e);
       }
       return false;
     }

@@ -125,12 +125,35 @@ void main() {
     expect(harness.syncCoordinator.syncCalls, 1);
     expect(harness.controller.error, isNull);
   });
+
+  test('syncNow masks sensitive fields in sync errors', () async {
+    final _Harness harness = await _createHarness(
+      autoSyncOnLaunch: false,
+      syncShouldSucceed: false,
+      syncErrorMessage:
+          'WebDAV pull failed url=https://u:pw@dav.example.com/x?token=abc&password=xyz Authorization: Basic dXNlcjpwYXNz',
+    );
+    addTearDown(harness.dispose);
+
+    final bool success = await harness.controller.syncNow(userInitiated: true);
+
+    expect(success, isFalse);
+    final String? syncError = harness.controller.syncError;
+    expect(syncError, isNotNull);
+    expect(syncError, contains('Basic ***'));
+    expect(syncError, contains('token=***'));
+    expect(syncError, contains('password=***'));
+    expect(syncError, isNot(contains('dXNlcjpwYXNz')));
+    expect(syncError, isNot(contains('token=abc')));
+    expect(syncError, isNot(contains('password=xyz')));
+  });
 }
 
 Future<_Harness> _createHarness({
   required bool autoSyncOnLaunch,
   bool autoSyncOnChange = false,
   bool syncShouldSucceed = true,
+  String? syncErrorMessage,
 }) async {
   final Database db = await _openDb();
   final AppSettings settings = _buildSettings(
@@ -146,6 +169,7 @@ Future<_Harness> _createHarness({
   final _RecordingSyncCoordinator syncCoordinator = _RecordingSyncCoordinator(
     repository: repository,
     syncShouldSucceed: syncShouldSucceed,
+    syncErrorMessage: syncErrorMessage,
   );
   final AppController controller = AppController(
     repository: repository,
@@ -235,12 +259,14 @@ class _RecordingSyncCoordinator extends SyncCoordinator {
   _RecordingSyncCoordinator({
     required super.repository,
     required this.syncShouldSucceed,
+    this.syncErrorMessage,
   });
 
   int syncCalls = 0;
   int backupCalls = 0;
   int markdownBackupCalls = 0;
   final bool syncShouldSucceed;
+  final String? syncErrorMessage;
   Completer<void>? backupStarted;
   Completer<void>? allowBackupFinish;
 
@@ -266,7 +292,9 @@ class _RecordingSyncCoordinator extends SyncCoordinator {
       attemptCount: 1,
       success: syncShouldSucceed,
       engineReport: null,
-      errorMessage: syncShouldSucceed ? null : 'forced startup sync failure',
+      errorMessage: syncShouldSucceed
+          ? null
+          : (syncErrorMessage ?? 'forced startup sync failure'),
     );
   }
 

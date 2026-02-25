@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.36',
+      notes: <String>[
+        '安全基线（第一批）：新增 SensitiveDataSanitizer，统一脱敏 Basic/Bearer、password/token 等敏感字段。',
+        '同步链路脱敏：SyncCoordinator / AppController 对同步错误文案与诊断信息做脱敏后再展示。',
+        'WebDAV 异常脱敏：WebDavRequestException.toString 对 path/body/cause 输出统一脱敏。',
+        '新增回归测试：覆盖脱敏规则、WebDAV 异常文案脱敏与控制器同步错误脱敏。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.35',
       notes: <String>[
         '新增平台适配层：抽离 PlatformAdapter / FileDialogAdapter / PlatformServices，集中管理平台能力与差异。',

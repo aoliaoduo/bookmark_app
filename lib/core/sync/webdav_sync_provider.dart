@@ -6,6 +6,7 @@ import 'package:charset/charset.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
+import '../security/sensitive_data_sanitizer.dart';
 import 'sync_provider.dart';
 import 'sync_types.dart';
 
@@ -500,21 +501,25 @@ class WebDavRequestException implements Exception {
 
   @override
   String toString() {
-    final StringBuffer buffer = StringBuffer(message);
+    final StringBuffer buffer = StringBuffer(
+      SensitiveDataSanitizer.sanitizeText(message),
+    );
     if (statusCode != null) {
       buffer.write(' (status=$statusCode)');
     }
     if (path != null && path!.isNotEmpty) {
-      buffer.write(', path=$path');
+      buffer.write(', path=${SensitiveDataSanitizer.sanitizeText(path!)}');
     }
     if (responseBody != null && responseBody!.trim().isNotEmpty) {
-      final String trimmed = responseBody!.trim();
+      final String trimmed = SensitiveDataSanitizer.sanitizeText(
+        responseBody!.trim(),
+      );
       final String snippet =
           trimmed.length <= 180 ? trimmed : '${trimmed.substring(0, 180)}...';
       buffer.write(', body=$snippet');
     }
     if (cause != null) {
-      buffer.write(', cause=$cause');
+      buffer.write(', cause=${SensitiveDataSanitizer.sanitizeObject(cause)}');
     }
     return buffer.toString();
   }

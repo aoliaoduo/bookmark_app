@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../core/security/sensitive_data_sanitizer.dart';
 import '../core/backup/webdav_backup_service.dart';
 import '../core/domain/bookmark.dart';
 import '../core/sync/sync_engine.dart';
@@ -143,7 +144,7 @@ class SyncCoordinator {
         attemptCount: outcome.attemptCount,
         success: false,
         engineReport: null,
-        errorMessage: outcome.error?.toString(),
+        errorMessage: SensitiveDataSanitizer.sanitizeObject(outcome.error),
       );
     } finally {
       provider.close();
