@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.37',
+      notes: <String>[
+        'Security baseline (batch 2): WebDAV password in runtime settings now uses a secure placeholder instead of long-lived plaintext.',
+        'Sync/backup now resolve the real WebDAV password on demand right before network execution, reducing memory exposure window.',
+        'Settings page password behavior updated: if a password already exists, leaving the input empty keeps the current secret unchanged.',
+        'Added regression tests for secure-password placeholder resolution in AppController and SettingsStore.',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.36',
       notes: <String>[
         '安全基线（第一批）：新增 SensitiveDataSanitizer，统一脱敏 Basic/Bearer、password/token 等敏感字段。',

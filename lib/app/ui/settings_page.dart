@@ -17,6 +17,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _userIdController;
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
+  late final bool _hasStoredPassword;
 
   late bool _webDavEnabled;
   late bool _autoRefreshOnLaunch;
@@ -34,7 +35,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _baseUrlController = TextEditingController(text: s.webDavBaseUrl);
     _userIdController = TextEditingController(text: s.webDavUserId);
     _usernameController = TextEditingController(text: s.webDavUsername);
-    _passwordController = TextEditingController(text: s.webDavPassword);
+    _hasStoredPassword = s.hasWebDavPassword;
+    _passwordController = TextEditingController(
+      text: s.usesSecurePasswordPlaceholder ? '' : s.webDavPassword,
+    );
     _webDavEnabled = s.webDavEnabled;
     _autoRefreshOnLaunch = s.autoRefreshOnLaunch;
     _autoSyncOnLaunch = s.autoSyncOnLaunch;
@@ -185,6 +189,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
                     decoration: const InputDecoration(
                       labelText: 'WebDAV 密码',
                     ),
@@ -203,6 +209,10 @@ class _SettingsPageState extends State<SettingsPage> {
   void _save() {
     final int days = int.tryParse(_daysController.text.trim()) ?? 7;
     final String baseUrl = _baseUrlController.text.trim();
+    final String passwordInput = _passwordController.text;
+    final String resolvedPassword = passwordInput.isEmpty && _hasStoredPassword
+        ? AppSettings.securePasswordPlaceholder
+        : passwordInput;
     if (_webDavEnabled &&
         baseUrl.isNotEmpty &&
         !AppSettings.isSecureWebDavBaseUrl(baseUrl)) {
@@ -219,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
       webDavBaseUrl: baseUrl,
       webDavUserId: _userIdController.text.trim(),
       webDavUsername: _usernameController.text.trim(),
-      webDavPassword: _passwordController.text,
+      webDavPassword: resolvedPassword,
     );
     Navigator.of(context).pop(next);
   }

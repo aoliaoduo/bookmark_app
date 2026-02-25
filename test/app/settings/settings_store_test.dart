@@ -19,7 +19,12 @@ void main() {
 
     final AppSettings settings = await store.load();
 
-    expect(settings.webDavPassword, 'legacy-secret');
+    expect(
+      settings.webDavPassword,
+      AppSettings.securePasswordPlaceholder,
+    );
+    expect(settings.usesSecurePasswordPlaceholder, isTrue);
+    expect(await store.loadWebDavPassword(), 'legacy-secret');
     expect(settings.themePreference, AppThemePreference.system);
     expect(settings.homeSortPreference, HomeSortPreference.updatedDesc);
     expect(secretStore.readSync('webdav_password'), 'legacy-secret');
@@ -52,6 +57,13 @@ void main() {
     expect(prefs.getString('webdav_password'), isNull);
     expect(prefs.getString('theme_preference'), 'dark');
     expect(prefs.getString('home_sort_preference'), 'urlAsc');
+    expect(secretStore.readSync('webdav_password'), 'secret-1');
+
+    await store.save(
+      settings.copyWith(
+        webDavPassword: AppSettings.securePasswordPlaceholder,
+      ),
+    );
     expect(secretStore.readSync('webdav_password'), 'secret-1');
 
     await store.save(settings.copyWith(webDavPassword: ''));

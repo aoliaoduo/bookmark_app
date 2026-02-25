@@ -55,6 +55,8 @@ class SettingsStore {
     final String deviceId = prefs.getString(_deviceIdKey) ?? const Uuid().v4();
     await prefs.setString(_deviceIdKey, deviceId);
     final String password = await _loadPassword(prefs);
+    final String runtimePassword =
+        password.isEmpty ? '' : AppSettings.securePasswordPlaceholder;
 
     return AppSettings(
       deviceId: deviceId,
@@ -72,7 +74,7 @@ class SettingsStore {
       webDavBaseUrl: prefs.getString(_webDavBaseUrlKey) ?? '',
       webDavUserId: prefs.getString(_webDavUserIdKey) ?? 'default',
       webDavUsername: prefs.getString(_webDavUsernameKey) ?? '',
-      webDavPassword: password,
+      webDavPassword: runtimePassword,
     );
   }
 
@@ -92,8 +94,20 @@ class SettingsStore {
     await prefs.setString(_webDavBaseUrlKey, settings.webDavBaseUrl);
     await prefs.setString(_webDavUserIdKey, settings.webDavUserId);
     await prefs.setString(_webDavUsernameKey, settings.webDavUsername);
-    await _savePassword(settings.webDavPassword);
+    if (settings.usesSecurePasswordPlaceholder) {
+      final String? existing = await _secretStore.read(key: _webDavPasswordKey);
+      if (existing == null || existing.isEmpty) {
+        await _savePassword('');
+      }
+    } else {
+      await _savePassword(settings.webDavPassword);
+    }
     await prefs.remove(_webDavPasswordKey);
+  }
+
+  Future<String> loadWebDavPassword() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return _loadPassword(prefs);
   }
 
   Future<void> clearAll() async {

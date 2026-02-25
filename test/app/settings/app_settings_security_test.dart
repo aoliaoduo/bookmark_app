@@ -34,4 +34,23 @@ void main() {
     expect(
         AppSettings.isSecureWebDavBaseUrl('https://dav.example.com'), isTrue);
   });
+
+  test('secure password placeholder is treated as configured password', () {
+    final AppSettings settings = AppSettings(
+      deviceId: 'd1',
+      titleRefreshDays: 7,
+      autoRefreshOnLaunch: true,
+      autoSyncOnLaunch: true,
+      autoSyncOnChange: true,
+      webDavEnabled: true,
+      webDavBaseUrl: 'https://dav.example.com',
+      webDavUserId: 'u1',
+      webDavUsername: 'name',
+      webDavPassword: AppSettings.securePasswordPlaceholder,
+    );
+
+    expect(settings.hasWebDavPassword, isTrue);
+    expect(settings.usesSecurePasswordPlaceholder, isTrue);
+    expect(settings.syncReady, isTrue);
+  });
 }

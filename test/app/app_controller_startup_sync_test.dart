@@ -147,6 +147,21 @@ void main() {
     expect(syncError, isNot(contains('token=abc')));
     expect(syncError, isNot(contains('password=xyz')));
   });
+
+  test('syncNow resolves secure password placeholder before enqueue sync',
+      () async {
+    final _Harness harness = await _createHarness(
+      autoSyncOnLaunch: false,
+      useSecurePasswordPlaceholder: true,
+      storedWebDavPassword: 'resolved-secret',
+    );
+    addTearDown(harness.dispose);
+
+    final bool success = await harness.controller.syncNow(userInitiated: true);
+
+    expect(success, isTrue);
+    expect(harness.syncCoordinator.lastSyncPassword, 'resolved-secret');
+  });
 }
 
 Future<_Harness> _createHarness({
@@ -154,18 +169,26 @@ Future<_Harness> _createHarness({
   bool autoSyncOnChange = false,
   bool syncShouldSucceed = true,
   String? syncErrorMessage,
+  bool useSecurePasswordPlaceholder = false,
+  String storedWebDavPassword = 'p',
 }) async {
   final Database db = await _openDb();
   final AppSettings settings = _buildSettings(
     autoSyncOnLaunch: autoSyncOnLaunch,
     autoSyncOnChange: autoSyncOnChange,
+    webDavPassword: useSecurePasswordPlaceholder
+        ? AppSettings.securePasswordPlaceholder
+        : storedWebDavPassword,
   );
   final BookmarkRepository repository = BookmarkRepository(
     db: db,
     metadataService: MetadataFetchService(),
     deviceId: settings.deviceId,
   );
-  final _FakeSettingsStore settingsStore = _FakeSettingsStore(settings);
+  final _FakeSettingsStore settingsStore = _FakeSettingsStore(
+    settings,
+    storedPassword: storedWebDavPassword,
+  );
   final _RecordingSyncCoordinator syncCoordinator = _RecordingSyncCoordinator(
     repository: repository,
     syncShouldSucceed: syncShouldSucceed,
@@ -189,6 +212,7 @@ Future<_Harness> _createHarness({
 AppSettings _buildSettings({
   required bool autoSyncOnLaunch,
   bool autoSyncOnChange = false,
+  String webDavPassword = 'p',
 }) {
   return AppSettings(
     deviceId: 'device-1',
@@ -200,7 +224,7 @@ AppSettings _buildSettings({
     webDavBaseUrl: 'https://dav.example.com',
     webDavUserId: 'user-1',
     webDavUsername: 'u',
-    webDavPassword: 'p',
+    webDavPassword: webDavPassword,
   );
 }
 
@@ -222,9 +246,11 @@ class _Harness {
 }
 
 class _FakeSettingsStore extends SettingsStore {
-  _FakeSettingsStore(this._settings);
+  _FakeSettingsStore(this._settings, {required String storedPassword})
+      : _storedPassword = storedPassword;
 
   AppSettings _settings;
+  String _storedPassword;
 
   @override
   Future<AppSettings> load() async => _settings;
@@ -232,10 +258,16 @@ class _FakeSettingsStore extends SettingsStore {
   @override
   Future<void> save(AppSettings settings) async {
     _settings = settings;
+    if (!settings.usesSecurePasswordPlaceholder) {
+      _storedPassword = settings.webDavPassword;
+    }
   }
 
   @override
   Future<void> clearAll() async {}
+
+  @override
+  Future<String> loadWebDavPassword() async => _storedPassword;
 }
 
 class _ThrowingSettingsStore extends SettingsStore {
@@ -253,6 +285,11 @@ class _ThrowingSettingsStore extends SettingsStore {
 
   @override
   Future<void> clearAll() async {}
+
+  @override
+  Future<String> loadWebDavPassword() {
+    return Future<String>.error(_error);
+  }
 }
 
 class _RecordingSyncCoordinator extends SyncCoordinator {
@@ -267,6 +304,7 @@ class _RecordingSyncCoordinator extends SyncCoordinator {
   int markdownBackupCalls = 0;
   final bool syncShouldSucceed;
   final String? syncErrorMessage;
+  String? lastSyncPassword;
   Completer<void>? backupStarted;
   Completer<void>? allowBackupFinish;
 
@@ -285,6 +323,7 @@ class _RecordingSyncCoordinator extends SyncCoordinator {
   @override
   Future<SyncRunDiagnostics> syncNow(AppSettings settings) async {
     syncCalls += 1;
+    lastSyncPassword = settings.webDavPassword;
     final DateTime at = DateTime.utc(2026, 2, 25, 0, 0, 0);
     return SyncRunDiagnostics(
       startedAt: at,

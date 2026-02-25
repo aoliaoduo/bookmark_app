@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
@@ -438,8 +438,9 @@ class AppController extends ChangeNotifier {
 
     _setLoading(true);
     try {
+      final AppSettings syncSettings = await _resolveSyncSettings(current);
       final SyncTaskHandle<void> handle = _syncUseCase.enqueueBackupSnapshot(
-        settings: current,
+        settings: syncSettings,
       );
       await handle.result;
       _error = null;
@@ -463,13 +464,14 @@ class AppController extends ChangeNotifier {
         throw const FormatException('WebDAV Base URL 蹇呴』浣跨敤 https://');
       }
       await _settingsStore.save(next);
-      _settings = next;
+      _settings = await _settingsStore.load();
       _startupSyncTriggered = false;
       _restartRefreshTimer();
-      if (!next.syncReady || !next.autoSyncOnChange) {
+      final AppSettings? saved = _settings;
+      if (saved == null || !saved.syncReady || !saved.autoSyncOnChange) {
         _cancelAutoSyncScheduling();
       }
-      if (next.autoSyncOnLaunch) {
+      if (saved != null && saved.autoSyncOnLaunch) {
         unawaited(runStartupSyncIfNeeded());
       }
       _error = null;
@@ -615,6 +617,18 @@ class AppController extends ChangeNotifier {
     return SensitiveDataSanitizer.sanitizeText(message);
   }
 
+  Future<AppSettings> _resolveSyncSettings(AppSettings settings) async {
+    if (!settings.usesSecurePasswordPlaceholder) {
+      return settings;
+    }
+    final String password = await _settingsStore.loadWebDavPassword();
+    if (password.trim().isEmpty) {
+      throw StateError(
+          'WebDAV password is missing; please save settings again.');
+    }
+    return settings.copyWith(webDavPassword: password);
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
@@ -644,9 +658,10 @@ class AppController extends ChangeNotifier {
     }
 
     try {
+      final AppSettings syncSettings = await _resolveSyncSettings(current);
       final String markdown = _bookmarkUseCase.buildMarkdownContent(_bookmarks);
       final SyncTaskHandle<void> handle = _syncUseCase.enqueueBackupMarkdown(
-        settings: current,
+        settings: syncSettings,
         markdown: markdown,
       );
       await handle.result;
@@ -701,9 +716,10 @@ class AppController extends ChangeNotifier {
     }
 
     try {
+      final AppSettings syncSettings = await _resolveSyncSettings(current);
       final SyncTaskHandle<SyncRunDiagnostics> handle =
           _syncUseCase.enqueueSync(
-        settings: current,
+        settings: syncSettings,
         queueTag: autoScheduled ? _autoSyncQueueTag : null,
       );
       final SyncRunDiagnostics report = await handle.result;

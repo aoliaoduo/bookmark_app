@@ -54,6 +54,9 @@ enum HomeSortPreference {
 }
 
 class AppSettings {
+  static const String securePasswordPlaceholder =
+      '__BOOKMARK_APP_SECURE_PASSWORD__';
+
   const AppSettings({
     required this.deviceId,
     required this.titleRefreshDays,
@@ -82,6 +85,14 @@ class AppSettings {
   final String webDavUsername;
   final String webDavPassword;
 
+  bool get hasWebDavPassword {
+    return webDavPassword.trim().isNotEmpty;
+  }
+
+  bool get usesSecurePasswordPlaceholder {
+    return webDavPassword == securePasswordPlaceholder;
+  }
+
   bool get webDavUsesHttps {
     return isSecureWebDavBaseUrl(webDavBaseUrl);
   }
@@ -92,7 +103,7 @@ class AppSettings {
         webDavBaseUrl.trim().isNotEmpty &&
         webDavUserId.trim().isNotEmpty &&
         webDavUsername.trim().isNotEmpty &&
-        webDavPassword.isNotEmpty;
+        hasWebDavPassword;
   }
 
   static bool isSecureWebDavBaseUrl(String input) {
