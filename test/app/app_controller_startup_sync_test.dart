@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bookmark_app/app/app_controller.dart';
 import 'package:bookmark_app/app/export/export_service.dart';
 import 'package:bookmark_app/app/local/bookmark_repository.dart';
@@ -61,15 +63,65 @@ void main() {
       expect(harness.syncCoordinator.markdownBackupCalls, 0);
     },
   );
+
+  test('initialize rethrows when loading settings fails', () async {
+    final Database db = await _openDb();
+    final BookmarkRepository repository = BookmarkRepository(
+      db: db,
+      metadataService: MetadataFetchService(),
+      deviceId: 'device-1',
+    );
+    final AppController controller = AppController(
+      repository: repository,
+      settingsStore: _ThrowingSettingsStore(Exception('forced load failure')),
+      exportService: ExportService(),
+      maintenanceService: MaintenanceService(db: db),
+      syncCoordinator: _RecordingSyncCoordinator(
+        repository: repository,
+        syncShouldSucceed: true,
+      ),
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await db.close();
+    });
+
+    await expectLater(controller.initialize(), throwsException);
+    expect(controller.error, contains('forced load failure'));
+    expect(() => controller.settings, throwsStateError);
+  });
+
+  test('syncNow is blocked while backupNow is running', () async {
+    final _Harness harness = await _createHarness(autoSyncOnLaunch: false);
+    addTearDown(harness.dispose);
+
+    final Completer<void> backupStarted = Completer<void>();
+    final Completer<void> allowBackupFinish = Completer<void>();
+    harness.syncCoordinator.backupStarted = backupStarted;
+    harness.syncCoordinator.allowBackupFinish = allowBackupFinish;
+
+    final Future<void> backupFuture = harness.controller.backupNow();
+    await backupStarted.future;
+
+    final bool syncResult = await harness.controller.syncNow();
+    expect(syncResult, isFalse);
+    expect(harness.syncCoordinator.syncCalls, 0);
+    expect(harness.controller.error, '正在云备份，请稍后再云同步');
+
+    allowBackupFinish.complete();
+    await backupFuture;
+  });
 }
 
 Future<_Harness> _createHarness({
   required bool autoSyncOnLaunch,
+  bool autoSyncOnChange = false,
   bool syncShouldSucceed = true,
 }) async {
   final Database db = await _openDb();
   final AppSettings settings = _buildSettings(
     autoSyncOnLaunch: autoSyncOnLaunch,
+    autoSyncOnChange: autoSyncOnChange,
   );
   final BookmarkRepository repository = BookmarkRepository(
     db: db,
@@ -96,13 +148,16 @@ Future<_Harness> _createHarness({
   );
 }
 
-AppSettings _buildSettings({required bool autoSyncOnLaunch}) {
+AppSettings _buildSettings({
+  required bool autoSyncOnLaunch,
+  bool autoSyncOnChange = false,
+}) {
   return AppSettings(
     deviceId: 'device-1',
     titleRefreshDays: 7,
     autoRefreshOnLaunch: false,
     autoSyncOnLaunch: autoSyncOnLaunch,
-    autoSyncOnChange: false,
+    autoSyncOnChange: autoSyncOnChange,
     webDavEnabled: true,
     webDavBaseUrl: 'https://dav.example.com',
     webDavUserId: 'user-1',
@@ -145,6 +200,23 @@ class _FakeSettingsStore extends SettingsStore {
   Future<void> clearAll() async {}
 }
 
+class _ThrowingSettingsStore extends SettingsStore {
+  _ThrowingSettingsStore(this._error);
+
+  final Object _error;
+
+  @override
+  Future<AppSettings> load() {
+    return Future<AppSettings>.error(_error);
+  }
+
+  @override
+  Future<void> save(AppSettings settings) async {}
+
+  @override
+  Future<void> clearAll() async {}
+}
+
 class _RecordingSyncCoordinator extends SyncCoordinator {
   _RecordingSyncCoordinator({
     required super.repository,
@@ -152,8 +224,23 @@ class _RecordingSyncCoordinator extends SyncCoordinator {
   });
 
   int syncCalls = 0;
+  int backupCalls = 0;
   int markdownBackupCalls = 0;
   final bool syncShouldSucceed;
+  Completer<void>? backupStarted;
+  Completer<void>? allowBackupFinish;
+
+  @override
+  Future<void> backupNow(AppSettings settings) async {
+    backupCalls += 1;
+    if (!(backupStarted?.isCompleted ?? true)) {
+      backupStarted!.complete();
+    }
+    final Completer<void>? gate = allowBackupFinish;
+    if (gate != null) {
+      await gate.future;
+    }
+  }
 
   @override
   Future<SyncRunDiagnostics> syncNow(AppSettings settings) async {

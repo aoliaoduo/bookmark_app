@@ -13,6 +13,15 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   static const List<_ChangelogEntry> _entries = <_ChangelogEntry>[
     _ChangelogEntry(
+      version: 'v0.5.33',
+      notes: <String>[
+        '修复初始化失败链路：AppController.initialize 失败时会向上抛错，启动页可正确展示失败态，不再误判为初始化成功。',
+        '增强控制器稳健性：未初始化时访问 settings 会抛出明确的 StateError，避免空指针崩溃。',
+        '修复同步/备份并发窗口：云备份进行中会阻止新同步请求，自动同步会延后到备份结束后再调度。',
+        '补齐回归测试：新增初始化失败与“备份中触发同步”测试，覆盖关键失败路径。',
+      ],
+    ),
+    _ChangelogEntry(
       version: 'v0.5.32',
       notes: <String>[
         '优化 WebDAV 拉取游标：在相同时间戳场景按文件路径去重，减少重复下载请求。',

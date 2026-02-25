@@ -53,7 +53,14 @@ class AppController extends ChangeNotifier {
   int _batchUpdated = 0;
   String? _error;
 
-  AppSettings get settings => _settings!;
+  AppSettings get settings {
+    final AppSettings? current = _settings;
+    if (current == null) {
+      throw StateError('AppController 尚未初始化成功');
+    }
+    return current;
+  }
+
   List<Bookmark> get bookmarks => _bookmarks;
   List<Bookmark> get trashBookmarks => _trashBookmarks;
   bool get loading => _loading;
@@ -79,8 +86,10 @@ class AppController extends ChangeNotifier {
         await refreshStaleTitles();
       }
       _restartRefreshTimer();
+      _error = null;
     } catch (e) {
       _error = e.toString();
+      rethrow;
     } finally {
       _setLoading(false);
     }
@@ -390,6 +399,10 @@ class AppController extends ChangeNotifier {
       _setLoading(false);
       _backingUp = false;
       notifyListeners();
+      if (_pendingAutoSync) {
+        _pendingAutoSync = false;
+        _scheduleAutoSync();
+      }
     }
   }
 
@@ -550,7 +563,7 @@ class AppController extends ChangeNotifier {
     if (current == null || !current.syncReady || !current.autoSyncOnChange) {
       return;
     }
-    if (_syncing) {
+    if (_syncing || _backingUp) {
       _pendingAutoSync = true;
       return;
     }
@@ -587,6 +600,16 @@ class AppController extends ChangeNotifier {
     if (_syncing) {
       if (autoScheduled) {
         _pendingAutoSync = true;
+      }
+      return false;
+    }
+    if (_backingUp) {
+      if (autoScheduled) {
+        _pendingAutoSync = true;
+      }
+      if (userInitiated) {
+        _error = '正在云备份，请稍后再云同步';
+        notifyListeners();
       }
       return false;
     }
