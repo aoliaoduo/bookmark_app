@@ -44,3 +44,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local build/download temp artifacts
+/.gradle-home/
+/_ndk_extract/
+/android-ndk-r27-windows.zip
+/repository2-1.xml
