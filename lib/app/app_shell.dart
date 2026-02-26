@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/backup/backup_providers.dart';
+import '../core/db/app_database.dart';
+import '../core/db/db_provider.dart';
 import '../core/i18n/app_strings.dart';
 import '../features/focus/focus_page.dart';
 import '../features/inbox/inbox_page.dart';
@@ -8,17 +12,18 @@ import '../features/search/search_page.dart';
 import '../features/settings/sync_page.dart';
 import 'router.dart';
 
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, this.initialEntry = PrimaryEntry.inbox});
 
   final PrimaryEntry initialEntry;
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   late PrimaryEntry _currentEntry;
+  bool _backupReminderChecked = false;
 
   @override
   void initState() {
@@ -28,6 +33,19 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_backupReminderChecked) {
+      _backupReminderChecked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) {
+          return;
+        }
+        final dbAsync = ref.read(appDatabaseProvider);
+        if (dbAsync case AsyncData<AppDatabase>()) {
+          await ref.read(backupReminderServiceProvider).checkAndPrompt(context);
+        }
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text(primaryEntryTitle(_currentEntry))),
       drawer: Drawer(

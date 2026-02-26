@@ -109,4 +109,11 @@ abstract final class AppStrings {
   static const String syncStatusTitle = '同步状态';
   static const String syncLogTitle = '最近日志';
   static const String syncThrottleHint = '前台同步节流：至少间隔 120 秒';
+  static const String backupSectionTitle = '云备份/恢复';
+  static const String backupReminderHm = '提醒时间(HH:mm)';
+  static const String backupRetention = '保留份数';
+  static const String backupSaveSettings = '保存备份设置';
+  static const String backupRunNow = '立即云备份';
+  static const String backupRefreshList = '刷新云端备份列表';
+  static const String backupRestore = '恢复';
 }
