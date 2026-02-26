@@ -77,4 +77,59 @@ void main() {
       await dir.delete(recursive: true);
     },
   );
+
+  test('prune note versions keeps latest N', () async {
+    final Directory dir = await Directory.systemTemp.createTemp('note_prune_');
+    final String dbPath = p.join(dir.path, 'note.db');
+
+    final AppDatabase db = await AppDatabase.open(databasePath: dbPath);
+    final repo = LibraryRepository(
+      database: db,
+      identityService: DeviceIdentityService(),
+      lamportClock: LamportClock(),
+      clock: const _FixedClock(1730000000000),
+      ftsUpdater: FtsUpdater(),
+      changeLogRepository: ChangeLogRepository(db.db),
+    );
+
+    await db.db.insert('notes', {
+      'id': 'n2',
+      'title': '测试裁剪',
+      'raw_text': '原文',
+      'latest_version': 1,
+      'created_at': 1,
+      'updated_at': 1,
+      'deleted': 0,
+      'lamport': 1,
+      'device_id': 'd1',
+    });
+
+    for (int i = 1; i <= 6; i++) {
+      await db.db.insert('note_versions', {
+        'note_id': 'n2',
+        'version': i,
+        'organized_md': '# v$i',
+        'created_at': i,
+      });
+    }
+    await db.db.update(
+      'notes',
+      {'latest_version': 6},
+      where: 'id = ?',
+      whereArgs: ['n2'],
+    );
+
+    await repo.pruneNoteVersions(noteId: 'n2', keepLatest: 3);
+
+    final List<Map<String, Object?>> rows = await db.db.rawQuery(
+      'SELECT version FROM note_versions WHERE note_id = ? ORDER BY version ASC;',
+      ['n2'],
+    );
+    expect(rows.length, 3);
+    expect(rows.first['version'], 4);
+    expect(rows.last['version'], 6);
+
+    await db.close();
+    await dir.delete(recursive: true);
+  });
 }

@@ -891,96 +891,269 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
       return;
     }
 
+    final TextEditingController preferenceController = TextEditingController();
     bool showRaw = false;
-    String organized = detail.organizedMd;
-    int version = detail.latestVersion;
+    bool loadingVersion = false;
     bool regenerating = false;
+    bool cancelRequested = false;
+    int selectedVersion = detail.latestVersion;
+    String displayMd = detail.organizedMd;
+    List<NoteVersionItem> versions = await repository.listNoteVersions(noteId);
+    if (versions.isEmpty) {
+      versions = <NoteVersionItem>[
+        NoteVersionItem(version: detail.latestVersion, createdAt: 0),
+      ];
+    }
+    if (!mounted) {
+      preferenceController.dispose();
+      return;
+    }
 
     await showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setStateDialog) {
-            return AlertDialog(
-              title: Text('${AppStrings.noteDetailTitle} v$version'),
+            Future<void> loadVersion(int version) async {
+              if (version == selectedVersion || loadingVersion) {
+                return;
+              }
+              setStateDialog(() {
+                loadingVersion = true;
+              });
+              final String? content = await repository.getNoteVersionContent(
+                noteId: noteId,
+                version: version,
+              );
+              if (!dialogContext.mounted) {
+                return;
+              }
+              setStateDialog(() {
+                selectedVersion = version;
+                displayMd = content ?? '';
+                showRaw = false;
+                loadingVersion = false;
+              });
+            }
+
+            Future<void> pruneVersions({required int keepLatest}) async {
+              try {
+                await repository.pruneNoteVersions(
+                  noteId: noteId,
+                  keepLatest: keepLatest,
+                );
+                versions = await repository.listNoteVersions(noteId);
+                if (versions.isEmpty) {
+                  versions = <NoteVersionItem>[
+                    NoteVersionItem(version: selectedVersion, createdAt: 0),
+                  ];
+                }
+                selectedVersion = versions.first.version;
+                displayMd =
+                    await repository.getNoteVersionContent(
+                      noteId: noteId,
+                      version: selectedVersion,
+                    ) ??
+                    displayMd;
+                setStateDialog(() {});
+                await _noteKey.currentState?.reload();
+                _showSnackBar(AppStrings.saveSuccess);
+              } catch (error) {
+                _showSnackBar('${AppStrings.operationFailedPrefix}$error');
+              }
+            }
+
+            Future<void> regenerate() async {
+              if (regenerating) {
+                return;
+              }
+              setStateDialog(() {
+                regenerating = true;
+                cancelRequested = false;
+              });
+              try {
+                final AiProviderRepository providerRepo = ref.read(
+                  aiProviderRepositoryProvider,
+                );
+                final cfg = await providerRepo.load();
+                if (!cfg.isReady || cfg.selectedModel.trim().isEmpty) {
+                  throw Exception(AppStrings.inboxNeedModel);
+                }
+                final String preference = preferenceController.text.trim();
+                final String systemPrompt =
+                    '${AiPrompts.routerSystemPrompt}\n'
+                    '你是笔记整理助手。只输出 Markdown 正文，不要输出代码围栏。'
+                    '${preference.isEmpty ? '' : '\n用户整理偏好：$preference'}';
+                final String newMd = await ref
+                    .read(aiProviderClientProvider)
+                    .generateText(
+                      config: cfg,
+                      model: cfg.selectedModel,
+                      systemPrompt: systemPrompt,
+                      userPrompt: detail.rawText,
+                      maxTokens: 1500,
+                    );
+                if (cancelRequested) {
+                  _showSnackBar(AppStrings.noteRegenerateCancelled);
+                  return;
+                }
+                await repository.appendNoteVersion(
+                  noteId: noteId,
+                  organizedMd: _stripMarkdownFences(newMd),
+                  keepLatest: 5,
+                );
+                versions = await repository.listNoteVersions(noteId);
+                selectedVersion = versions.first.version;
+                displayMd =
+                    await repository.getNoteVersionContent(
+                      noteId: noteId,
+                      version: selectedVersion,
+                    ) ??
+                    '';
+                showRaw = false;
+                await _noteKey.currentState?.reload();
+                _showSnackBar(AppStrings.noteVersionSaved);
+              } catch (error) {
+                _showSnackBar('重新整理失败：$error');
+              } finally {
+                if (dialogContext.mounted) {
+                  setStateDialog(() {
+                    regenerating = false;
+                  });
+                }
+              }
+            }
+
+            final Widget dialog = AlertDialog(
+              title: Text('${AppStrings.noteDetailTitle} v$selectedVersion'),
               content: SizedBox(
-                width: 640,
-                child: SingleChildScrollView(
-                  child: Text(showRaw ? detail.rawText : organized),
+                width: 760,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(AppStrings.noteVersionList),
+                    const SizedBox(height: 6),
+                    if (versions.isEmpty)
+                      const Text(AppStrings.noteVersionNoHistory)
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final NoteVersionItem item in versions)
+                            ChoiceChip(
+                              label: Text('v${item.version}'),
+                              selected: selectedVersion == item.version,
+                              onSelected: (_) => loadVersion(item.version),
+                            ),
+                        ],
+                      ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () {
+                            setStateDialog(() {
+                              showRaw = !showRaw;
+                            });
+                          },
+                          child: Text(
+                            showRaw
+                                ? AppStrings.noteViewOrganized
+                                : AppStrings.noteViewRaw,
+                          ),
+                        ),
+                        OutlinedButton(
+                          onPressed: regenerating
+                              ? null
+                              : () => pruneVersions(keepLatest: 5),
+                          child: const Text(
+                            AppStrings.noteVersionKeepLatestFive,
+                          ),
+                        ),
+                        OutlinedButton(
+                          onPressed: regenerating
+                              ? null
+                              : () => pruneVersions(keepLatest: 1),
+                          child: const Text(
+                            AppStrings.noteVersionKeepLatestOne,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: preferenceController,
+                      decoration: const InputDecoration(
+                        labelText: AppStrings.notePreferenceHint,
+                      ),
+                      textInputAction: TextInputAction.done,
+                    ),
+                    const SizedBox(height: 8),
+                    if (regenerating) ...[
+                      const LinearProgressIndicator(),
+                      const SizedBox(height: 6),
+                      TextButton(
+                        onPressed: () {
+                          setStateDialog(() {
+                            cancelRequested = true;
+                          });
+                        },
+                        child: const Text(AppStrings.noteCancelRegenerate),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 280,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: loadingVersion
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : SingleChildScrollView(
+                                padding: const EdgeInsets.all(12),
+                                child: SelectableText(
+                                  showRaw ? detail.rawText : displayMd,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    setStateDialog(() {
-                      showRaw = !showRaw;
-                    });
-                  },
-                  child: const Text(AppStrings.noteViewRaw),
-                ),
-                TextButton(
                   onPressed: regenerating
                       ? null
-                      : () async {
-                          setStateDialog(() {
-                            regenerating = true;
-                          });
-                          try {
-                            final AiProviderRepository providerRepo = ref.read(
-                              aiProviderRepositoryProvider,
-                            );
-                            final cfg = await providerRepo.load();
-                            if (!cfg.isReady ||
-                                cfg.selectedModel.trim().isEmpty) {
-                              throw Exception(AppStrings.inboxNeedModel);
-                            }
-                            final client = ref.read(aiProviderClientProvider);
-                            final String newMd = await client.generateText(
-                              config: cfg,
-                              model: cfg.selectedModel,
-                              systemPrompt:
-                                  '${AiPrompts.routerSystemPrompt}\n'
-                                  '你现在只做笔记整理，请输出 Markdown 正文，不要输出代码围栏。',
-                              userPrompt: detail.rawText,
-                              maxTokens: 1200,
-                            );
-                            await repository.appendNoteVersion(
-                              noteId: noteId,
-                              organizedMd: newMd,
-                            );
-                            final updated = await repository.getNoteDetail(
-                              noteId,
-                            );
-                            if (updated != null) {
-                              setStateDialog(() {
-                                organized = updated.organizedMd;
-                                version = updated.latestVersion;
-                                showRaw = false;
-                              });
-                            }
-                            await _noteKey.currentState?.reload();
-                          } catch (error) {
-                            if (context.mounted) {
-                              _showSnackBar('重新整理失败：$error');
-                            }
-                          } finally {
-                            setStateDialog(() {
-                              regenerating = false;
-                            });
-                          }
-                        },
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text(AppStrings.cancel),
+                ),
+                FilledButton(
+                  onPressed: regenerating ? null : regenerate,
                   child: Text(
                     regenerating
-                        ? '${AppStrings.noteReorganize}...'
+                        ? AppStrings.noteRegenerating
                         : AppStrings.noteReorganize,
                   ),
                 ),
               ],
             );
+
+            return _DialogKeyBindings(onSave: regenerate, child: dialog);
           },
         );
       },
     );
+    preferenceController.dispose();
   }
 
   Future<bool> _confirmDelete(String message) async {
@@ -1022,6 +1195,21 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
     final String hour = dt.hour.toString().padLeft(2, '0');
     final String minute = dt.minute.toString().padLeft(2, '0');
     return '${dt.year}-$month-$day $hour:$minute';
+  }
+
+  String _stripMarkdownFences(String input) {
+    final String trimmed = input.trim();
+    final List<String> lines = trimmed.split('\n');
+    if (lines.length >= 2 &&
+        lines.first.trimLeft().startsWith('```') &&
+        lines.last.trim() == '```') {
+      return lines.sublist(1, lines.length - 1).join('\n').trim();
+    }
+    return trimmed
+        .replaceAll('```markdown', '')
+        .replaceAll('```md', '')
+        .replaceAll('```', '')
+        .trim();
   }
 
   void _showSnackBar(String message) {
