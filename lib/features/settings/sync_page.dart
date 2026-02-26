@@ -12,14 +12,22 @@ import '../../core/sync/sync_providers.dart';
 import '../../core/sync/sync_runtime_service.dart';
 import '../../core/sync/webdav/webdav_config.dart';
 
+enum SyncPageSection { sync, backup }
+
 class SyncPage extends ConsumerStatefulWidget {
-  const SyncPage({super.key});
+  const SyncPage({super.key, this.initialSection = SyncPageSection.sync});
+
+  final SyncPageSection initialSection;
 
   @override
   ConsumerState<SyncPage> createState() => _SyncPageState();
 }
 
 class _SyncPageState extends ConsumerState<SyncPage> {
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _syncSectionKey = GlobalKey();
+  final GlobalKey _backupSectionKey = GlobalKey();
+
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -32,11 +40,13 @@ class _SyncPageState extends ConsumerState<SyncPage> {
   bool _obscurePassword = true;
   bool _paidPlan = false;
   bool _backupWorking = false;
+  bool _initialSectionHandled = false;
   String _backupStatus = '';
   List<CloudBackupItem> _backups = const <CloudBackupItem>[];
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _urlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -66,8 +76,10 @@ class _SyncPageState extends ConsumerState<SyncPage> {
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.syncPageTitle)),
       body: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
         children: [
+          SizedBox(key: _syncSectionKey, height: 0),
           TextField(
             controller: _urlController,
             decoration: const InputDecoration(
@@ -188,6 +200,7 @@ class _SyncPageState extends ConsumerState<SyncPage> {
               );
             }),
           const Divider(height: 28),
+          SizedBox(key: _backupSectionKey, height: 0),
           Text(
             AppStrings.backupSectionTitle,
             style: Theme.of(context).textTheme.titleMedium,
@@ -300,6 +313,31 @@ class _SyncPageState extends ConsumerState<SyncPage> {
       _backupReminderController.text = settings.reminderHm;
       _backupRetentionController.text = '${settings.retentionCount}';
       _backups = backups;
+    });
+    _ensureInitialSectionVisible();
+  }
+
+  void _ensureInitialSectionVisible() {
+    if (!mounted || _initialSectionHandled) {
+      return;
+    }
+    _initialSectionHandled = true;
+    if (widget.initialSection == SyncPageSection.sync) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final BuildContext? ctx = _backupSectionKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.05,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 

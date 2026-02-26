@@ -128,6 +128,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '默认已开启深度搜索',
+                style: TextStyle(color: Colors.black54, fontSize: 12),
+              ),
+            ),
             const SizedBox(height: 6),
             const Align(
               alignment: Alignment.centerLeft,
@@ -149,9 +157,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _typeChip('todo', AppStrings.todoTab),
-                _typeChip('note', AppStrings.noteTab),
-                _typeChip('bookmark', AppStrings.bookmarkTab),
+                _typeChip('todo', '待办'),
+                _typeChip('note', '笔记'),
+                _typeChip('bookmark', '链接'),
               ],
             ),
             if (_status.isNotEmpty) ...[
@@ -326,7 +334,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final cfg = await ref.read(aiProviderRepositoryProvider).load();
       if (!cfg.isReady || cfg.selectedModel.trim().isEmpty) {
-        throw Exception(AppStrings.inboxNeedModel);
+        throw Exception('AI 未配置完成');
       }
 
       final AiSearchResponse response = await ref
@@ -362,8 +370,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       setState(() {
         _results = response.items;
         if (response.degradedToLocal) {
-          _status = '${AppStrings.searchFallbackPrefix}${response.message}';
-          _rerankingStatus = '已跳过';
+          _status = '已降级为本地搜索：${response.message}';
+          _planningStatus = '已降级';
+          _retrievingStatus = '已降级';
+          _rerankingStatus = '已降级';
         } else {
           _status =
               '${AppStrings.searchAiDonePrefix}${response.items.length} 条';
@@ -372,13 +382,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           _rerankingStatus = '完成';
         }
       });
+      if (response.degradedToLocal && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('AI 失败，已自动降级为本地搜索')));
+      }
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _status = '${AppStrings.searchAiFailPrefix}$error';
-      });
+      await _fallbackToLocal(query: query, reason: '$error');
     } finally {
       if (mounted) {
         setState(() {
@@ -386,6 +399,28 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         });
       }
     }
+  }
+
+  Future<void> _fallbackToLocal({
+    required String query,
+    required String reason,
+  }) async {
+    final List<SearchResultItem> items = await ref
+        .read(localSearchServiceProvider)
+        .search(query: query, types: _normalizedTypes);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _results = items;
+      _status = 'AI 请求失败：$reason；已降级为本地搜索';
+      _planningStatus = '失败';
+      _retrievingStatus = '已降级';
+      _rerankingStatus = '已降级';
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('AI 请求失败，已降级为本地搜索')));
   }
 
   Future<void> _openResultDetail(SearchResultItem item) async {
@@ -428,11 +463,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   String _entityTypeLabel(String type) {
     switch (type) {
       case 'todo':
-        return AppStrings.todoTab;
+        return '待办';
       case 'note':
-        return AppStrings.noteTab;
+        return '笔记';
       case 'bookmark':
-        return AppStrings.bookmarkTab;
+        return '链接';
       default:
         return type;
     }

@@ -145,12 +145,14 @@ class AiSearchService {
       final int topK = ((raw['top_k'] as num?)?.toInt() ?? 30).clamp(1, 80);
       final Map<String, Object?> filters =
           (raw['filters'] as Map<String, Object?>?) ?? <String, Object?>{};
-      final List<String> types =
+      final List<String> parsedTypes =
           ((filters['types'] as List<Object?>?) ?? <Object?>[])
               .whereType<String>()
               .where((String t) => _allowedEntityTypes.contains(t))
               .toList(growable: false);
-      rounds.add(_SearchRound(ftsQueries: queries, topK: topK, types: types));
+      rounds.add(
+        _SearchRound(ftsQueries: queries, topK: topK, types: parsedTypes),
+      );
     }
     if (rounds.isEmpty) {
       throw Exception('Search Plan schema 校验失败');
@@ -228,7 +230,7 @@ class AiSearchService {
   String _buildRerankPrompt(String query, List<SearchResultItem> candidates) {
     final StringBuffer buffer = StringBuffer();
     buffer.writeln('用户查询: $query');
-    buffer.writeln('候选:');
+    buffer.writeln('候选结果:');
     for (final SearchResultItem item in candidates) {
       buffer.writeln(
         '- ${item.entityType} | ${item.entityId} | ${item.title} | ${item.snippet}',

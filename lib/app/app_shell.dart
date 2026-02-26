@@ -14,6 +14,9 @@ import '../features/focus/focus_page.dart';
 import '../features/inbox/inbox_page.dart';
 import '../features/library/library_page.dart';
 import '../features/search/search_page.dart';
+import '../features/settings/ai_provider_page.dart';
+import '../features/settings/notification_channels_page.dart';
+import '../features/settings/sync_page.dart';
 import '../features/settings/maintenance_page.dart';
 import '../features/settings/settings_page.dart';
 import '../features/tags/tags_page.dart';
@@ -29,6 +32,7 @@ class DrawerStatusSnapshot {
     required this.backupNextPromptAt,
     required this.backupError,
     required this.notifyPending,
+    required this.notifyError,
   });
 
   final bool aiReady;
@@ -39,6 +43,7 @@ class DrawerStatusSnapshot {
   final DateTime backupNextPromptAt;
   final String backupError;
   final int notifyPending;
+  final String notifyError;
 }
 
 final FutureProvider<DrawerStatusSnapshot> drawerStatusProvider =
@@ -86,6 +91,18 @@ final FutureProvider<DrawerStatusSnapshot> drawerStatusProvider =
       final int notifyPending = queueRows.isEmpty
           ? 0
           : ((queueRows.first['c'] as num?)?.toInt() ?? 0);
+      final List<Map<String, Object?>> notifyErrorRows = await database.db
+          .rawQuery('''
+            SELECT last_error
+            FROM notification_jobs
+            WHERE last_error IS NOT NULL
+              AND TRIM(last_error) <> ''
+            ORDER BY updated_at DESC
+            LIMIT 1
+            ''');
+      final String notifyError = notifyErrorRows.isEmpty
+          ? ''
+          : ((notifyErrorRows.first['last_error'] as String?) ?? '');
 
       return DrawerStatusSnapshot(
         aiReady: aiConfig.isReady,
@@ -96,6 +113,7 @@ final FutureProvider<DrawerStatusSnapshot> drawerStatusProvider =
         backupNextPromptAt: backupNextPromptAt,
         backupError: backupError,
         notifyPending: notifyPending,
+        notifyError: notifyError,
       );
     });
 
@@ -457,24 +475,28 @@ class _AppShellState extends ConsumerState<AppShell> {
                       ? AppStrings.statusConfigured
                       : AppStrings.statusNotConfigured,
                   error: value.aiError,
+                  onTap: _openAiProviderSettings,
                 ),
                 _statusTile(
-                  label: '同步',
+                  label: AppStrings.settingsGroupSync,
                   value: value.syncLastAt == null
                       ? AppStrings.statusNever
-                      : _formatTs(value.syncLastAt!),
+                      : '上次 ${_formatTs(value.syncLastAt!)}',
                   error: value.syncError,
+                  onTap: _openSyncSettings,
                 ),
                 _statusTile(
-                  label: '备份',
+                  label: AppStrings.settingsGroupBackup,
                   value:
                       '上次 ${value.backupLastAt == null ? AppStrings.statusNever : _formatTs(value.backupLastAt!)} / 下次 ${_formatDt(value.backupNextPromptAt)}',
                   error: value.backupError,
+                  onTap: _openBackupSettings,
                 ),
                 _statusTile(
-                  label: '通知',
+                  label: AppStrings.settingsGroupNotify,
                   value: 'pending ${value.notifyPending}',
-                  error: '',
+                  error: value.notifyError,
+                  onTap: _openNotifySettings,
                 ),
               ],
             );
@@ -483,8 +505,12 @@ class _AppShellState extends ConsumerState<AppShell> {
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Center(child: Text('状态加载中...')),
           ),
-          error: (Object error, StackTrace stackTrace) =>
-              _statusTile(label: '状态', value: '加载失败', error: '$error'),
+          error: (Object error, StackTrace stackTrace) => _statusTile(
+            label: AppStrings.navStatusTitle,
+            value: '加载失败',
+            error: '$error',
+            onTap: _openSettingsHome,
+          ),
         ),
       ),
     );
@@ -494,10 +520,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     required String label,
     required String value,
     required String error,
+    required VoidCallback onTap,
   }) {
     final bool hasError = error.trim().isNotEmpty;
     return ListTile(
       dense: true,
+      onTap: onTap,
       title: Text('$label: $value'),
       subtitle: Text(
         '错误：${hasError ? error : AppStrings.statusNoError}',
@@ -519,6 +547,40 @@ class _AppShellState extends ConsumerState<AppShell> {
               },
             )
           : null,
+    );
+  }
+
+  void _openSettingsHome() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+  }
+
+  void _openAiProviderSettings() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AiProviderPage()));
+  }
+
+  void _openSyncSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const SyncPage(initialSection: SyncPageSection.sync),
+      ),
+    );
+  }
+
+  void _openBackupSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const SyncPage(initialSection: SyncPageSection.backup),
+      ),
+    );
+  }
+
+  void _openNotifySettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationChannelsPage()),
     );
   }
 
