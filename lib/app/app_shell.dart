@@ -5,6 +5,7 @@ import '../features/focus/focus_page.dart';
 import '../features/inbox/inbox_page.dart';
 import '../features/library/library_page.dart';
 import '../features/search/search_page.dart';
+import '../features/settings/sync_page.dart';
 import 'router.dart';
 
 class AppShell extends StatefulWidget {
@@ -62,6 +63,16 @@ class _AppShellState extends State<AppShell> {
                   Navigator.of(context).pop();
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const SearchPage()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.sync),
+                title: const Text(AppStrings.syncAndBackup),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const SyncPage()),
                   );
                 },
               ),

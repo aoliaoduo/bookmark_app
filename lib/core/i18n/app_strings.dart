@@ -7,6 +7,7 @@ abstract final class AppStrings {
   static const String library = '资料库';
   static const String focus = '专注';
   static const String search = '搜索';
+  static const String syncAndBackup = '同步/备份';
 
   static const String loadingDb = '正在初始化本地数据库...';
   static const String dbInitFailed = '数据库初始化失败：';
@@ -96,4 +97,16 @@ abstract final class AppStrings {
   static const String riskCheckbox = '我已知晓风险';
   static const String confirm = '确认';
   static const String cancel = '取消';
+
+  static const String syncPageTitle = '同步与备份';
+  static const String webdavUrlLabel = 'WebDAV URL';
+  static const String webdavUserLabel = '账号';
+  static const String webdavPasswordLabel = '应用密码';
+  static const String webdavPaidPlan = '付费账户（30分钟1500次）';
+  static const String syncSaveConfig = '保存配置';
+  static const String syncTestConnection = '测试连接';
+  static const String syncManualNow = '手动同步';
+  static const String syncStatusTitle = '同步状态';
+  static const String syncLogTitle = '最近日志';
+  static const String syncThrottleHint = '前台同步节流：至少间隔 120 秒';
 }

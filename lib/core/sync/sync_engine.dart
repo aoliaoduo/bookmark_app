@@ -27,6 +27,7 @@ class SyncEngine {
     required this.remote,
     required this.clock,
     required this.identityService,
+    this.requestLimitPerWindow = SyncConstants.freePlanWindowLimit,
   });
 
   static final Logger _log = Logger('SyncEngine');
@@ -36,6 +37,7 @@ class SyncEngine {
   final SyncRemote remote;
   final AppClock clock;
   final DeviceIdentityService identityService;
+  final int requestLimitPerWindow;
   final ListQueue<SyncLogEntry> _logs = ListQueue<SyncLogEntry>();
 
   List<SyncLogEntry> latestLogs({int max = 60}) {
@@ -81,7 +83,7 @@ class SyncEngine {
     final _RequestBudgetCounter requestBudget = _RequestBudgetCounter.fromState(
       state,
       nowMs: nowMs,
-      limitPerWindow: SyncConstants.freePlanWindowLimit,
+      limitPerWindow: requestLimitPerWindow,
       windowMs: SyncConstants.requestWindowMinutes * 60 * 1000,
     );
     if (requestBudget.reachedLimit) {
