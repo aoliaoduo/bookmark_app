@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/bookmark/bookmark_title_fetcher.dart';
 import '../../../core/clock/app_clock.dart';
 import '../../../core/clock/lamport_clock.dart';
 import '../../../core/db/app_database.dart';
@@ -193,6 +194,43 @@ class LibraryRepository {
         whereArgs: <Object?>[todoId],
       );
       await ftsUpdater.upsertTodo(txn, todoId);
+    });
+  }
+
+  Future<void> refreshBookmarkTitle({
+    required String bookmarkId,
+    required BookmarkTitleFetcher fetcher,
+  }) async {
+    await database.db.transaction((txn) async {
+      final List<Map<String, Object?>> rows = await txn.query(
+        'bookmarks',
+        columns: ['url'],
+        where: 'id = ?',
+        whereArgs: <Object?>[bookmarkId],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw Exception('收藏不存在');
+      }
+
+      final String url = rows.first['url']! as String;
+      final String title = await fetcher.fetchTitle(url);
+      final int now = clock.nowMs();
+      final int lamport = await lamportClock.next(txn);
+
+      await txn.update(
+        'bookmarks',
+        <String, Object?>{
+          'title': title,
+          'last_fetched_at': now,
+          'updated_at': now,
+          'lamport': lamport,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[bookmarkId],
+      );
+
+      await ftsUpdater.upsertBookmark(txn, bookmarkId);
     });
   }
 

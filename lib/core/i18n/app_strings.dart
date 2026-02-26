@@ -45,6 +45,12 @@ abstract final class AppStrings {
   static const String noteOrganizedOnly = '整理版展示（原文隐藏）';
 
   static const String loadingMore = '加载中...';
+  static const String bookmarkSelectMode = '多选';
+  static const String bookmarkSelectAll = '全选';
+  static const String bookmarkExitSelect = '退出多选';
+  static const String bookmarkRefreshSelected = '刷新所选';
+  static const String bookmarkCancelQueue = '取消后续';
+  static const String bookmarkRefreshOne = '刷新标题';
 
   static const String aiProviderTitle = 'AI Provider 设置';
   static const String baseUrlLabel = 'Base URL';

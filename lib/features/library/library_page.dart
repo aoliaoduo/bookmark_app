@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/bookmark/bookmark_title_fetcher.dart';
 import '../../core/db/app_database.dart';
 import '../../core/i18n/app_strings.dart';
 import 'data/library_providers.dart';
@@ -28,7 +29,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
   final GlobalKey<LibraryTabViewState<BookmarkListItem>> _bookmarkKey =
       GlobalKey<LibraryTabViewState<BookmarkListItem>>();
 
+  final BookmarkTitleFetcher _bookmarkFetcher = BookmarkTitleFetcher();
+  final Set<String> _selectedBookmarkIds = <String>{};
+  List<BookmarkListItem> _bookmarkSnapshot = const <BookmarkListItem>[];
+
   late final AnimationController _fadeController;
+
+  bool _bookmarkSelectionMode = false;
+  bool _bookmarkRefreshing = false;
+  bool _bookmarkCancelRequested = false;
+  int _bookmarkProgressDone = 0;
+  int _bookmarkProgressTotal = 0;
 
   @override
   void initState() {
@@ -80,6 +91,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                   onSelectionChanged: (Set<int> values) {
                     setState(() {
                       _segment = values.first;
+                      if (_segment != 2) {
+                        _bookmarkSelectionMode = false;
+                        _selectedBookmarkIds.clear();
+                      }
                     });
                     _fadeController.forward(from: 0);
                   },
@@ -109,6 +124,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                 ),
             ],
           ),
+          if (_segment == 2) ...[
+            const SizedBox(height: 8),
+            _buildBookmarkToolbar(repository),
+          ],
           const SizedBox(height: 12),
           Expanded(
             child: FadeTransition(
@@ -151,8 +170,33 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                     pageLoader: (int page, int pageSize) => repository
                         .listBookmarks(page: page, pageSize: pageSize),
                     emptyText: AppStrings.emptyBookmarks,
+                    onItemsSnapshot: (List<BookmarkListItem> items) {
+                      setState(() {
+                        _bookmarkSnapshot = items;
+                        _selectedBookmarkIds.removeWhere(
+                          (String id) =>
+                              !items.any((BookmarkListItem e) => e.id == id),
+                        );
+                      });
+                    },
                     itemBuilder: (BuildContext context, BookmarkListItem item) {
-                      return _BookmarkTile(item: item);
+                      return _BookmarkTile(
+                        item: item,
+                        selectionMode: _bookmarkSelectionMode,
+                        selected: _selectedBookmarkIds.contains(item.id),
+                        onSelectChanged: (bool selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedBookmarkIds.add(item.id);
+                            } else {
+                              _selectedBookmarkIds.remove(item.id);
+                            }
+                          });
+                        },
+                        onRefreshTitle: _bookmarkRefreshing
+                            ? null
+                            : () => _refreshSingleBookmark(repository, item.id),
+                      );
                     },
                   ),
                 ],
@@ -161,6 +205,141 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBookmarkToolbar(LibraryRepository repository) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: _bookmarkRefreshing
+                  ? null
+                  : () {
+                      setState(() {
+                        _bookmarkSelectionMode = !_bookmarkSelectionMode;
+                        if (!_bookmarkSelectionMode) {
+                          _selectedBookmarkIds.clear();
+                        }
+                      });
+                    },
+              child: Text(
+                _bookmarkSelectionMode
+                    ? AppStrings.bookmarkExitSelect
+                    : AppStrings.bookmarkSelectMode,
+              ),
+            ),
+            if (_bookmarkSelectionMode)
+              OutlinedButton(
+                onPressed: _bookmarkRefreshing || _bookmarkSnapshot.isEmpty
+                    ? null
+                    : () {
+                        setState(() {
+                          _selectedBookmarkIds
+                            ..clear()
+                            ..addAll(_bookmarkSnapshot.map((e) => e.id));
+                        });
+                      },
+                child: const Text(AppStrings.bookmarkSelectAll),
+              ),
+            if (_bookmarkSelectionMode)
+              FilledButton(
+                onPressed: _bookmarkRefreshing || _selectedBookmarkIds.isEmpty
+                    ? null
+                    : () => _refreshSelectedBookmarks(repository),
+                child: const Text(AppStrings.bookmarkRefreshSelected),
+              ),
+            if (_bookmarkRefreshing)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _bookmarkCancelRequested = true;
+                  });
+                },
+                child: const Text(AppStrings.bookmarkCancelQueue),
+              ),
+          ],
+        ),
+        if (_bookmarkRefreshing) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: _bookmarkProgressTotal == 0
+                ? null
+                : _bookmarkProgressDone / _bookmarkProgressTotal,
+          ),
+          const SizedBox(height: 4),
+          Text('$_bookmarkProgressDone / $_bookmarkProgressTotal'),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _refreshSingleBookmark(
+    LibraryRepository repository,
+    String bookmarkId,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await repository.refreshBookmarkTitle(
+        bookmarkId: bookmarkId,
+        fetcher: _bookmarkFetcher,
+      );
+      await _bookmarkKey.currentState?.reload();
+      messenger.showSnackBar(const SnackBar(content: Text('标题刷新成功')));
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text('标题刷新失败：$error')));
+    }
+  }
+
+  Future<void> _refreshSelectedBookmarks(LibraryRepository repository) async {
+    setState(() {
+      _bookmarkRefreshing = true;
+      _bookmarkCancelRequested = false;
+      _bookmarkProgressDone = 0;
+      _bookmarkProgressTotal = _selectedBookmarkIds.length;
+    });
+
+    final messenger = ScaffoldMessenger.of(context);
+    final List<String> ids = _selectedBookmarkIds.toList(growable: false);
+
+    for (final String id in ids) {
+      if (_bookmarkCancelRequested) {
+        break;
+      }
+      try {
+        await repository.refreshBookmarkTitle(
+          bookmarkId: id,
+          fetcher: _bookmarkFetcher,
+        );
+      } catch (_) {
+        // Continue the queue even if one item fails.
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _bookmarkProgressDone += 1;
+      });
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _bookmarkRefreshing = false;
+      _bookmarkSelectionMode = false;
+      _selectedBookmarkIds.clear();
+    });
+
+    await _bookmarkKey.currentState?.reload();
+    messenger.showSnackBar(
+      SnackBar(content: Text(_bookmarkCancelRequested ? '已取消后续刷新' : '批量刷新完成')),
     );
   }
 
@@ -219,9 +398,7 @@ class _TodoTile extends StatelessWidget {
       dense: true,
       leading: Checkbox(
         value: done,
-        onChanged: (bool? value) {
-          onToggleDone(value ?? false);
-        },
+        onChanged: (bool? value) => onToggleDone(value ?? false),
       ),
       title: Text(
         item.title,
@@ -272,17 +449,38 @@ class _NoteTile extends StatelessWidget {
 }
 
 class _BookmarkTile extends StatelessWidget {
-  const _BookmarkTile({required this.item});
+  const _BookmarkTile({
+    required this.item,
+    required this.selectionMode,
+    required this.selected,
+    required this.onSelectChanged,
+    required this.onRefreshTitle,
+  });
 
   final BookmarkListItem item;
+  final bool selectionMode;
+  final bool selected;
+  final ValueChanged<bool> onSelectChanged;
+  final VoidCallback? onRefreshTitle;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       dense: true,
+      leading: selectionMode
+          ? Checkbox(
+              value: selected,
+              onChanged: (bool? value) => onSelectChanged(value ?? false),
+            )
+          : null,
       title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(item.url, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.open_in_new_outlined, size: 18),
+      trailing: IconButton(
+        icon: const Icon(Icons.refresh),
+        tooltip: AppStrings.bookmarkRefreshOne,
+        onPressed: onRefreshTitle,
+      ),
+      onTap: selectionMode ? () => onSelectChanged(!selected) : null,
     );
   }
 }

@@ -12,12 +12,14 @@ class LibraryTabView<T> extends StatefulWidget {
     required this.pageLoader,
     required this.itemBuilder,
     required this.emptyText,
+    this.onItemsSnapshot,
     this.pageSize = LibraryRepository.defaultPageSize,
   });
 
   final PageLoader<T> pageLoader;
   final ItemBuilder<T> itemBuilder;
   final String emptyText;
+  final ValueChanged<List<T>>? onItemsSnapshot;
   final int pageSize;
 
   @override
@@ -114,6 +116,7 @@ class LibraryTabViewState<T> extends State<LibraryTabView<T>>
       _animatedRangeStart = -1;
       _animatedRangeLength = 0;
     });
+    widget.onItemsSnapshot?.call(<T>[]);
     await _loadNextPage();
   }
 
@@ -166,6 +169,7 @@ class LibraryTabViewState<T> extends State<LibraryTabView<T>>
       _animatedRangeStart = start;
       _animatedRangeLength = result.items.length;
     });
+    widget.onItemsSnapshot?.call(List<T>.unmodifiable(_items));
 
     if (result.items.isNotEmpty) {
       Future<void>.delayed(const Duration(milliseconds: 260), () {
