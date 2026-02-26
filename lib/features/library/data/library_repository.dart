@@ -7,6 +7,8 @@ import '../../../core/clock/lamport_clock.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/identity/device_identity_service.dart';
 import '../../../core/search/fts_updater.dart';
+import '../../../core/sync/change_log_repository.dart';
+import '../../../core/sync/sync_models.dart';
 
 class PagedResult<T> {
   const PagedResult({required this.items, required this.hasMore});
@@ -78,6 +80,7 @@ class LibraryRepository {
     required this.lamportClock,
     required this.clock,
     required this.ftsUpdater,
+    required this.changeLogRepository,
   });
 
   static const int defaultPageSize = 50;
@@ -88,6 +91,7 @@ class LibraryRepository {
   final LamportClock lamportClock;
   final AppClock clock;
   final FtsUpdater ftsUpdater;
+  final ChangeLogRepository changeLogRepository;
 
   Future<PagedResult<TodoListItem>> listTodos({
     int page = 0,
@@ -225,6 +229,16 @@ class LibraryRepository {
       );
 
       await ftsUpdater.upsertNote(txn, noteId);
+      final String deviceId = await identityService.getOrCreateDeviceId(txn);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'note',
+        entityId: noteId,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
     });
   }
 
@@ -291,6 +305,16 @@ class LibraryRepository {
         whereArgs: <Object?>[todoId],
       );
       await ftsUpdater.upsertTodo(txn, todoId);
+      final String deviceId = await identityService.getOrCreateDeviceId(txn);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'todo',
+        entityId: todoId,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
     });
   }
 
@@ -301,7 +325,7 @@ class LibraryRepository {
     await database.db.transaction((txn) async {
       final List<Map<String, Object?>> rows = await txn.query(
         'bookmarks',
-        columns: ['url'],
+        columns: ['url', 'device_id'],
         where: 'id = ?',
         whereArgs: <Object?>[bookmarkId],
         limit: 1,
@@ -328,6 +352,15 @@ class LibraryRepository {
       );
 
       await ftsUpdater.upsertBookmark(txn, bookmarkId);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'bookmark',
+        entityId: bookmarkId,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: rows.first['device_id']! as String,
+        createdAt: now,
+      );
     });
   }
 

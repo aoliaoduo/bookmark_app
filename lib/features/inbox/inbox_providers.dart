@@ -9,6 +9,7 @@ import '../../core/clock/lamport_clock.dart';
 import '../../core/db/db_provider.dart';
 import '../../core/identity/device_identity_service.dart';
 import '../../core/search/fts_updater.dart';
+import '../../core/sync/change_log_repository.dart';
 import 'data/inbox_draft_repository.dart';
 
 final Provider<InboxDraftRepository> inboxDraftRepositoryProvider =
@@ -38,5 +39,6 @@ final Provider<ActionExecutor> actionExecutorProvider =
         lamportClock: LamportClock(),
         clock: SystemClock(),
         ftsUpdater: FtsUpdater(),
+        changeLogRepository: ChangeLogRepository(database.db),
       );
     });

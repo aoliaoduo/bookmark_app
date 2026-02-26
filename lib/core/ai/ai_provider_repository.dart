@@ -1,14 +1,29 @@
 import 'dart:convert';
 
+import '../clock/app_clock.dart';
+import '../clock/lamport_clock.dart';
 import '../db/app_database.dart';
+import '../identity/device_identity_service.dart';
+import '../sync/change_log_repository.dart';
+import '../sync/sync_models.dart';
 import 'ai_provider_config.dart';
 
 class AiProviderRepository {
-  AiProviderRepository(this.database);
+  AiProviderRepository({
+    required this.database,
+    required this.identityService,
+    required this.lamportClock,
+    required this.clock,
+    required this.changeLogRepository,
+  });
 
   static const String _kvKey = 'ai_provider_json';
 
   final AppDatabase database;
+  final DeviceIdentityService identityService;
+  final LamportClock lamportClock;
+  final AppClock clock;
+  final ChangeLogRepository changeLogRepository;
 
   Future<AiProviderConfig> load() async {
     final List<Map<String, Object?>> rows = await database.db.query(
@@ -34,6 +49,9 @@ class AiProviderRepository {
   Future<void> save(AiProviderConfig config) async {
     final String payload = jsonEncode(config.toJson());
     await database.db.transaction((txn) async {
+      final String deviceId = await identityService.getOrCreateDeviceId(txn);
+      final int lamport = await lamportClock.next(txn);
+      final int now = clock.nowMs();
       final List<Map<String, Object?>> rows = await txn.query(
         'kv',
         columns: ['key'],
@@ -52,14 +70,37 @@ class AiProviderRepository {
           whereArgs: const <Object?>[_kvKey],
         );
       }
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'secret',
+        entityId: 'api_provider',
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
     });
   }
 
   Future<void> clear() async {
-    await database.db.delete(
-      'kv',
-      where: 'key = ?',
-      whereArgs: const <Object?>[_kvKey],
-    );
+    await database.db.transaction((txn) async {
+      final String deviceId = await identityService.getOrCreateDeviceId(txn);
+      final int lamport = await lamportClock.next(txn);
+      final int now = clock.nowMs();
+      await txn.delete(
+        'kv',
+        where: 'key = ?',
+        whereArgs: const <Object?>[_kvKey],
+      );
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'secret',
+        entityId: 'api_provider',
+        operation: SyncOperation.delete,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
+    });
   }
 }

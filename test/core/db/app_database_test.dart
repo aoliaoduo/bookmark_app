@@ -28,6 +28,9 @@ void main() {
         'note_versions',
         'bookmarks',
         'focus_state',
+        'change_log',
+        'processed_changes',
+        'sync_state',
         'search_fts',
       ];
 

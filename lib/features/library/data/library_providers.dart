@@ -5,6 +5,7 @@ import '../../../core/clock/lamport_clock.dart';
 import '../../../core/db/db_provider.dart';
 import '../../../core/identity/device_identity_service.dart';
 import '../../../core/search/fts_updater.dart';
+import '../../../core/sync/change_log_repository.dart';
 import 'library_repository.dart';
 
 final Provider<DeviceIdentityService> deviceIdentityServiceProvider =
@@ -27,5 +28,6 @@ final Provider<LibraryRepository> libraryRepositoryProvider =
         lamportClock: ref.watch(lamportClockProvider),
         clock: ref.watch(appClockProvider),
         ftsUpdater: FtsUpdater(),
+        changeLogRepository: ChangeLogRepository(database.db),
       );
     });

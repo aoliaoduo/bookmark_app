@@ -7,6 +7,8 @@ import '../clock/lamport_clock.dart';
 import '../db/app_database.dart';
 import '../identity/device_identity_service.dart';
 import '../search/fts_updater.dart';
+import '../sync/change_log_repository.dart';
+import '../sync/sync_models.dart';
 
 class ActionExecutor {
   ActionExecutor({
@@ -15,6 +17,7 @@ class ActionExecutor {
     required this.lamportClock,
     required this.clock,
     required this.ftsUpdater,
+    required this.changeLogRepository,
   });
 
   static const Uuid _uuid = Uuid();
@@ -24,6 +27,7 @@ class ActionExecutor {
   final LamportClock lamportClock;
   final AppClock clock;
   final FtsUpdater ftsUpdater;
+  final ChangeLogRepository changeLogRepository;
 
   Future<void> execute(
     RouterDecision decision, {
@@ -66,6 +70,8 @@ class ActionExecutor {
       await _bindTags(
         txn: txn,
         batch: batch,
+        deviceId: deviceId,
+        lamport: lamport,
         entityType: 'todo',
         entityId: id,
         tags: tags,
@@ -74,6 +80,15 @@ class ActionExecutor {
 
       await batch.commit(noResult: true);
       await ftsUpdater.upsertTodo(txn, id);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'todo',
+        entityId: id,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
     });
   }
 
@@ -111,6 +126,8 @@ class ActionExecutor {
       await _bindTags(
         txn: txn,
         batch: batch,
+        deviceId: deviceId,
+        lamport: lamport,
         entityType: 'note',
         entityId: id,
         tags: tags,
@@ -119,6 +136,15 @@ class ActionExecutor {
 
       await batch.commit(noResult: true);
       await ftsUpdater.upsertNote(txn, id);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'note',
+        entityId: id,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
     });
   }
 
@@ -141,12 +167,23 @@ class ActionExecutor {
         'device_id': deviceId,
       });
       await ftsUpdater.upsertBookmark(txn, id);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'bookmark',
+        entityId: id,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
     });
   }
 
   Future<void> _bindTags({
     required Transaction txn,
     required Batch batch,
+    required String deviceId,
+    required int lamport,
     required String entityType,
     required String entityId,
     required List<String> tags,
@@ -165,6 +202,15 @@ class ActionExecutor {
       if (rows.isEmpty) {
         tagId = _uuid.v4();
         batch.insert('tags', {'id': tagId, 'name': tag, 'created_at': now});
+        await changeLogRepository.append(
+          executor: txn,
+          entityType: 'tag',
+          entityId: tagId,
+          operation: SyncOperation.upsert,
+          lamport: lamport,
+          deviceId: deviceId,
+          createdAt: now,
+        );
       } else {
         tagId = rows.first['id']! as String;
       }

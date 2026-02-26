@@ -7,6 +7,7 @@ import 'package:code/core/clock/lamport_clock.dart';
 import 'package:code/core/db/app_database.dart';
 import 'package:code/core/identity/device_identity_service.dart';
 import 'package:code/core/search/fts_updater.dart';
+import 'package:code/core/sync/change_log_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -35,6 +36,7 @@ void main() {
       lamportClock: LamportClock(),
       clock: const _FixedClock(1730000000000),
       ftsUpdater: FtsUpdater(),
+      changeLogRepository: ChangeLogRepository(db.db),
     );
 
     await executor.execute(
@@ -76,6 +78,7 @@ void main() {
       lamportClock: LamportClock(),
       clock: const _FixedClock(1730000001000),
       ftsUpdater: FtsUpdater(),
+      changeLogRepository: ChangeLogRepository(db.db),
     );
 
     await executor.execute(

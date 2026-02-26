@@ -85,6 +85,40 @@ CREATE TABLE IF NOT EXISTS focus_state (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS change_log (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  lamport INTEGER NOT NULL,
+  device_id TEXT NOT NULL,
+  payload_json TEXT,
+  created_at INTEGER NOT NULL,
+  synced_at INTEGER,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
+
+CREATE TABLE IF NOT EXISTS processed_changes (
+  change_id TEXT PRIMARY KEY,
+  source_device_id TEXT NOT NULL,
+  applied_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+  id TEXT PRIMARY KEY,
+  last_sync_started_at INTEGER,
+  last_sync_finished_at INTEGER,
+  next_allowed_sync_at INTEGER,
+  backoff_until INTEGER,
+  last_error TEXT,
+  last_applied_change_id TEXT,
+  last_pushed_change_id TEXT,
+  request_window_started_at INTEGER,
+  request_count_in_window INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
   entity_type,
   entity_id,
