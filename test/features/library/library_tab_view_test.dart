@@ -17,6 +17,7 @@ void main() {
         title: 'Todo #$i',
         priority: i % 3,
         status: TodoStatusCode.open,
+        tagCount: 0,
       ),
     );
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/app_database.dart';
 import '../../core/i18n/app_strings.dart';
 import 'data/library_providers.dart';
+import 'data/library_refresh.dart';
 import 'data/library_repository.dart';
 import 'library_tab_view.dart';
 
@@ -18,6 +19,7 @@ class LibraryPage extends ConsumerStatefulWidget {
 class _LibraryPageState extends ConsumerState<LibraryPage>
     with SingleTickerProviderStateMixin {
   int _segment = 0;
+  int _lastRefreshTick = -1;
 
   final GlobalKey<LibraryTabViewState<TodoListItem>> _todoKey =
       GlobalKey<LibraryTabViewState<TodoListItem>>();
@@ -46,6 +48,16 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
 
   @override
   Widget build(BuildContext context) {
+    final int refreshTick = ref.watch(libraryRefreshTickProvider);
+    if (refreshTick != _lastRefreshTick) {
+      _lastRefreshTick = refreshTick;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _reloadAllTabs();
+        }
+      });
+    }
+
     final LibraryRepository repository = ref.watch(libraryRepositoryProvider);
 
     return Padding(
@@ -113,7 +125,16 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                         repository.listTodos(page: page, pageSize: pageSize),
                     emptyText: AppStrings.emptyTodos,
                     itemBuilder: (BuildContext context, TodoListItem item) {
-                      return _TodoTile(item: item);
+                      return _TodoTile(
+                        item: item,
+                        onToggleDone: (bool done) async {
+                          await repository.setTodoStatus(
+                            todoId: item.id,
+                            done: done,
+                          );
+                          await _todoKey.currentState?.reload();
+                        },
+                      );
                     },
                   ),
                   LibraryTabView<NoteListItem>(
@@ -173,9 +194,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
 }
 
 class _TodoTile extends StatelessWidget {
-  const _TodoTile({required this.item});
+  const _TodoTile({required this.item, required this.onToggleDone});
 
   final TodoListItem item;
+  final ValueChanged<bool> onToggleDone;
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +217,12 @@ class _TodoTile extends StatelessWidget {
 
     return ListTile(
       dense: true,
+      leading: Checkbox(
+        value: done,
+        onChanged: (bool? value) {
+          onToggleDone(value ?? false);
+        },
+      ),
       title: Text(
         item.title,
         maxLines: 1,
@@ -205,7 +233,7 @@ class _TodoTile extends StatelessWidget {
         children: [
           Text(done ? AppStrings.statusDone : AppStrings.statusOpen),
           const SizedBox(width: 8),
-          const Text(AppStrings.tagCountPlaceholder),
+          Text('标签 ${item.tagCount}'),
         ],
       ),
       trailing: Container(

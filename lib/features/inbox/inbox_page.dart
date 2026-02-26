@@ -5,6 +5,7 @@ import '../../core/ai/ai_provider_providers.dart';
 import '../../core/ai/ai_provider_repository.dart';
 import '../../core/ai/router_decision.dart';
 import '../../core/i18n/app_strings.dart';
+import '../library/data/library_refresh.dart';
 import '../settings/ai_provider_page.dart';
 import 'data/inbox_draft_repository.dart';
 import 'inbox_providers.dart';
@@ -142,6 +143,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
       if (!mounted) {
         return;
       }
+      bumpLibraryRefresh(ref);
       _controller.clear();
       _setStatus(AppStrings.submitSuccess);
     } catch (error) {
@@ -168,6 +170,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
     final InboxDraftRepository drafts = ref.read(inboxDraftRepositoryProvider);
     try {
       await _routeAndExecute(draft.rawInput);
+      bumpLibraryRefresh(ref);
       await drafts.deleteDraft(draft.id);
       _setStatus('草稿重试成功');
     } catch (error) {

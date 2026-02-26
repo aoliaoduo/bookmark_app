@@ -6,6 +6,7 @@ import '../clock/app_clock.dart';
 import '../clock/lamport_clock.dart';
 import '../db/app_database.dart';
 import '../identity/device_identity_service.dart';
+import '../search/fts_updater.dart';
 
 class ActionExecutor {
   ActionExecutor({
@@ -13,6 +14,7 @@ class ActionExecutor {
     required this.identityService,
     required this.lamportClock,
     required this.clock,
+    required this.ftsUpdater,
   });
 
   static const Uuid _uuid = Uuid();
@@ -21,6 +23,7 @@ class ActionExecutor {
   final DeviceIdentityService identityService;
   final LamportClock lamportClock;
   final AppClock clock;
+  final FtsUpdater ftsUpdater;
 
   Future<void> execute(
     RouterDecision decision, {
@@ -70,6 +73,7 @@ class ActionExecutor {
       );
 
       await batch.commit(noResult: true);
+      await ftsUpdater.upsertTodo(txn, id);
     });
   }
 
@@ -114,6 +118,7 @@ class ActionExecutor {
       );
 
       await batch.commit(noResult: true);
+      await ftsUpdater.upsertNote(txn, id);
     });
   }
 
@@ -135,6 +140,7 @@ class ActionExecutor {
         'lamport': lamport,
         'device_id': deviceId,
       });
+      await ftsUpdater.upsertBookmark(txn, id);
     });
   }
 

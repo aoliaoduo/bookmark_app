@@ -9,9 +9,7 @@ void main() {
   testWidgets('App shell opens drawer', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(
-          home: AppShell(initialEntry: PrimaryEntry.focus),
-        ),
+        child: MaterialApp(home: AppShell(initialEntry: PrimaryEntry.focus)),
       ),
     );
 

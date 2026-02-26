@@ -1,10 +1,11 @@
-import 'package:uuid/uuid.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/clock/app_clock.dart';
 import '../../../core/clock/lamport_clock.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/identity/device_identity_service.dart';
+import '../../../core/search/fts_updater.dart';
 
 class PagedResult<T> {
   const PagedResult({required this.items, required this.hasMore});
@@ -19,12 +20,14 @@ class TodoListItem {
     required this.title,
     required this.priority,
     required this.status,
+    required this.tagCount,
   });
 
   final String id;
   final String title;
   final int priority;
   final int status;
+  final int tagCount;
 }
 
 class NoteListItem {
@@ -57,6 +60,7 @@ class LibraryRepository {
     required this.identityService,
     required this.lamportClock,
     required this.clock,
+    required this.ftsUpdater,
   });
 
   static const int defaultPageSize = 50;
@@ -66,6 +70,7 @@ class LibraryRepository {
   final DeviceIdentityService identityService;
   final LamportClock lamportClock;
   final AppClock clock;
+  final FtsUpdater ftsUpdater;
 
   Future<PagedResult<TodoListItem>> listTodos({
     int page = 0,
@@ -73,10 +78,13 @@ class LibraryRepository {
   }) async {
     final List<Map<String, Object?>> rows = await database.db.rawQuery(
       '''
-      SELECT id, title, priority, status
-      FROM todos
-      WHERE deleted = 0
-      ORDER BY priority DESC, created_at DESC
+      SELECT t.id, t.title, t.priority, t.status,
+             COUNT(et.tag_id) AS tag_count
+      FROM todos t
+      LEFT JOIN entity_tags et ON et.entity_type='todo' AND et.entity_id=t.id
+      WHERE t.deleted = 0
+      GROUP BY t.id
+      ORDER BY t.priority DESC, t.created_at DESC
       LIMIT ? OFFSET ?
       ''',
       <Object?>[pageSize, page * pageSize],
@@ -89,6 +97,7 @@ class LibraryRepository {
             title: row['title']! as String,
             priority: row['priority']! as int,
             status: row['status']! as int,
+            tagCount: row['tag_count']! as int,
           ),
         )
         .toList(growable: false);
@@ -166,6 +175,27 @@ class LibraryRepository {
     );
   }
 
+  Future<void> setTodoStatus({
+    required String todoId,
+    required bool done,
+  }) async {
+    await database.db.transaction((txn) async {
+      final int now = clock.nowMs();
+      final int lamport = await lamportClock.next(txn);
+      await txn.update(
+        'todos',
+        {
+          'status': done ? TodoStatusCode.done : TodoStatusCode.open,
+          'updated_at': now,
+          'lamport': lamport,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[todoId],
+      );
+      await ftsUpdater.upsertTodo(txn, todoId);
+    });
+  }
+
   Future<void> seedDebugData({
     int todoCount = 700,
     int noteCount = 200,
@@ -241,6 +271,7 @@ class LibraryRepository {
       }
 
       await batch.commit(noResult: true);
+      await ftsUpdater.rebuildAll(txn);
     });
   }
 
