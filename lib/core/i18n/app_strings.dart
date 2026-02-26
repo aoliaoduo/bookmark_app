@@ -139,4 +139,16 @@ abstract final class AppStrings {
   static const String themeSaveSuccess = '主题已更新';
 
   static const String notifyOpenSettings = '通知渠道设置';
+  static const String openMaintenanceTools = '维护工具';
+  static const String maintenancePageTitle = '维护工具';
+  static const String maintenanceDeletedDaysLabel = '软删除保留天数';
+  static const String maintenancePurgeDeleted = '清理软删除数据';
+  static const String maintenancePurgeTags = '清理孤儿标签';
+  static const String maintenanceRebuildFts = '重建 FTS 索引';
+  static const String maintenanceVacuum = 'SQLite Optimize/VACUUM';
+  static const String maintenancePurgeNoteHistory = '清理笔记整理历史（仅保留最新版）';
+  static const String maintenanceConfirmTitle = '确认执行';
+  static const String maintenanceWorking = '正在执行...';
+  static const String maintenanceDone = '执行完成';
+  static const String maintenanceFailedPrefix = '执行失败：';
 }

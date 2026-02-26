@@ -9,6 +9,7 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/sync/sync_providers.dart';
 import '../../core/sync/sync_runtime_service.dart';
 import '../../core/sync/webdav/webdav_config.dart';
+import 'maintenance_page.dart';
 import 'notification_channels_page.dart';
 import 'theme_page.dart';
 
@@ -96,6 +97,17 @@ class _SyncPageState extends ConsumerState<SyncPage> {
                 },
                 icon: const Icon(Icons.notifications_active_outlined),
                 label: const Text(AppStrings.notifyOpenSettings),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const MaintenancePage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.build_outlined),
+                label: const Text(AppStrings.openMaintenanceTools),
               ),
             ],
           ),
