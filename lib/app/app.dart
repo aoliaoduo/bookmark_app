@@ -10,6 +10,7 @@ import '../core/theme/theme_models.dart';
 import '../core/theme/theme_providers.dart';
 import '../core/theme/theme_registry.dart';
 import '../core/ux/shortcut_bus.dart';
+import '../features/entity_detail/entity_detail_routes.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -29,6 +30,9 @@ class App extends ConsumerWidget {
       themeMode: selection.mode.toThemeMode(),
       theme: buildThemeData(tokens: preset, brightness: Brightness.light),
       darkTheme: buildThemeData(tokens: preset, brightness: Brightness.dark),
+      onGenerateRoute: (RouteSettings settings) {
+        return EntityDetailRoutes.onGenerateRoute(settings);
+      },
       builder: (BuildContext context, Widget? child) {
         final Widget content = child ?? const SizedBox.shrink();
         return Shortcuts(

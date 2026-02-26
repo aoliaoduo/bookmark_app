@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../entity_detail/entity_detail_routes.dart';
 import '../../core/db/app_database.dart';
 import '../../core/i18n/app_strings.dart';
 import '../library/data/library_providers.dart';
@@ -137,6 +138,7 @@ class _TagResultPageState extends ConsumerState<TagResultPage>
                       itemBuilder: (BuildContext context, TodoListItem item) {
                         return _TagTodoTile(
                           item: item,
+                          onTap: () => _openTodoDetail(item.id),
                           onToggleDone: (bool done) =>
                               _toggleTodoStatus(repository, item, done),
                         );
@@ -152,7 +154,10 @@ class _TagResultPageState extends ConsumerState<TagResultPage>
                           ),
                       emptyText: AppStrings.emptyNotes,
                       itemBuilder: (BuildContext context, NoteListItem item) {
-                        return _TagNoteTile(item: item);
+                        return _TagNoteTile(
+                          item: item,
+                          onTap: () => _openNoteDetail(item.id),
+                        );
                       },
                     ),
                     LibraryTabView<BookmarkListItem>(
@@ -166,7 +171,10 @@ class _TagResultPageState extends ConsumerState<TagResultPage>
                       emptyText: AppStrings.emptyBookmarks,
                       itemBuilder:
                           (BuildContext context, BookmarkListItem item) {
-                            return _TagBookmarkTile(item: item);
+                            return _TagBookmarkTile(
+                              item: item,
+                              onTap: () => _openBookmarkDetail(item.id),
+                            );
                           },
                     ),
                   ],
@@ -347,13 +355,42 @@ class _TagResultPageState extends ConsumerState<TagResultPage>
       );
     }
   }
+
+  Future<void> _openTodoDetail(String todoId) async {
+    final bool changed =
+        (await EntityDetailRoutes.openTodo(context, todoId)) ?? false;
+    if (changed) {
+      await _todoKey.currentState?.reload();
+    }
+  }
+
+  Future<void> _openNoteDetail(String noteId) async {
+    final bool changed =
+        (await EntityDetailRoutes.openNote(context, noteId)) ?? false;
+    if (changed) {
+      await _noteKey.currentState?.reload();
+    }
+  }
+
+  Future<void> _openBookmarkDetail(String bookmarkId) async {
+    final bool changed =
+        (await EntityDetailRoutes.openLink(context, bookmarkId)) ?? false;
+    if (changed) {
+      await _bookmarkKey.currentState?.reload();
+    }
+  }
 }
 
 class _TagTodoTile extends StatelessWidget {
-  const _TagTodoTile({required this.item, required this.onToggleDone});
+  const _TagTodoTile({
+    required this.item,
+    required this.onToggleDone,
+    required this.onTap,
+  });
 
   final TodoListItem item;
   final ValueChanged<bool> onToggleDone;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -398,14 +435,16 @@ class _TagTodoTile extends StatelessWidget {
         ),
         child: Text(priorityText, style: TextStyle(color: priorityColor)),
       ),
+      onTap: onTap,
     );
   }
 }
 
 class _TagNoteTile extends StatelessWidget {
-  const _TagNoteTile({required this.item});
+  const _TagNoteTile({required this.item, required this.onTap});
 
   final NoteListItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -421,14 +460,16 @@ class _TagNoteTile extends StatelessWidget {
         ),
         child: Text('v${item.latestVersion}'),
       ),
+      onTap: onTap,
     );
   }
 }
 
 class _TagBookmarkTile extends StatelessWidget {
-  const _TagBookmarkTile({required this.item});
+  const _TagBookmarkTile({required this.item, required this.onTap});
 
   final BookmarkListItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -436,6 +477,7 @@ class _TagBookmarkTile extends StatelessWidget {
       dense: true,
       title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(item.url, maxLines: 1, overflow: TextOverflow.ellipsis),
+      onTap: onTap,
     );
   }
 }

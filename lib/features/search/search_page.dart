@@ -3,15 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/ai/ai_provider_providers.dart';
-import '../../core/db/app_database.dart';
 import '../../core/db/db_provider.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/search/ai_search_service.dart';
 import '../../core/search/local_search_service.dart';
 import '../../core/search/models/search_result_item.dart';
-import '../../core/utils/url_opener.dart';
-import '../library/data/library_providers.dart';
-import '../library/data/library_repository.dart';
+import '../entity_detail/entity_detail_routes.dart';
 
 final Provider<LocalSearchService> localSearchServiceProvider =
     Provider<LocalSearchService>((Ref ref) {
@@ -392,150 +389,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Future<void> _openResultDetail(SearchResultItem item) async {
-    final LibraryRepository repository = ref.read(libraryRepositoryProvider);
     switch (item.entityType) {
       case 'todo':
-        final TodoDetail? detail = await repository.getTodoDetail(
-          item.entityId,
-        );
-        if (detail == null || !mounted) {
-          return;
-        }
-        await showDialog<void>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('Todo: ${detail.title}'),
-              content: SizedBox(
-                width: 560,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${AppStrings.fieldPriority}: ${_priorityLabel(detail.priority)}',
-                    ),
-                    Text(
-                      '${AppStrings.fieldStatus}: ${detail.status == TodoStatusCode.done ? AppStrings.statusDone : AppStrings.statusOpen}',
-                    ),
-                    Text(
-                      '${AppStrings.fieldRemindAt}: ${detail.remindAt == null ? '未设置' : _fmt(detail.remindAt!)}',
-                    ),
-                    const SizedBox(height: 8),
-                    Text('标签: ${detail.tags.join(', ')}'),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(AppStrings.confirm),
-                ),
-              ],
-            );
-          },
-        );
+        await EntityDetailRoutes.openTodo(context, item.entityId);
+        return;
       case 'note':
-        final NoteDetail? detail = await repository.getNoteDetail(
-          item.entityId,
-        );
-        if (detail == null || !mounted) {
-          return;
-        }
-        bool showRaw = false;
-        await showDialog<void>(
-          context: context,
-          builder: (BuildContext context) {
-            return StatefulBuilder(
-              builder: (BuildContext context, StateSetter setStateDialog) {
-                return AlertDialog(
-                  title: Text(
-                    '${AppStrings.noteDetailTitle} v${detail.latestVersion}',
-                  ),
-                  content: SizedBox(
-                    width: 640,
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        showRaw ? detail.rawText : detail.organizedMd,
-                      ),
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        setStateDialog(() {
-                          showRaw = !showRaw;
-                        });
-                      },
-                      child: Text(
-                        showRaw
-                            ? AppStrings.noteViewOrganized
-                            : AppStrings.noteViewRaw,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(AppStrings.confirm),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
+        await EntityDetailRoutes.openNote(context, item.entityId);
+        return;
       case 'bookmark':
-        final BookmarkDetail? detail = await repository.getBookmarkDetail(
-          item.entityId,
-        );
-        if (detail == null || !mounted) {
-          return;
-        }
-        await showDialog<void>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text(detail.title),
-              content: SizedBox(
-                width: 620,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SelectableText(detail.url),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${AppStrings.bookmarkLastFetchedAt}: ${detail.lastFetchedAt == null ? AppStrings.bookmarkNotFetched : _fmt(detail.lastFetchedAt!)}',
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: detail.url));
-                    if (!context.mounted) {
-                      return;
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text(AppStrings.copied)),
-                    );
-                  },
-                  child: const Text(AppStrings.bookmarkCopyUrl),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    await UrlOpener.open(detail.url);
-                  },
-                  child: const Text(AppStrings.bookmarkOpenUrl),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(AppStrings.confirm),
-                ),
-              ],
-            );
-          },
-        );
+        await EntityDetailRoutes.openLink(context, item.entityId);
+        return;
       default:
         return;
     }
@@ -573,22 +436,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       default:
         return type;
     }
-  }
-
-  String _priorityLabel(int value) {
-    switch (value) {
-      case TodoPriorityCode.high:
-        return AppStrings.priorityHigh;
-      case TodoPriorityCode.medium:
-        return AppStrings.priorityMedium;
-      default:
-        return AppStrings.priorityLow;
-    }
-  }
-
-  String _fmt(int value) {
-    final DateTime dt = DateTime.fromMillisecondsSinceEpoch(value).toLocal();
-    return dt.toString();
   }
 }
 

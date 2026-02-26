@@ -72,6 +72,7 @@ class NoteDetail {
     required this.rawText,
     required this.latestVersion,
     required this.organizedMd,
+    required this.tags,
   });
 
   final String id;
@@ -79,6 +80,7 @@ class NoteDetail {
   final String rawText;
   final int latestVersion;
   final String organizedMd;
+  final List<String> tags;
 }
 
 class NoteVersionItem {
@@ -431,6 +433,7 @@ class LibraryRepository {
     if (rows.isEmpty) {
       return null;
     }
+    final List<String> tags = await _loadTagsForEntity('note', noteId);
     final Map<String, Object?> row = rows.first;
     return NoteDetail(
       id: row['id']! as String,
@@ -438,7 +441,52 @@ class LibraryRepository {
       rawText: row['raw_text']! as String,
       latestVersion: (row['latest_version'] as num).toInt(),
       organizedMd: (row['organized_md'] as String?) ?? '',
+      tags: tags,
     );
+  }
+
+  Future<void> updateNoteDetail({
+    required String noteId,
+    required String title,
+    required List<String> tags,
+  }) async {
+    await database.db.transaction((txn) async {
+      final int now = clock.nowMs();
+      final int lamport = await lamportClock.next(txn);
+      final String deviceId = await identityService.getOrCreateDeviceId(txn);
+
+      await txn.update(
+        'notes',
+        <String, Object?>{
+          'title': title,
+          'updated_at': now,
+          'lamport': lamport,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[noteId],
+      );
+
+      await _replaceEntityTags(
+        txn: txn,
+        entityType: 'note',
+        entityId: noteId,
+        tags: tags,
+        lamport: lamport,
+        deviceId: deviceId,
+        now: now,
+      );
+
+      await ftsUpdater.upsertNote(txn, noteId);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'note',
+        entityId: noteId,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
+    });
   }
 
   Future<List<NoteVersionItem>> listNoteVersions(String noteId) async {
@@ -492,7 +540,7 @@ class LibraryRepository {
         limit: 1,
       );
       if (rows.isEmpty) {
-        throw Exception('笔记不存在');
+        throw Exception('note_not_found');
       }
       final int currentVersion = (rows.first['latest_version'] as num).toInt();
       final int nextVersion = currentVersion + 1;
@@ -693,6 +741,52 @@ class LibraryRepository {
     });
   }
 
+  Future<void> updateBookmarkDetail({
+    required String bookmarkId,
+    required String title,
+    required String url,
+    required List<String> tags,
+  }) async {
+    await database.db.transaction((txn) async {
+      final int now = clock.nowMs();
+      final int lamport = await lamportClock.next(txn);
+      final String deviceId = await identityService.getOrCreateDeviceId(txn);
+
+      await txn.update(
+        'bookmarks',
+        <String, Object?>{
+          'title': title,
+          'url': url,
+          'updated_at': now,
+          'lamport': lamport,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[bookmarkId],
+      );
+
+      await _replaceEntityTags(
+        txn: txn,
+        entityType: 'bookmark',
+        entityId: bookmarkId,
+        tags: tags,
+        lamport: lamport,
+        deviceId: deviceId,
+        now: now,
+      );
+
+      await ftsUpdater.upsertBookmark(txn, bookmarkId);
+      await changeLogRepository.append(
+        executor: txn,
+        entityType: 'bookmark',
+        entityId: bookmarkId,
+        operation: SyncOperation.upsert,
+        lamport: lamport,
+        deviceId: deviceId,
+        createdAt: now,
+      );
+    });
+  }
+
   Future<void> deleteBookmark(String bookmarkId) async {
     await database.db.transaction((txn) async {
       final int now = clock.nowMs();
@@ -773,7 +867,7 @@ class LibraryRepository {
         limit: 1,
       );
       if (rows.isEmpty) {
-        throw Exception('链接不存在');
+        throw Exception('bookmark_not_found');
       }
 
       final String url = rows.first['url']! as String;
