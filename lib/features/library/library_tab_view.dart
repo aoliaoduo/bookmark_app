@@ -135,6 +135,16 @@ class LibraryTabViewState<T> extends State<LibraryTabView<T>>
     widget.onItemsSnapshot?.call(List<T>.unmodifiable(_items));
   }
 
+  void removeWhere(bool Function(T item) match) {
+    final int before = _items.length;
+    setState(() {
+      _items.removeWhere(match);
+    });
+    if (_items.length != before) {
+      widget.onItemsSnapshot?.call(List<T>.unmodifiable(_items));
+    }
+  }
+
   void _onScroll() {
     if (!_hasMore || _isLoading) {
       return;

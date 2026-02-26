@@ -15,6 +15,13 @@ import 'data/library_refresh.dart';
 import 'data/library_repository.dart';
 import 'library_tab_view.dart';
 
+enum _TodoFilterAction {
+  toggleIncludeDone,
+  remindAll,
+  remindWith,
+  remindWithout,
+}
+
 class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
 
@@ -44,6 +51,21 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
   bool _bookmarkCancelRequested = false;
   int _bookmarkProgressDone = 0;
   int _bookmarkProgressTotal = 0;
+  bool _todoIncludeDone = false;
+  TodoRemindFilter _todoRemindFilter = TodoRemindFilter.all;
+
+  int get _todoFilterActiveCount {
+    int count = 0;
+    if (_todoIncludeDone) {
+      count += 1;
+    }
+    if (_todoRemindFilter != TodoRemindFilter.all) {
+      count += 1;
+    }
+    return count;
+  }
+
+  bool get _todoFilterActive => _todoFilterActiveCount > 0;
 
   @override
   void initState() {
@@ -132,7 +154,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                         },
                       ),
                     ),
-                    if (kDebugMode)
+                    if (_segment == 0) ...[
+                      const SizedBox(width: 8),
+                      _buildTodoFilterButton(),
+                    ],
+                    if (kDebugMode) ...[
+                      const SizedBox(width: 8),
                       PopupMenuButton<String>(
                         tooltip: AppStrings.debugMenuTooltip,
                         onSelected: (String value) async {
@@ -154,6 +181,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                           ),
                         ],
                       ),
+                    ],
                   ],
                 ),
                 if (_segment == 2) ...[
@@ -172,8 +200,13 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                       children: [
                         LibraryTabView<TodoListItem>(
                           key: _todoKey,
-                          pageLoader: (int page, int pageSize) => repository
-                              .listTodos(page: page, pageSize: pageSize),
+                          pageLoader: (int page, int pageSize) =>
+                              repository.listTodos(
+                                page: page,
+                                pageSize: pageSize,
+                                includeDone: _todoIncludeDone,
+                                remindFilter: _todoRemindFilter,
+                              ),
                           emptyText: AppStrings.emptyTodos,
                           itemBuilder:
                               (BuildContext context, TodoListItem item) {
@@ -243,6 +276,135 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
         ),
       ),
     );
+  }
+
+  Widget _buildTodoFilterButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<_TodoFilterAction>(
+          tooltip: AppStrings.todoFilterButton,
+          onSelected: _applyTodoFilterAction,
+          itemBuilder: (BuildContext context) =>
+              <PopupMenuEntry<_TodoFilterAction>>[
+                CheckedPopupMenuItem<_TodoFilterAction>(
+                  value: _TodoFilterAction.toggleIncludeDone,
+                  checked: _todoIncludeDone,
+                  child: const Text(AppStrings.todoFilterShowDone),
+                ),
+                const PopupMenuDivider(),
+                CheckedPopupMenuItem<_TodoFilterAction>(
+                  value: _TodoFilterAction.remindAll,
+                  checked: _todoRemindFilter == TodoRemindFilter.all,
+                  child: const Text(AppStrings.todoFilterRemindAll),
+                ),
+                CheckedPopupMenuItem<_TodoFilterAction>(
+                  value: _TodoFilterAction.remindWith,
+                  checked: _todoRemindFilter == TodoRemindFilter.withRemind,
+                  child: const Text(AppStrings.todoFilterRemindWith),
+                ),
+                CheckedPopupMenuItem<_TodoFilterAction>(
+                  value: _TodoFilterAction.remindWithout,
+                  checked: _todoRemindFilter == TodoRemindFilter.withoutRemind,
+                  child: const Text(AppStrings.todoFilterRemindWithout),
+                ),
+              ],
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.filter_alt_outlined, size: 18),
+                    SizedBox(width: 4),
+                    Text(AppStrings.todoFilterButton),
+                  ],
+                ),
+              ),
+              if (_todoFilterActive)
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$_todoFilterActiveCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (_todoFilterActive) ...[
+          const SizedBox(width: 6),
+          TextButton(
+            onPressed: _clearTodoFilters,
+            child: const Text(AppStrings.todoFilterClear),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _applyTodoFilterAction(_TodoFilterAction action) async {
+    bool nextIncludeDone = _todoIncludeDone;
+    TodoRemindFilter nextRemindFilter = _todoRemindFilter;
+
+    switch (action) {
+      case _TodoFilterAction.toggleIncludeDone:
+        nextIncludeDone = !nextIncludeDone;
+        break;
+      case _TodoFilterAction.remindAll:
+        nextRemindFilter = TodoRemindFilter.all;
+        break;
+      case _TodoFilterAction.remindWith:
+        nextRemindFilter = TodoRemindFilter.withRemind;
+        break;
+      case _TodoFilterAction.remindWithout:
+        nextRemindFilter = TodoRemindFilter.withoutRemind;
+        break;
+    }
+
+    if (nextIncludeDone == _todoIncludeDone &&
+        nextRemindFilter == _todoRemindFilter) {
+      return;
+    }
+
+    setState(() {
+      _todoIncludeDone = nextIncludeDone;
+      _todoRemindFilter = nextRemindFilter;
+    });
+    await _todoKey.currentState?.reload();
+  }
+
+  void _clearTodoFilters() {
+    if (!_todoFilterActive) {
+      return;
+    }
+    setState(() {
+      _todoIncludeDone = false;
+      _todoRemindFilter = TodoRemindFilter.all;
+    });
+    _todoKey.currentState?.reload();
   }
 
   Widget _buildBookmarkToolbar(LibraryRepository repository) {
@@ -426,6 +588,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
 
     try {
       await repository.setTodoStatus(todoId: item.id, done: done);
+      if (done && !_todoIncludeDone) {
+        _todoKey.currentState?.removeWhere(
+          (TodoListItem current) => current.id == item.id,
+        );
+      }
     } catch (error) {
       _todoKey.currentState?.patchItem(
         match: (TodoListItem current) => current.id == item.id,

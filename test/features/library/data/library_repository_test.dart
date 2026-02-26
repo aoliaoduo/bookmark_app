@@ -50,14 +50,17 @@ void main() {
     final PagedResult<TodoListItem> page0 = await repository.listTodos(
       page: 0,
       pageSize: 50,
+      includeDone: true,
     );
     final PagedResult<TodoListItem> page1 = await repository.listTodos(
       page: 1,
       pageSize: 50,
+      includeDone: true,
     );
     final PagedResult<TodoListItem> page2 = await repository.listTodos(
       page: 2,
       pageSize: 50,
+      includeDone: true,
     );
 
     expect(page0.items.length, 50);
@@ -107,6 +110,94 @@ void main() {
       "SELECT key FROM kv WHERE key IN ('device_id','lamport');",
     );
     expect(kvRows.length, 2);
+
+    await appDatabase.close();
+    await tempDir.delete(recursive: true);
+  });
+
+  test('listTodos supports done/remind filters', () async {
+    final Directory tempDir = await Directory.systemTemp.createTemp(
+      'repo_test_',
+    );
+    final String dbPath = p.join(tempDir.path, 'repo.db');
+
+    final AppDatabase appDatabase = await AppDatabase.open(
+      databasePath: dbPath,
+    );
+    final LibraryRepository repository = LibraryRepository(
+      database: appDatabase,
+      identityService: DeviceIdentityService(),
+      lamportClock: LamportClock(),
+      clock: const _FixedClock(1730000000000),
+      ftsUpdater: FtsUpdater(),
+      changeLogRepository: ChangeLogRepository(appDatabase.db),
+    );
+
+    await repository.clearLibraryData();
+    final int now = 1730000000000;
+    await appDatabase.db.insert('todos', <String, Object?>{
+      'id': 'todo_open_none',
+      'title': 'open none',
+      'priority': TodoPriorityCode.medium,
+      'status': TodoStatusCode.open,
+      'remind_at': null,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 1,
+      'device_id': 'test_device',
+    });
+    await appDatabase.db.insert('todos', <String, Object?>{
+      'id': 'todo_open_with',
+      'title': 'open with remind',
+      'priority': TodoPriorityCode.medium,
+      'status': TodoStatusCode.open,
+      'remind_at': now + 60000,
+      'created_at': now - 1,
+      'updated_at': now - 1,
+      'deleted': 0,
+      'lamport': 2,
+      'device_id': 'test_device',
+    });
+    await appDatabase.db.insert('todos', <String, Object?>{
+      'id': 'todo_done_with',
+      'title': 'done with remind',
+      'priority': TodoPriorityCode.medium,
+      'status': TodoStatusCode.done,
+      'remind_at': now + 120000,
+      'created_at': now - 2,
+      'updated_at': now - 2,
+      'deleted': 0,
+      'lamport': 3,
+      'device_id': 'test_device',
+    });
+
+    final PagedResult<TodoListItem> openOnly = await repository.listTodos(
+      page: 0,
+      pageSize: 20,
+    );
+    final PagedResult<TodoListItem> withRemind = await repository.listTodos(
+      page: 0,
+      pageSize: 20,
+      remindFilter: TodoRemindFilter.withRemind,
+    );
+    final PagedResult<TodoListItem> withoutRemind = await repository.listTodos(
+      page: 0,
+      pageSize: 20,
+      remindFilter: TodoRemindFilter.withoutRemind,
+    );
+    final PagedResult<TodoListItem> includeDoneAndWithRemind = await repository
+        .listTodos(
+          page: 0,
+          pageSize: 20,
+          includeDone: true,
+          remindFilter: TodoRemindFilter.withRemind,
+        );
+
+    expect(openOnly.items.length, 2);
+    expect(withRemind.items.length, 1);
+    expect(withoutRemind.items.length, 1);
+    expect(includeDoneAndWithRemind.items.length, 2);
 
     await appDatabase.close();
     await tempDir.delete(recursive: true);

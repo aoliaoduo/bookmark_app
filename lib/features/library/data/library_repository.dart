@@ -17,6 +17,8 @@ class PagedResult<T> {
   final bool hasMore;
 }
 
+enum TodoRemindFilter { all, withRemind, withoutRemind }
+
 class TodoListItem {
   const TodoListItem({
     required this.id,
@@ -137,14 +139,31 @@ class LibraryRepository {
   Future<PagedResult<TodoListItem>> listTodos({
     int page = 0,
     int pageSize = defaultPageSize,
+    bool includeDone = false,
+    TodoRemindFilter remindFilter = TodoRemindFilter.all,
   }) async {
+    final List<String> where = <String>['t.deleted = 0'];
+    if (!includeDone) {
+      where.add('t.status = ${TodoStatusCode.open}');
+    }
+    switch (remindFilter) {
+      case TodoRemindFilter.all:
+        break;
+      case TodoRemindFilter.withRemind:
+        where.add('t.remind_at IS NOT NULL');
+        break;
+      case TodoRemindFilter.withoutRemind:
+        where.add('t.remind_at IS NULL');
+        break;
+    }
+
     final List<Map<String, Object?>> rows = await database.db.rawQuery(
       '''
       SELECT t.id, t.title, t.priority, t.status,
              COUNT(et.tag_id) AS tag_count
       FROM todos t
       LEFT JOIN entity_tags et ON et.entity_type='todo' AND et.entity_id=t.id
-      WHERE t.deleted = 0
+      WHERE ${where.join(' AND ')}
       GROUP BY t.id
       ORDER BY t.priority DESC, t.created_at DESC
       LIMIT ? OFFSET ?

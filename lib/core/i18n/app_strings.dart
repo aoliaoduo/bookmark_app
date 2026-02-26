@@ -67,6 +67,12 @@ abstract final class AppStrings {
   static const String libraryCreateTodoPrefill = '新建待办：';
   static const String libraryCreateNotePrefill = '新建笔记：';
   static const String libraryCreateLinkPrefill = '新建链接：https://';
+  static const String todoFilterButton = '筛选';
+  static const String todoFilterShowDone = '显示已完成';
+  static const String todoFilterRemindAll = '提醒：全部';
+  static const String todoFilterRemindWith = '提醒：有提醒';
+  static const String todoFilterRemindWithout = '提醒：无提醒';
+  static const String todoFilterClear = '清除筛选';
 
   static const String debugMenuTooltip = '调试菜单';
   static const String debugSeed = '生成测试数据(1000)';
