@@ -39,5 +39,24 @@ void main() {
       'extra': 1,
     });
     expect(extraField.isValid, isFalse);
+
+    final invalidBookmarkUrl = validator.validate({
+      'action': 'create_bookmark',
+      'confidence': 0.7,
+      'payload': {'url': 'http://example.com'},
+    });
+    expect(invalidBookmarkUrl.isValid, isFalse);
+
+    final invalidRemindAt = validator.validate({
+      'action': 'create_todo',
+      'confidence': 0.8,
+      'payload': {
+        'title': 'x',
+        'priority': 'medium',
+        'tags': <String>[],
+        'remind_at': 'tomorrow 8pm',
+      },
+    });
+    expect(invalidRemindAt.isValid, isFalse);
   });
 }

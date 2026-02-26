@@ -9,6 +9,7 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/sync/sync_providers.dart';
 import '../../core/sync/sync_runtime_service.dart';
 import '../../core/sync/webdav/webdav_config.dart';
+import 'notification_channels_page.dart';
 
 class SyncPage extends ConsumerStatefulWidget {
   const SyncPage({super.key});
@@ -66,6 +67,21 @@ class _SyncPageState extends ConsumerState<SyncPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const NotificationChannelsPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.notifications_active_outlined),
+              label: const Text('通知渠道设置'),
+            ),
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _urlController,
             decoration: const InputDecoration(

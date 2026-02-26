@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:sqflite/sqflite.dart';
 
-const int kCurrentDbVersion = 2;
+const int kCurrentDbVersion = 3;
 
 final Logger _migrationLog = Logger('DbMigrations');
 
@@ -22,6 +22,9 @@ Future<void> onUpgrade(Database db, int oldVersion, int newVersion) async {
   }
   if (oldVersion < 2 && newVersion >= 2) {
     await _migrateToV2(db);
+  }
+  if (oldVersion < 3 && newVersion >= 3) {
+    await _migrateToV3(db);
   }
 }
 
@@ -101,4 +104,22 @@ Future<void> _migrateToV2(Database db) async {
     batch.execute(statement);
   }
   await batch.commit(noResult: true);
+}
+
+Future<void> _migrateToV3(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS notification_jobs (
+      id TEXT PRIMARY KEY,
+      channel TEXT NOT NULL,
+      job_key TEXT UNIQUE,
+      status TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_retry_at INTEGER NOT NULL,
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      sent_at INTEGER
+    )
+  ''');
 }

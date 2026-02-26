@@ -119,6 +119,20 @@ CREATE TABLE IF NOT EXISTS sync_state (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS notification_jobs (
+  id TEXT PRIMARY KEY,
+  channel TEXT NOT NULL,
+  job_key TEXT UNIQUE,
+  status TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_retry_at INTEGER NOT NULL,
+  last_error TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  sent_at INTEGER
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
   entity_type,
   entity_id,

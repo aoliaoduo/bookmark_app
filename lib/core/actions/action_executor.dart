@@ -58,7 +58,7 @@ class ActionExecutor {
         'title': payload['title'] as String,
         'priority': _priorityCode((payload['priority'] as String?) ?? 'medium'),
         'status': TodoStatusCode.open,
-        'remind_at': payload['remind_at'],
+        'remind_at': _normalizeRemindAt(payload['remind_at']),
         'created_at': now,
         'updated_at': now,
         'deleted': 0,
@@ -247,5 +247,13 @@ class ActionExecutor {
       }
     }
     return result.toList(growable: false);
+  }
+
+  int? _normalizeRemindAt(Object? raw) {
+    if (raw is num) {
+      final int value = raw.toInt();
+      return value >= 0 ? value : null;
+    }
+    return null;
   }
 }

@@ -31,6 +31,7 @@ void main() {
         'change_log',
         'processed_changes',
         'sync_state',
+        'notification_jobs',
         'search_fts',
       ];
 

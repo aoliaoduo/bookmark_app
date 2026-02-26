@@ -5,6 +5,7 @@ import '../core/backup/backup_providers.dart';
 import '../core/db/app_database.dart';
 import '../core/db/db_provider.dart';
 import '../core/i18n/app_strings.dart';
+import '../core/notify/notify_providers.dart';
 import '../features/focus/focus_page.dart';
 import '../features/inbox/inbox_page.dart';
 import '../features/library/library_page.dart';
@@ -24,6 +25,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   late PrimaryEntry _currentEntry;
   bool _backupReminderChecked = false;
+  bool _todoReminderStarted = false;
 
   @override
   void initState() {
@@ -42,6 +44,18 @@ class _AppShellState extends ConsumerState<AppShell> {
         final dbAsync = ref.read(appDatabaseProvider);
         if (dbAsync case AsyncData<AppDatabase>()) {
           await ref.read(backupReminderServiceProvider).checkAndPrompt(context);
+        }
+      });
+    }
+    if (!_todoReminderStarted) {
+      _todoReminderStarted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) {
+          return;
+        }
+        final dbAsync = ref.read(appDatabaseProvider);
+        if (dbAsync case AsyncData<AppDatabase>()) {
+          await ref.read(todoReminderRuntimeProvider).start();
         }
       });
     }
