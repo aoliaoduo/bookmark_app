@@ -6,6 +6,7 @@ abstract final class AppStrings {
   static const String inbox = '收件箱';
   static const String library = '资料库';
   static const String focus = '专注';
+  static const String search = '搜索';
 
   static const String loadingDb = '正在初始化本地数据库...';
   static const String dbInitFailed = '数据库初始化失败：';
@@ -43,6 +44,9 @@ abstract final class AppStrings {
   static const String statusDone = 'done';
   static const String tagCountPlaceholder = '标签 0';
   static const String noteOrganizedOnly = '整理版展示（原文隐藏）';
+  static const String noteViewRaw = '查看原文';
+  static const String noteReorganize = '重新整理';
+  static const String noteDetailTitle = '笔记详情';
 
   static const String loadingMore = '加载中...';
   static const String bookmarkSelectMode = '多选';
@@ -51,6 +55,10 @@ abstract final class AppStrings {
   static const String bookmarkRefreshSelected = '刷新所选';
   static const String bookmarkCancelQueue = '取消后续';
   static const String bookmarkRefreshOne = '刷新标题';
+  static const String localSearchHint = '输入关键词搜索';
+  static const String localSearch = '本地搜索';
+  static const String aiDeepSearch = 'AI 深度搜索';
+  static const String searchNoResult = '未找到结果';
 
   static const String aiProviderTitle = 'AI Provider 设置';
   static const String baseUrlLabel = 'Base URL';

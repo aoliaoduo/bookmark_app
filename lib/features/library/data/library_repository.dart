@@ -43,6 +43,22 @@ class NoteListItem {
   final int latestVersion;
 }
 
+class NoteDetail {
+  const NoteDetail({
+    required this.id,
+    required this.title,
+    required this.rawText,
+    required this.latestVersion,
+    required this.organizedMd,
+  });
+
+  final String id;
+  final String title;
+  final String rawText;
+  final int latestVersion;
+  final String organizedMd;
+}
+
 class BookmarkListItem {
   const BookmarkListItem({
     required this.id,
@@ -141,6 +157,75 @@ class LibraryRepository {
       items: items,
       hasMore: items.length == pageSize,
     );
+  }
+
+  Future<NoteDetail?> getNoteDetail(String noteId) async {
+    final rows = await database.db.rawQuery(
+      '''
+      SELECT n.id, n.title, n.raw_text, n.latest_version, nv.organized_md
+      FROM notes n
+      LEFT JOIN note_versions nv ON nv.note_id = n.id AND nv.version = n.latest_version
+      WHERE n.id = ? AND n.deleted = 0
+      LIMIT 1
+      ''',
+      <Object?>[noteId],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    final row = rows.first;
+    return NoteDetail(
+      id: row['id']! as String,
+      title: row['title']! as String,
+      rawText: row['raw_text']! as String,
+      latestVersion: row['latest_version']! as int,
+      organizedMd: (row['organized_md'] as String?) ?? '',
+    );
+  }
+
+  Future<void> appendNoteVersion({
+    required String noteId,
+    required String organizedMd,
+  }) async {
+    await database.db.transaction((txn) async {
+      final rows = await txn.query(
+        'notes',
+        columns: ['latest_version'],
+        where: 'id = ?',
+        whereArgs: <Object?>[noteId],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw Exception('笔记不存在');
+      }
+      final int currentVersion = rows.first['latest_version']! as int;
+      final int nextVersion = currentVersion + 1;
+      final int now = clock.nowMs();
+      final int lamport = await lamportClock.next(txn);
+
+      await txn.insert('note_versions', {
+        'note_id': noteId,
+        'version': nextVersion,
+        'organized_md': organizedMd,
+        'created_at': now,
+      });
+
+      await txn.update(
+        'notes',
+        {'latest_version': nextVersion, 'updated_at': now, 'lamport': lamport},
+        where: 'id = ?',
+        whereArgs: <Object?>[noteId],
+      );
+
+      await txn.delete(
+        'note_versions',
+        where:
+            'note_id = ? AND version NOT IN (SELECT version FROM note_versions WHERE note_id = ? ORDER BY version DESC LIMIT 5)',
+        whereArgs: <Object?>[noteId, noteId],
+      );
+
+      await ftsUpdater.upsertNote(txn, noteId);
+    });
   }
 
   Future<PagedResult<BookmarkListItem>> listBookmarks({

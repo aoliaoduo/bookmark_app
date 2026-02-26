@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ai/ai_provider_providers.dart';
+import '../../core/ai/ai_provider_repository.dart';
+import '../../core/ai/prompts.dart';
 import '../../core/bookmark/bookmark_title_fetcher.dart';
 import '../../core/db/app_database.dart';
 import '../../core/i18n/app_strings.dart';
@@ -162,7 +165,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                         repository.listNotes(page: page, pageSize: pageSize),
                     emptyText: AppStrings.emptyNotes,
                     itemBuilder: (BuildContext context, NoteListItem item) {
-                      return _NoteTile(item: item);
+                      return _NoteTile(
+                        item: item,
+                        onTap: () => _openNoteDetail(repository, item.id),
+                      );
                     },
                   ),
                   LibraryTabView<BookmarkListItem>(
@@ -370,6 +376,108 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
       _bookmarkKey.currentState?.reload() ?? Future<void>.value(),
     ]);
   }
+
+  Future<void> _openNoteDetail(
+    LibraryRepository repository,
+    String noteId,
+  ) async {
+    final NoteDetail? detail = await repository.getNoteDetail(noteId);
+    if (!mounted || detail == null) {
+      return;
+    }
+
+    bool showRaw = false;
+    String organized = detail.organizedMd;
+    int version = detail.latestVersion;
+    bool regenerating = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setStateDialog) {
+            return AlertDialog(
+              title: Text('${AppStrings.noteDetailTitle} v$version'),
+              content: SizedBox(
+                width: 640,
+                child: SingleChildScrollView(
+                  child: Text(showRaw ? detail.rawText : organized),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setStateDialog(() {
+                      showRaw = !showRaw;
+                    });
+                  },
+                  child: const Text(AppStrings.noteViewRaw),
+                ),
+                TextButton(
+                  onPressed: regenerating
+                      ? null
+                      : () async {
+                          setStateDialog(() {
+                            regenerating = true;
+                          });
+                          try {
+                            final AiProviderRepository providerRepo = ref.read(
+                              aiProviderRepositoryProvider,
+                            );
+                            final cfg = await providerRepo.load();
+                            if (!cfg.isReady ||
+                                cfg.selectedModel.trim().isEmpty) {
+                              throw Exception(AppStrings.inboxNeedModel);
+                            }
+                            final client = ref.read(aiProviderClientProvider);
+                            final String newMd = await client.generateText(
+                              config: cfg,
+                              model: cfg.selectedModel,
+                              systemPrompt:
+                                  '${AiPrompts.routerSystemPrompt}\\n你现在只做笔记整理，输出 Markdown 正文。',
+                              userPrompt: detail.rawText,
+                              maxTokens: 1200,
+                            );
+                            await repository.appendNoteVersion(
+                              noteId: noteId,
+                              organizedMd: newMd,
+                            );
+                            final updated = await repository.getNoteDetail(
+                              noteId,
+                            );
+                            if (updated != null) {
+                              setStateDialog(() {
+                                organized = updated.organizedMd;
+                                version = updated.latestVersion;
+                                showRaw = false;
+                              });
+                            }
+                            await _noteKey.currentState?.reload();
+                          } catch (error) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('重新整理失败：$error')),
+                              );
+                            }
+                          } finally {
+                            setStateDialog(() {
+                              regenerating = false;
+                            });
+                          }
+                        },
+                  child: Text(
+                    regenerating
+                        ? '${AppStrings.noteReorganize}...'
+                        : AppStrings.noteReorganize,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _TodoTile extends StatelessWidget {
@@ -426,9 +534,10 @@ class _TodoTile extends StatelessWidget {
 }
 
 class _NoteTile extends StatelessWidget {
-  const _NoteTile({required this.item});
+  const _NoteTile({required this.item, required this.onTap});
 
   final NoteListItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -444,6 +553,7 @@ class _NoteTile extends StatelessWidget {
         ),
         child: Text('v${item.latestVersion}'),
       ),
+      onTap: onTap,
     );
   }
 }
