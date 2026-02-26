@@ -8,12 +8,12 @@
   - 启动自检 FTS5（写入临时记录 -> `MATCH` 查询 -> 日志 `FTS5 OK` -> 清理）
 - 导航与页面结构
   - Drawer 三入口：`收件箱 / 资料库 / 专注`
-  - 资料库顶部切换：`Todo / Note / Bookmark`（无额外一级 Tab）
+  - 资料库顶部切换：`待办 / 笔记 / 链接`（无额外一级 Tab）
 - 资料库真实分页列表
   - `pageSize=50`，触底加载下一页
   - Todo 排序：`priority DESC, created_at DESC`
   - Note 排序：`updated_at DESC`
-  - Bookmark 排序：`updated_at DESC`
+  - 链接排序：`updated_at DESC`
 - Debug（仅 `kDebugMode` 显示）
   - 一键生成 1000 测试数据（700/200/100）
   - 一键清空测试数据（不清理 `kv`，保留 `device_id/lamport`）
@@ -47,7 +47,7 @@ flutter run -d windows
 ## M1 手测路径
 1. 启动应用，确认日志出现数据库初始化与 `FTS5 OK`。
 2. 打开 Drawer，确认只有 3 个一级入口：收件箱 / 资料库 / 专注。
-3. 进入资料库，顶部切换 `Todo/Note/Bookmark`，观察中文空态文案。
+3. 进入资料库，顶部切换 `待办/笔记/链接`，观察中文空态文案。
 4. 打开资料库右上角调试菜单（Debug 下可见）：
    - 点击“生成测试数据(1000)”
    - 滚动列表到底部，确认触底分页与“加载中...”行显示/消失正常。

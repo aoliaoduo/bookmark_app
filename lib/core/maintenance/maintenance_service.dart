@@ -69,7 +69,7 @@ class MaintenanceService {
     return MaintenanceResult(
       action: 'purge_soft_deleted',
       summary:
-          'todo=${result.$1}, note=${result.$2}, bookmark=${result.$3}, '
+          'todo=${result.$1}, note=${result.$2}, link=${result.$3}, '
           'note_versions=${result.$4}, entity_tags=${result.$5}, fts=${result.$6}',
     );
   }

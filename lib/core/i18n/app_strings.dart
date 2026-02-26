@@ -50,7 +50,7 @@ abstract final class AppStrings {
 
   static const String todoTab = 'Todo';
   static const String noteTab = 'Note';
-  static const String bookmarkTab = 'Bookmark';
+  static const String bookmarkTab = '链接';
 
   static const String debugMenuTooltip = '调试菜单';
   static const String debugSeed = '生成测试数据(1000)';
@@ -62,7 +62,7 @@ abstract final class AppStrings {
 
   static const String emptyTodos = '暂无待办';
   static const String emptyNotes = '暂无笔记';
-  static const String emptyBookmarks = '暂无收藏';
+  static const String emptyBookmarks = '暂无链接';
 
   static const String statusOpen = 'open';
   static const String statusDone = 'done';
@@ -82,7 +82,7 @@ abstract final class AppStrings {
   static const String noteRegenerateCancelled = '已取消写入新版本';
   static const String noteVersionSaved = '新版本已保存';
   static const String todoDetailTitle = '待办详情';
-  static const String bookmarkDetailTitle = '收藏详情';
+  static const String bookmarkDetailTitle = '链接详情';
   static const String fieldTitle = '标题';
   static const String fieldPriority = '优先级';
   static const String fieldTags = '标签（逗号分隔）';
@@ -111,7 +111,7 @@ abstract final class AppStrings {
   static const String detailLoadFailed = '详情加载失败';
   static const String deleteConfirmTitle = '确认删除';
   static const String deleteConfirmTodo = '确认删除该待办？';
-  static const String deleteConfirmBookmark = '确认删除该收藏？';
+  static const String deleteConfirmBookmark = '确认删除该链接？';
 
   static const String loadingMore = '加载中...';
   static const String bookmarkSelectMode = '多选';

@@ -620,7 +620,7 @@ class LibraryRepository {
         limit: 1,
       );
       if (rows.isEmpty) {
-        throw Exception('收藏不存在');
+        throw Exception('链接不存在');
       }
 
       final String url = rows.first['url']! as String;
@@ -717,7 +717,7 @@ class LibraryRepository {
         batch.insert('bookmarks', <String, Object?>{
           'id': _uuid.v4(),
           'url': 'https://example.com/item-$i',
-          'title': i % 4 == 0 ? '' : 'Bookmark #$i',
+          'title': i % 4 == 0 ? '' : '链接 #$i',
           'last_fetched_at': createdAt,
           'created_at': createdAt,
           'updated_at': createdAt,
