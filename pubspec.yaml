@@ -58,6 +58,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  msix: ^3.16.8
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -109,3 +110,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+msix_config:
+  display_name: AIOS
+  publisher_display_name: AIOS Beta Dev
+  identity_name: AIOS.Beta
+  publisher: CN=AIOS Beta Dev
+  msix_version: 0.1.0.0
+  capabilities: internetClient
+  install_certificate: false
