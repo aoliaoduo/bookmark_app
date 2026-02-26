@@ -59,6 +59,14 @@ abstract final class AppStrings {
   static const String todoTab = 'Todo';
   static const String noteTab = 'Note';
   static const String bookmarkTab = '链接';
+  static const String libraryCreateMenu = '+ 新建';
+  static const String libraryCreateTodo = '新建待办';
+  static const String libraryCreateNote = '新建笔记';
+  static const String libraryCreateLink = '新建链接';
+  static const String libraryCreateRedirectHint = '已跳转到收件箱，请确认后发送';
+  static const String libraryCreateTodoPrefill = '新建待办：';
+  static const String libraryCreateNotePrefill = '新建笔记：';
+  static const String libraryCreateLinkPrefill = '新建链接：https://';
 
   static const String debugMenuTooltip = '调试菜单';
   static const String debugSeed = '生成测试数据(1000)';

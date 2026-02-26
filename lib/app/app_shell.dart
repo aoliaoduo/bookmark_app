@@ -134,19 +134,39 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
+enum _LibraryCreateType { todo, note, link }
+
 class _AppShellState extends ConsumerState<AppShell> {
   late PrimaryEntry _currentEntry;
   bool _backupReminderChecked = false;
   bool _todoReminderStarted = false;
+  int _lastHomeEntryRequestTick = 0;
 
   @override
   void initState() {
     super.initState();
     _currentEntry = widget.initialEntry;
+    _lastHomeEntryRequestTick = ref.read(homeEntryTargetProvider).tick;
   }
 
   @override
   Widget build(BuildContext context) {
+    final HomeEntryRequest request = ref.watch(homeEntryTargetProvider);
+    if (request.tick != _lastHomeEntryRequestTick) {
+      _lastHomeEntryRequestTick = request.tick;
+      final PrimaryEntry requestedEntry = _toPrimaryEntry(request.target);
+      if (requestedEntry != _currentEntry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || requestedEntry == _currentEntry) {
+            return;
+          }
+          setState(() {
+            _currentEntry = requestedEntry;
+          });
+        });
+      }
+    }
+
     if (!_backupReminderChecked) {
       _backupReminderChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -176,7 +196,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       drawerStatusProvider,
     );
     final Widget scaffold = Scaffold(
-      appBar: AppBar(title: Text(primaryEntryTitle(_currentEntry))),
+      appBar: AppBar(
+        title: Text(primaryEntryTitle(_currentEntry)),
+        actions: _buildAppBarActions(context),
+      ),
       drawer: Drawer(
         child: SafeArea(
           child: ListView(
@@ -280,10 +303,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         actions: <Type, Action<Intent>>{
           _FocusInboxIntent: CallbackAction<_FocusInboxIntent>(
             onInvoke: (_FocusInboxIntent intent) {
-              setState(() {
-                _currentEntry = PrimaryEntry.inbox;
-              });
-              requestInboxFocus(ref);
+              openInboxFromAnyPage(ref);
               return null;
             },
           ),
@@ -318,12 +338,85 @@ class _AppShellState extends ConsumerState<AppShell> {
       selected: _currentEntry == entry,
       title: Text(label),
       onTap: () {
-        setState(() {
-          _currentEntry = entry;
-        });
+        _setCurrentEntry(entry);
         Navigator.of(context).pop();
       },
     );
+  }
+
+  List<Widget> _buildAppBarActions(BuildContext context) {
+    if (_currentEntry != PrimaryEntry.library) {
+      return const <Widget>[];
+    }
+    return <Widget>[
+      PopupMenuButton<_LibraryCreateType>(
+        tooltip: AppStrings.libraryCreateMenu,
+        onSelected: _handleLibraryCreate,
+        itemBuilder: (BuildContext context) =>
+            const <PopupMenuEntry<_LibraryCreateType>>[
+              PopupMenuItem<_LibraryCreateType>(
+                value: _LibraryCreateType.todo,
+                child: Text(AppStrings.libraryCreateTodo),
+              ),
+              PopupMenuItem<_LibraryCreateType>(
+                value: _LibraryCreateType.note,
+                child: Text(AppStrings.libraryCreateNote),
+              ),
+              PopupMenuItem<_LibraryCreateType>(
+                value: _LibraryCreateType.link,
+                child: Text(AppStrings.libraryCreateLink),
+              ),
+            ],
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add, size: 18),
+              SizedBox(width: 4),
+              Text(AppStrings.libraryCreateMenu),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  void _handleLibraryCreate(_LibraryCreateType action) {
+    final String prefill = switch (action) {
+      _LibraryCreateType.todo => AppStrings.libraryCreateTodoPrefill,
+      _LibraryCreateType.note => AppStrings.libraryCreateNotePrefill,
+      _LibraryCreateType.link => AppStrings.libraryCreateLinkPrefill,
+    };
+
+    openInboxFromAnyPage(ref, prefillText: prefill);
+    if (_currentEntry != PrimaryEntry.inbox) {
+      setState(() {
+        _currentEntry = PrimaryEntry.inbox;
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.libraryCreateRedirectHint)),
+    );
+  }
+
+  void _setCurrentEntry(PrimaryEntry entry) {
+    if (_currentEntry != entry) {
+      setState(() {
+        _currentEntry = entry;
+      });
+    }
+    if (entry == PrimaryEntry.inbox) {
+      requestInboxFocus(ref);
+    }
+  }
+
+  PrimaryEntry _toPrimaryEntry(HomeEntryTarget target) {
+    return switch (target) {
+      HomeEntryTarget.inbox => PrimaryEntry.inbox,
+      HomeEntryTarget.library => PrimaryEntry.library,
+      HomeEntryTarget.focus => PrimaryEntry.focus,
+    };
   }
 
   Widget _sectionLabel(String text) {

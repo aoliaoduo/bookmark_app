@@ -27,6 +27,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   String _status = '';
   List<InboxDraft> _drafts = const <InboxDraft>[];
   int _lastFocusTick = -1;
+  int _lastPrefillTick = -1;
 
   @override
   void initState() {
@@ -44,12 +45,27 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   Widget build(BuildContext context) {
     final int focusTick = ref.watch(inboxFocusTickProvider);
+    final InboxPrefillRequest prefillRequest = ref.watch(inboxPrefillProvider);
+
     if (focusTick != _lastFocusTick) {
       _lastFocusTick = focusTick;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _inputFocusNode.requestFocus();
         }
+      });
+    }
+    if (prefillRequest.tick != _lastPrefillTick) {
+      _lastPrefillTick = prefillRequest.tick;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || prefillRequest.text.trim().isEmpty) {
+          return;
+        }
+        _controller.text = prefillRequest.text;
+        _controller.selection = TextSelection.collapsed(
+          offset: _controller.text.length,
+        );
+        _inputFocusNode.requestFocus();
       });
     }
 
@@ -75,46 +91,8 @@ class _InboxPageState extends ConsumerState<InboxPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  focusNode: _inputFocusNode,
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    hintText: AppStrings.inboxHint,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    prefixIcon: const Icon(Icons.edit_note_outlined),
-                  ),
-                  minLines: 2,
-                  maxLines: 4,
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    FilledButton.icon(
-                      onPressed: _sending ? null : _send,
-                      icon: const Icon(Icons.send),
-                      label: Text(
-                        _sending ? AppStrings.sending : AppStrings.send,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AiProviderPage(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.tune),
-                      label: const Text(AppStrings.openAiProviderSettings),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
                 if (_status.isNotEmpty) Text(_status),
-                const SizedBox(height: 10),
+                if (_status.isNotEmpty) const SizedBox(height: 8),
                 const Text(AppStrings.draftListTitle),
                 const SizedBox(height: 6),
                 Expanded(
@@ -157,9 +135,63 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                           },
                         ),
                 ),
+                const SizedBox(height: 12),
+                _buildComposer(context),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComposer(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              focusNode: _inputFocusNode,
+              controller: _controller,
+              decoration: InputDecoration(
+                hintText: AppStrings.inboxHint,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                prefixIcon: const Icon(Icons.edit_note_outlined),
+              ),
+              minLines: 2,
+              maxLines: 4,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                FilledButton.icon(
+                  onPressed: _sending ? null : _send,
+                  icon: const Icon(Icons.send),
+                  label: Text(_sending ? AppStrings.sending : AppStrings.send),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AiProviderPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.tune),
+                  label: const Text(AppStrings.openAiProviderSettings),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
