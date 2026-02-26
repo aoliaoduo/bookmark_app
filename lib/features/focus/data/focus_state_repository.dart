@@ -5,12 +5,19 @@ import '../../../core/focus/focus_timer.dart';
 
 class FocusStateRepository {
   FocusStateRepository(this.database);
+  FocusStateRepository.inMemory() : database = null;
 
   static const String singletonId = 'singleton';
-  final AppDatabase database;
+  final AppDatabase? database;
+  FocusTimerSnapshot? _memorySnapshot;
 
   Future<FocusTimerSnapshot?> load() async {
-    final List<Map<String, Object?>> rows = await database.db.query(
+    final AppDatabase? db = database;
+    if (db == null) {
+      return _memorySnapshot;
+    }
+
+    final List<Map<String, Object?>> rows = await db.db.query(
       'focus_state',
       where: 'id = ?',
       whereArgs: <Object?>[singletonId],
@@ -50,12 +57,18 @@ class FocusStateRepository {
   }
 
   Future<void> save(FocusTimerSnapshot snapshot) async {
+    final AppDatabase? db = database;
+    if (db == null) {
+      _memorySnapshot = snapshot;
+      return;
+    }
+
     final int? persistedDurationSeconds = switch (snapshot.phase) {
       FocusPhase.idle when snapshot.mode == FocusMode.countdown =>
         snapshot.focusDurationSeconds,
       _ => snapshot.durationSeconds,
     };
-    await database.db.insert('focus_state', <String, Object?>{
+    await db.db.insert('focus_state', <String, Object?>{
       'id': singletonId,
       'mode': snapshot.mode.dbValue,
       'phase': snapshot.phase.dbValue,
