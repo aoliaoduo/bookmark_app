@@ -90,3 +90,7 @@ New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=AIOS Beta Dev" -Cer
 
 ## 回归清单
 - 见 `docs/REGRESSION_CHECKLIST_BETA.md`
+
+## 发布说明
+- `CHANGELOG.md`
+- `docs/RELEASE_NOTES_BETA.md`
