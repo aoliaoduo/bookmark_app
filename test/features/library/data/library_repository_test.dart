@@ -202,4 +202,164 @@ void main() {
     await appDatabase.close();
     await tempDir.delete(recursive: true);
   });
+
+  test('listByTag uses entity_tags exact bindings', () async {
+    final Directory tempDir = await Directory.systemTemp.createTemp(
+      'repo_test_',
+    );
+    final String dbPath = p.join(tempDir.path, 'repo.db');
+
+    final AppDatabase appDatabase = await AppDatabase.open(
+      databasePath: dbPath,
+    );
+    final LibraryRepository repository = LibraryRepository(
+      database: appDatabase,
+      identityService: DeviceIdentityService(),
+      lamportClock: LamportClock(),
+      clock: const _FixedClock(1730000000000),
+      ftsUpdater: FtsUpdater(),
+      changeLogRepository: ChangeLogRepository(appDatabase.db),
+    );
+
+    await repository.clearLibraryData();
+    const int now = 1730000000000;
+
+    await appDatabase.db.insert('tags', <String, Object?>{
+      'id': 'tag_work',
+      'name': 'work',
+      'created_at': now,
+    });
+    await appDatabase.db.insert('tags', <String, Object?>{
+      'id': 'tag_person',
+      'name': 'personal',
+      'created_at': now,
+    });
+
+    await appDatabase.db.insert('todos', <String, Object?>{
+      'id': 'todo_work',
+      'title': 'todo work',
+      'priority': TodoPriorityCode.medium,
+      'status': TodoStatusCode.open,
+      'remind_at': null,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 1,
+      'device_id': 'test_device',
+    });
+    await appDatabase.db.insert('todos', <String, Object?>{
+      'id': 'todo_person',
+      'title': 'todo personal',
+      'priority': TodoPriorityCode.medium,
+      'status': TodoStatusCode.open,
+      'remind_at': null,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 2,
+      'device_id': 'test_device',
+    });
+
+    await appDatabase.db.insert('notes', <String, Object?>{
+      'id': 'note_work',
+      'title': 'note work',
+      'raw_text': 'raw',
+      'latest_version': 1,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 3,
+      'device_id': 'test_device',
+    });
+    await appDatabase.db.insert('notes', <String, Object?>{
+      'id': 'note_person',
+      'title': 'note personal',
+      'raw_text': 'raw',
+      'latest_version': 1,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 4,
+      'device_id': 'test_device',
+    });
+
+    await appDatabase.db.insert('bookmarks', <String, Object?>{
+      'id': 'bookmark_work',
+      'url': 'https://work.example.com',
+      'title': 'bookmark work',
+      'last_fetched_at': null,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 5,
+      'device_id': 'test_device',
+    });
+    await appDatabase.db.insert('bookmarks', <String, Object?>{
+      'id': 'bookmark_person',
+      'url': 'https://personal.example.com',
+      'title': 'bookmark personal',
+      'last_fetched_at': null,
+      'created_at': now,
+      'updated_at': now,
+      'deleted': 0,
+      'lamport': 6,
+      'device_id': 'test_device',
+    });
+
+    await appDatabase.db.insert('entity_tags', <String, Object?>{
+      'entity_type': 'todo',
+      'entity_id': 'todo_work',
+      'tag_id': 'tag_work',
+    });
+    await appDatabase.db.insert('entity_tags', <String, Object?>{
+      'entity_type': 'todo',
+      'entity_id': 'todo_person',
+      'tag_id': 'tag_person',
+    });
+    await appDatabase.db.insert('entity_tags', <String, Object?>{
+      'entity_type': 'note',
+      'entity_id': 'note_work',
+      'tag_id': 'tag_work',
+    });
+    await appDatabase.db.insert('entity_tags', <String, Object?>{
+      'entity_type': 'note',
+      'entity_id': 'note_person',
+      'tag_id': 'tag_person',
+    });
+    await appDatabase.db.insert('entity_tags', <String, Object?>{
+      'entity_type': 'bookmark',
+      'entity_id': 'bookmark_work',
+      'tag_id': 'tag_work',
+    });
+    await appDatabase.db.insert('entity_tags', <String, Object?>{
+      'entity_type': 'bookmark',
+      'entity_id': 'bookmark_person',
+      'tag_id': 'tag_person',
+    });
+
+    final PagedResult<TodoListItem> todoWork = await repository.listTodosByTag(
+      tagId: 'tag_work',
+      includeDone: true,
+      pageSize: 20,
+    );
+    final PagedResult<NoteListItem> noteWork = await repository.listNotesByTag(
+      tagId: 'tag_work',
+      pageSize: 20,
+    );
+    final PagedResult<BookmarkListItem> linkWork = await repository
+        .listBookmarksByTag(tagId: 'tag_work', pageSize: 20);
+
+    expect(todoWork.items.map((TodoListItem it) => it.id), <String>[
+      'todo_work',
+    ]);
+    expect(noteWork.items.map((NoteListItem it) => it.id), <String>[
+      'note_work',
+    ]);
+    expect(linkWork.items.map((BookmarkListItem it) => it.id), <String>[
+      'bookmark_work',
+    ]);
+
+    await appDatabase.close();
+    await tempDir.delete(recursive: true);
+  });
 }

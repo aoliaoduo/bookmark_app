@@ -191,6 +191,66 @@ class LibraryRepository {
     );
   }
 
+  Future<PagedResult<TodoListItem>> listTodosByTag({
+    required String tagId,
+    int page = 0,
+    int pageSize = defaultPageSize,
+    bool includeDone = false,
+    TodoRemindFilter remindFilter = TodoRemindFilter.all,
+  }) async {
+    final List<String> where = <String>['t.deleted = 0'];
+    if (!includeDone) {
+      where.add('t.status = ${TodoStatusCode.open}');
+    }
+    switch (remindFilter) {
+      case TodoRemindFilter.all:
+        break;
+      case TodoRemindFilter.withRemind:
+        where.add('t.remind_at IS NOT NULL');
+        break;
+      case TodoRemindFilter.withoutRemind:
+        where.add('t.remind_at IS NULL');
+        break;
+    }
+
+    final List<Map<String, Object?>> rows = await database.db.rawQuery(
+      '''
+      SELECT t.id, t.title, t.priority, t.status,
+             COUNT(et2.tag_id) AS tag_count
+      FROM todos t
+      INNER JOIN entity_tags et_filter
+        ON et_filter.entity_type='todo'
+       AND et_filter.entity_id=t.id
+       AND et_filter.tag_id=?
+      LEFT JOIN entity_tags et2
+        ON et2.entity_type='todo'
+       AND et2.entity_id=t.id
+      WHERE ${where.join(' AND ')}
+      GROUP BY t.id
+      ORDER BY t.priority DESC, t.created_at DESC
+      LIMIT ? OFFSET ?
+      ''',
+      <Object?>[tagId, pageSize, page * pageSize],
+    );
+
+    final List<TodoListItem> items = rows
+        .map(
+          (Map<String, Object?> row) => TodoListItem(
+            id: row['id']! as String,
+            title: row['title']! as String,
+            priority: row['priority']! as int,
+            status: row['status']! as int,
+            tagCount: (row['tag_count'] as num).toInt(),
+          ),
+        )
+        .toList(growable: false);
+
+    return PagedResult<TodoListItem>(
+      items: items,
+      hasMore: items.length == pageSize,
+    );
+  }
+
   Future<TodoDetail?> getTodoDetail(String todoId) async {
     final List<Map<String, Object?>> rows = await database.db.rawQuery(
       '''
@@ -303,6 +363,42 @@ class LibraryRepository {
       LIMIT ? OFFSET ?
       ''',
       <Object?>[pageSize, page * pageSize],
+    );
+
+    final List<NoteListItem> items = rows
+        .map(
+          (Map<String, Object?> row) => NoteListItem(
+            id: row['id']! as String,
+            title: row['title']! as String,
+            latestVersion: (row['latest_version'] as num).toInt(),
+          ),
+        )
+        .toList(growable: false);
+
+    return PagedResult<NoteListItem>(
+      items: items,
+      hasMore: items.length == pageSize,
+    );
+  }
+
+  Future<PagedResult<NoteListItem>> listNotesByTag({
+    required String tagId,
+    int page = 0,
+    int pageSize = defaultPageSize,
+  }) async {
+    final List<Map<String, Object?>> rows = await database.db.rawQuery(
+      '''
+      SELECT n.id, n.title, n.latest_version
+      FROM notes n
+      INNER JOIN entity_tags et
+        ON et.entity_type='note'
+       AND et.entity_id=n.id
+       AND et.tag_id=?
+      WHERE n.deleted = 0
+      ORDER BY n.updated_at DESC
+      LIMIT ? OFFSET ?
+      ''',
+      <Object?>[tagId, pageSize, page * pageSize],
     );
 
     final List<NoteListItem> items = rows
@@ -477,6 +573,44 @@ class LibraryRepository {
       LIMIT ? OFFSET ?
       ''',
       <Object?>[pageSize, page * pageSize],
+    );
+
+    final List<BookmarkListItem> items = rows
+        .map(
+          (Map<String, Object?> row) => BookmarkListItem(
+            id: row['id']! as String,
+            title: (row['title'] as String?)?.trim().isNotEmpty == true
+                ? row['title']! as String
+                : row['url']! as String,
+            url: row['url']! as String,
+          ),
+        )
+        .toList(growable: false);
+
+    return PagedResult<BookmarkListItem>(
+      items: items,
+      hasMore: items.length == pageSize,
+    );
+  }
+
+  Future<PagedResult<BookmarkListItem>> listBookmarksByTag({
+    required String tagId,
+    int page = 0,
+    int pageSize = defaultPageSize,
+  }) async {
+    final List<Map<String, Object?>> rows = await database.db.rawQuery(
+      '''
+      SELECT b.id, b.title, b.url
+      FROM bookmarks b
+      INNER JOIN entity_tags et
+        ON et.entity_type='bookmark'
+       AND et.entity_id=b.id
+       AND et.tag_id=?
+      WHERE b.deleted = 0
+      ORDER BY b.updated_at DESC
+      LIMIT ? OFFSET ?
+      ''',
+      <Object?>[tagId, pageSize, page * pageSize],
     );
 
     final List<BookmarkListItem> items = rows

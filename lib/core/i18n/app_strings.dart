@@ -15,6 +15,10 @@ abstract final class AppStrings {
   static const String tags = '标签';
   static const String emptyTags = '暂无标签';
   static const String tagsComingSoon = '标签结果页将在后续提交完善';
+  static const String tagsLoadFailedPrefix = '加载标签失败：';
+  static const String tagsBoundCountPrefix = '已关联';
+  static const String tagsBoundCountSuffix = '项';
+  static const String tagResultTitlePrefix = '标签：';
   static const String settings = '设置';
   static const String maintenance = '维护';
   static const String syncAndBackup = '同步/备份';
