@@ -168,7 +168,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             const SizedBox(height: 8),
             Expanded(
               child: _results.isEmpty
-                  ? const Center(child: Text(AppStrings.searchNoResult))
+                  ? _searching
+                        ? const _SearchSkeletonList()
+                        : const Center(child: Text(AppStrings.searchNoResult))
                   : ListView(
                       children: [
                         for (final MapEntry<String, List<SearchResultItem>>
@@ -734,5 +736,43 @@ class _SearchResultTile extends StatelessWidget {
       start = index + key.length;
     }
     return TextSpan(children: spans, style: baseStyle);
+  }
+}
+
+class _SearchSkeletonList extends StatelessWidget {
+  const _SearchSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: 6,
+      itemBuilder: (BuildContext context, int index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 14,
+                width: 180 + (index % 3) * 80,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 12,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

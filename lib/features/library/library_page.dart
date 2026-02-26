@@ -75,131 +75,172 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
 
     final LibraryRepository repository = ref.watch(libraryRepositoryProvider);
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text(AppStrings.todoTab)),
-                    ButtonSegment(value: 1, label: Text(AppStrings.noteTab)),
-                    ButtonSegment(
-                      value: 2,
-                      label: Text(AppStrings.bookmarkTab),
-                    ),
-                  ],
-                  selected: {_segment},
-                  onSelectionChanged: (Set<int> values) {
-                    setState(() {
-                      _segment = values.first;
-                      if (_segment != 2) {
-                        _bookmarkSelectionMode = false;
-                        _selectedBookmarkIds.clear();
-                      }
-                    });
-                    _fadeController.forward(from: 0);
-                  },
-                ),
-              ),
-              if (kDebugMode)
-                PopupMenuButton<String>(
-                  tooltip: AppStrings.debugMenuTooltip,
-                  onSelected: (String value) async {
-                    if (value == 'seed') {
-                      await _runSeed(repository);
-                    }
-                    if (value == 'clear') {
-                      await _runClear(repository);
-                    }
-                  },
-                  itemBuilder: (BuildContext context) => const [
-                    PopupMenuItem<String>(
-                      value: 'seed',
-                      child: Text(AppStrings.debugSeed),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'clear',
-                      child: Text(AppStrings.debugClear),
-                    ),
-                  ],
-                ),
-            ],
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.escape): _ExitBookmarkSelectIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _ExitBookmarkSelectIntent: CallbackAction<_ExitBookmarkSelectIntent>(
+            onInvoke: (_ExitBookmarkSelectIntent intent) {
+              if (_bookmarkSelectionMode) {
+                setState(() {
+                  _bookmarkSelectionMode = false;
+                  _selectedBookmarkIds.clear();
+                });
+                return null;
+              }
+              Navigator.of(context).maybePop();
+              return null;
+            },
           ),
-          if (_segment == 2) ...[
-            const SizedBox(height: 8),
-            _buildBookmarkToolbar(repository),
-          ],
-          const SizedBox(height: 12),
-          Expanded(
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: _fadeController,
-                curve: Curves.easeOut,
-              ),
-              child: IndexedStack(
-                index: _segment,
-                children: [
-                  LibraryTabView<TodoListItem>(
-                    key: _todoKey,
-                    pageLoader: (int page, int pageSize) =>
-                        repository.listTodos(page: page, pageSize: pageSize),
-                    emptyText: AppStrings.emptyTodos,
-                    itemBuilder: (BuildContext context, TodoListItem item) {
-                      return _TodoTile(
-                        item: item,
-                        onTap: () => _openTodoDetail(repository, item.id),
-                        onToggleDone: (bool done) =>
-                            _toggleTodoStatus(repository, item, done),
-                      );
-                    },
-                  ),
-                  LibraryTabView<NoteListItem>(
-                    key: _noteKey,
-                    pageLoader: (int page, int pageSize) =>
-                        repository.listNotes(page: page, pageSize: pageSize),
-                    emptyText: AppStrings.emptyNotes,
-                    itemBuilder: (BuildContext context, NoteListItem item) {
-                      return _NoteTile(
-                        item: item,
-                        onTap: () => _openNoteDetail(repository, item.id),
-                      );
-                    },
-                  ),
-                  LibraryTabView<BookmarkListItem>(
-                    key: _bookmarkKey,
-                    pageLoader: (int page, int pageSize) => repository
-                        .listBookmarks(page: page, pageSize: pageSize),
-                    emptyText: AppStrings.emptyBookmarks,
-                    itemBuilder: (BuildContext context, BookmarkListItem item) {
-                      return _BookmarkTile(
-                        item: item,
-                        selectionMode: _bookmarkSelectionMode,
-                        selected: _selectedBookmarkIds.contains(item.id),
-                        onSelectChanged: (bool selected) {
+        },
+        child: Focus(
+          autofocus: true,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 0,
+                            label: Text(AppStrings.todoTab),
+                          ),
+                          ButtonSegment(
+                            value: 1,
+                            label: Text(AppStrings.noteTab),
+                          ),
+                          ButtonSegment(
+                            value: 2,
+                            label: Text(AppStrings.bookmarkTab),
+                          ),
+                        ],
+                        selected: {_segment},
+                        onSelectionChanged: (Set<int> values) {
                           setState(() {
-                            if (selected) {
-                              _selectedBookmarkIds.add(item.id);
-                            } else {
-                              _selectedBookmarkIds.remove(item.id);
+                            _segment = values.first;
+                            if (_segment != 2) {
+                              _bookmarkSelectionMode = false;
+                              _selectedBookmarkIds.clear();
                             }
                           });
+                          _fadeController.forward(from: 0);
                         },
-                        onRefreshTitle: _bookmarkRefreshing
-                            ? null
-                            : () => _refreshSingleBookmark(repository, item.id),
-                        onOpenDetail: () =>
-                            _openBookmarkDetail(repository, item.id),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                    if (kDebugMode)
+                      PopupMenuButton<String>(
+                        tooltip: AppStrings.debugMenuTooltip,
+                        onSelected: (String value) async {
+                          if (value == 'seed') {
+                            await _runSeed(repository);
+                          }
+                          if (value == 'clear') {
+                            await _runClear(repository);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => const [
+                          PopupMenuItem<String>(
+                            value: 'seed',
+                            child: Text(AppStrings.debugSeed),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'clear',
+                            child: Text(AppStrings.debugClear),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                if (_segment == 2) ...[
+                  const SizedBox(height: 8),
+                  _buildBookmarkToolbar(repository),
                 ],
-              ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _fadeController,
+                      curve: Curves.easeOut,
+                    ),
+                    child: IndexedStack(
+                      index: _segment,
+                      children: [
+                        LibraryTabView<TodoListItem>(
+                          key: _todoKey,
+                          pageLoader: (int page, int pageSize) => repository
+                              .listTodos(page: page, pageSize: pageSize),
+                          emptyText: AppStrings.emptyTodos,
+                          itemBuilder:
+                              (BuildContext context, TodoListItem item) {
+                                return _TodoTile(
+                                  item: item,
+                                  onTap: () =>
+                                      _openTodoDetail(repository, item.id),
+                                  onToggleDone: (bool done) =>
+                                      _toggleTodoStatus(repository, item, done),
+                                );
+                              },
+                        ),
+                        LibraryTabView<NoteListItem>(
+                          key: _noteKey,
+                          pageLoader: (int page, int pageSize) => repository
+                              .listNotes(page: page, pageSize: pageSize),
+                          emptyText: AppStrings.emptyNotes,
+                          itemBuilder:
+                              (BuildContext context, NoteListItem item) {
+                                return _NoteTile(
+                                  item: item,
+                                  onTap: () =>
+                                      _openNoteDetail(repository, item.id),
+                                );
+                              },
+                        ),
+                        LibraryTabView<BookmarkListItem>(
+                          key: _bookmarkKey,
+                          pageLoader: (int page, int pageSize) => repository
+                              .listBookmarks(page: page, pageSize: pageSize),
+                          emptyText: AppStrings.emptyBookmarks,
+                          itemBuilder:
+                              (BuildContext context, BookmarkListItem item) {
+                                return _BookmarkTile(
+                                  item: item,
+                                  selectionMode: _bookmarkSelectionMode,
+                                  selected: _selectedBookmarkIds.contains(
+                                    item.id,
+                                  ),
+                                  onSelectChanged: (bool selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedBookmarkIds.add(item.id);
+                                      } else {
+                                        _selectedBookmarkIds.remove(item.id);
+                                      }
+                                    });
+                                  },
+                                  onRefreshTitle: _bookmarkRefreshing
+                                      ? null
+                                      : () => _refreshSingleBookmark(
+                                          repository,
+                                          item.id,
+                                        ),
+                                  onOpenDetail: () =>
+                                      _openBookmarkDetail(repository, item.id),
+                                );
+                              },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1347,6 +1388,10 @@ class _BookmarkTile extends StatelessWidget {
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
+}
+
+class _ExitBookmarkSelectIntent extends Intent {
+  const _ExitBookmarkSelectIntent();
 }
 
 class _DialogKeyBindings extends StatelessWidget {

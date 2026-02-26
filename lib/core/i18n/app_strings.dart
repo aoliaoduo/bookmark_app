@@ -3,11 +3,19 @@ abstract final class AppStrings {
 
   static const String navTitle = '导航';
   static const String navSubtitle = '一级入口固定 3 个';
+  static const String navStatusTitle = '系统状态';
+  static const String navRefresh = '刷新';
   static const String inbox = '收件箱';
   static const String library = '资料库';
   static const String focus = '专注';
   static const String search = '搜索';
   static const String syncAndBackup = '同步/备份';
+  static const String statusConfigured = '已配置';
+  static const String statusNotConfigured = '未配置';
+  static const String statusNoError = '无';
+  static const String statusNever = '从未';
+  static const String statusCopyError = '复制错误';
+  static const String statusCopied = '已复制';
 
   static const String loadingDb = '正在初始化本地数据库...';
   static const String dbInitFailed = '数据库初始化失败：';

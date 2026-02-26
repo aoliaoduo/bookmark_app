@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/ai/ai_provider_providers.dart';
 import '../../core/ai/ai_provider_repository.dart';
 import '../../core/ai/router_decision.dart';
 import '../../core/i18n/app_strings.dart';
+import '../../core/ux/shortcut_bus.dart';
 import '../library/data/library_refresh.dart';
 import '../settings/ai_provider_page.dart';
 import 'data/inbox_draft_repository.dart';
@@ -19,10 +21,12 @@ class InboxPage extends ConsumerStatefulWidget {
 
 class _InboxPageState extends ConsumerState<InboxPage> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
 
   bool _sending = false;
   String _status = '';
   List<InboxDraft> _drafts = const <InboxDraft>[];
+  int _lastFocusTick = -1;
 
   @override
   void initState() {
@@ -33,96 +37,130 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _controller,
-            decoration: InputDecoration(
-              hintText: AppStrings.inboxHint,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              prefixIcon: const Icon(Icons.edit_note_outlined),
-            ),
-            minLines: 2,
-            maxLines: 4,
+    final int focusTick = ref.watch(inboxFocusTickProvider);
+    if (focusTick != _lastFocusTick) {
+      _lastFocusTick = focusTick;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _inputFocusNode.requestFocus();
+        }
+      });
+    }
+
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.enter, control: true): _SendIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _SendIntent: CallbackAction<_SendIntent>(
+            onInvoke: (_SendIntent intent) {
+              if (!_sending) {
+                _send();
+              }
+              return null;
+            },
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              FilledButton.icon(
-                onPressed: _sending ? null : _send,
-                icon: const Icon(Icons.send),
-                label: Text(_sending ? AppStrings.sending : AppStrings.send),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AiProviderPage(),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  focusNode: _inputFocusNode,
+                  controller: _controller,
+                  decoration: InputDecoration(
+                    hintText: AppStrings.inboxHint,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.tune),
-                label: const Text(AppStrings.openAiProviderSettings),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (_status.isNotEmpty) Text(_status),
-          const SizedBox(height: 10),
-          const Text(AppStrings.draftListTitle),
-          const SizedBox(height: 6),
-          Expanded(
-            child: _drafts.isEmpty
-                ? const Center(child: Text(AppStrings.inboxDraftHint))
-                : ListView.builder(
-                    itemCount: _drafts.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final InboxDraft draft = _drafts[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(
-                          draft.rawInput,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          'retry=${draft.retryCount} | ${draft.lastError}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Wrap(
-                          spacing: 6,
-                          children: [
-                            TextButton(
-                              onPressed: _sending
-                                  ? null
-                                  : () => _retryDraft(draft),
-                              child: const Text(AppStrings.retry),
-                            ),
-                            TextButton(
-                              onPressed: _sending
-                                  ? null
-                                  : () => _deleteDraft(draft.id),
-                              child: const Text(AppStrings.delete),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    prefixIcon: const Icon(Icons.edit_note_outlined),
                   ),
+                  minLines: 2,
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: _sending ? null : _send,
+                      icon: const Icon(Icons.send),
+                      label: Text(
+                        _sending ? AppStrings.sending : AppStrings.send,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AiProviderPage(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.tune),
+                      label: const Text(AppStrings.openAiProviderSettings),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (_status.isNotEmpty) Text(_status),
+                const SizedBox(height: 10),
+                const Text(AppStrings.draftListTitle),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: _drafts.isEmpty
+                      ? const Center(child: Text(AppStrings.inboxDraftHint))
+                      : ListView.builder(
+                          itemCount: _drafts.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final InboxDraft draft = _drafts[index];
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                draft.rawInput,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                'retry=${draft.retryCount} | ${draft.lastError}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Wrap(
+                                spacing: 6,
+                                children: [
+                                  TextButton(
+                                    onPressed: _sending
+                                        ? null
+                                        : () => _retryDraft(draft),
+                                    child: const Text(AppStrings.retry),
+                                  ),
+                                  TextButton(
+                                    onPressed: _sending
+                                        ? null
+                                        : () => _deleteDraft(draft.id),
+                                    child: const Text(AppStrings.delete),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -239,4 +277,8 @@ class _InboxPageState extends ConsumerState<InboxPage> {
       _status = value;
     });
   }
+}
+
+class _SendIntent extends Intent {
+  const _SendIntent();
 }

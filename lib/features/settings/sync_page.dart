@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../../core/backup/backup_manifest.dart';
 import '../../core/backup/backup_providers.dart';
 import '../../core/backup/backup_settings_repository.dart';
 import '../../core/backup/cloud_backup_service.dart';
+import '../../core/db/db_provider.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/sync/sync_providers.dart';
 import '../../core/sync/sync_runtime_service.dart';
@@ -394,6 +396,11 @@ class _SyncPageState extends ConsumerState<SyncPage> {
         config: config,
         retentionCount: settings.retentionCount,
       );
+      await ref.read(appDatabaseProvider).requireValue.db.insert(
+        'kv',
+        <String, Object?>{'key': 'backup_last_error', 'value': ''},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       final List<CloudBackupItem> backups = await backupService
           .listCloudBackups(config);
       if (!mounted) {
@@ -405,6 +412,11 @@ class _SyncPageState extends ConsumerState<SyncPage> {
         _backupStatus = '备份完成：${result.remotePath}';
       });
     } catch (error) {
+      await ref.read(appDatabaseProvider).requireValue.db.insert(
+        'kv',
+        <String, Object?>{'key': 'backup_last_error', 'value': '$error'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       if (!mounted) {
         return;
       }

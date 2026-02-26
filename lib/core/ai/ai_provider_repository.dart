@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:sqflite/sqflite.dart';
+
 import '../clock/app_clock.dart';
 import '../clock/lamport_clock.dart';
 import '../db/app_database.dart';
@@ -18,6 +20,7 @@ class AiProviderRepository {
   });
 
   static const String _kvKey = 'ai_provider_json';
+  static const String _lastErrorKey = 'ai_last_error';
 
   final AppDatabase database;
   final DeviceIdentityService identityService;
@@ -102,5 +105,20 @@ class AiProviderRepository {
         createdAt: now,
       );
     });
+  }
+
+  Future<void> saveLastError(String message) async {
+    await database.db.insert('kv', <String, Object?>{
+      'key': _lastErrorKey,
+      'value': message,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> clearLastError() async {
+    await database.db.delete(
+      'kv',
+      where: 'key = ?',
+      whereArgs: const <Object?>[_lastErrorKey],
+    );
   }
 }

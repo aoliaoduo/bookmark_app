@@ -64,6 +64,10 @@ class CloudBackupService {
         await client.delete(extra.remotePath);
       }
     }
+    await database.db.insert('kv', <String, Object?>{
+      'key': 'backup_last_success_at',
+      'value': '${manifest.createdAt}',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     _log.info('云备份完成: $remotePath');
     return BackupRunResult(remotePath: remotePath, manifest: manifest);

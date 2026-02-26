@@ -224,6 +224,7 @@ class _AiProviderPageState extends ConsumerState<AiProviderPage> {
     );
 
     await repo.save(config);
+    await repo.clearLastError();
     if (!mounted) {
       return;
     }
@@ -257,7 +258,9 @@ class _AiProviderPageState extends ConsumerState<AiProviderPage> {
         }
       });
       _setStatus('模型刷新完成：${models.length} 个');
+      await repo.clearLastError();
     } catch (error) {
+      await repo.saveLastError('$error');
       _setStatus('刷新模型失败：$error');
     }
   }
@@ -294,6 +297,11 @@ class _AiProviderPageState extends ConsumerState<AiProviderPage> {
     });
 
     _setStatus(result.success ? '连接测试成功：$model' : '连接测试失败：${result.error}');
+    if (result.success) {
+      await repo.clearLastError();
+    } else {
+      await repo.saveLastError(result.error);
+    }
   }
 
   Future<void> _batchTestModels(
@@ -366,6 +374,7 @@ class _AiProviderPageState extends ConsumerState<AiProviderPage> {
 
   Future<void> _clearCredential(AiProviderRepository repo) async {
     await repo.clear();
+    await repo.clearLastError();
     if (!mounted) {
       return;
     }
