@@ -6,6 +6,20 @@ import '../ai/prompts.dart';
 import 'local_search_service.dart';
 import 'models/search_result_item.dart';
 
+enum AiSearchStage { planning, retrieving, reranking }
+
+class AiSearchResponse {
+  const AiSearchResponse({
+    required this.items,
+    required this.degradedToLocal,
+    required this.message,
+  });
+
+  final List<SearchResultItem> items;
+  final bool degradedToLocal;
+  final String message;
+}
+
 class AiSearchService {
   AiSearchService({required this.client, required this.localSearch});
 
@@ -16,62 +30,155 @@ class AiSearchService {
     required AiProviderConfig config,
     required String model,
     required String query,
+    List<String>? types,
   }) async {
-    final String planText = await client.generateText(
+    final AiSearchResponse response = await deepSearchWithMeta(
       config: config,
       model: model,
-      systemPrompt: AiPrompts.searchPlanSystemPrompt,
-      userPrompt: query,
-      maxTokens: 700,
+      query: query,
+      types: types,
     );
+    return response.items;
+  }
 
+  Future<AiSearchResponse> deepSearchWithMeta({
+    required AiProviderConfig config,
+    required String model,
+    required String query,
+    List<String>? types,
+    void Function(AiSearchStage stage, String message)? onStage,
+  }) async {
+    try {
+      onStage?.call(AiSearchStage.planning, '正在规划');
+      final String planText = await client.generateText(
+        config: config,
+        model: model,
+        systemPrompt: AiPrompts.searchPlanSystemPrompt,
+        userPrompt: query,
+        maxTokens: 700,
+      );
+      final List<_SearchRound> rounds = _parsePlan(planText);
+
+      onStage?.call(AiSearchStage.retrieving, '正在检索');
+      final Map<String, SearchResultItem> merged = <String, SearchResultItem>{};
+      for (final _SearchRound round in rounds.take(3)) {
+        final List<String> finalTypes = _mergeTypes(round.types, types);
+        for (final String q in round.ftsQueries.take(6)) {
+          final List<SearchResultItem> hits = await localSearch.search(
+            query: q,
+            limit: round.topK,
+            types: finalTypes.isEmpty ? null : finalTypes,
+          );
+          for (final SearchResultItem hit in hits) {
+            merged['${hit.entityType}:${hit.entityId}'] = hit;
+            if (merged.length >= 50) {
+              break;
+            }
+          }
+        }
+      }
+
+      final List<SearchResultItem> candidates = merged.values.toList(
+        growable: false,
+      );
+      if (candidates.isEmpty) {
+        return const AiSearchResponse(
+          items: <SearchResultItem>[],
+          degradedToLocal: false,
+          message: '',
+        );
+      }
+
+      onStage?.call(AiSearchStage.reranking, '正在重排');
+      final List<SearchResultItem> ranked = await _rerank(
+        config: config,
+        model: model,
+        query: query,
+        candidates: candidates,
+      );
+
+      return AiSearchResponse(
+        items: ranked,
+        degradedToLocal: false,
+        message: '',
+      );
+    } catch (error) {
+      final List<SearchResultItem> localFallback = await localSearch.search(
+        query: query,
+        limit: 50,
+        types: types,
+      );
+      return AiSearchResponse(
+        items: localFallback,
+        degradedToLocal: true,
+        message: error.toString(),
+      );
+    }
+  }
+
+  List<_SearchRound> _parsePlan(String planText) {
     final Object? decoded = jsonDecode(planText.trim());
     if (decoded is! Map<String, Object?>) {
       throw Exception('Search Plan 解析失败');
     }
 
-    final List<Object?> rounds =
+    final List<Object?> roundsRaw =
         (decoded['rounds'] as List<Object?>?) ?? <Object?>[];
-    final Map<String, SearchResultItem> merged = <String, SearchResultItem>{};
+    if (roundsRaw.isEmpty) {
+      throw Exception('Search Plan 缺少 rounds');
+    }
 
-    for (final Object? round in rounds.take(3)) {
-      if (round is! Map<String, Object?>) {
+    final List<_SearchRound> rounds = <_SearchRound>[];
+    for (final Object? raw in roundsRaw) {
+      if (raw is! Map<String, Object?>) {
         continue;
       }
-      final List<Object?> ftsQueries =
-          (round['fts_queries'] as List<Object?>?) ?? <Object?>[];
-      final int topK = (round['top_k'] as int?) ?? 30;
+      final List<String> queries =
+          ((raw['fts_queries'] as List<Object?>?) ?? <Object?>[])
+              .whereType<String>()
+              .map((String v) => v.trim())
+              .where((String v) => v.isNotEmpty)
+              .toList(growable: false);
+      if (queries.isEmpty) {
+        continue;
+      }
+      final int topK = ((raw['top_k'] as num?)?.toInt() ?? 30).clamp(1, 80);
       final Map<String, Object?> filters =
-          (round['filters'] as Map<String, Object?>?) ?? <String, Object?>{};
-      final List<String>? types = (filters['types'] as List<Object?>?)
-          ?.whereType<String>()
-          .toList(growable: false);
+          (raw['filters'] as Map<String, Object?>?) ?? <String, Object?>{};
+      final List<String> types =
+          ((filters['types'] as List<Object?>?) ?? <Object?>[])
+              .whereType<String>()
+              .where((String t) => _allowedEntityTypes.contains(t))
+              .toList(growable: false);
+      rounds.add(_SearchRound(ftsQueries: queries, topK: topK, types: types));
+    }
+    if (rounds.isEmpty) {
+      throw Exception('Search Plan schema 校验失败');
+    }
+    return rounds;
+  }
 
-      for (final Object? q in ftsQueries.take(6)) {
-        if (q is! String || q.trim().isEmpty) {
-          continue;
-        }
-        final List<SearchResultItem> hits = await localSearch.search(
-          query: q,
-          limit: topK,
-          types: types,
-        );
-        for (final SearchResultItem hit in hits) {
-          merged['${hit.entityType}:${hit.entityId}'] = hit;
-          if (merged.length >= 50) {
-            break;
-          }
-        }
+  List<String> _mergeTypes(List<String> fromPlan, List<String>? fromUi) {
+    final Set<String> merged = <String>{};
+    if (fromPlan.isNotEmpty) {
+      merged.addAll(fromPlan.where(_allowedEntityTypes.contains));
+    }
+    if (fromUi != null && fromUi.isNotEmpty) {
+      if (merged.isEmpty) {
+        merged.addAll(fromUi.where(_allowedEntityTypes.contains));
+      } else {
+        merged.removeWhere((String t) => !fromUi.contains(t));
       }
     }
+    return merged.toList(growable: false);
+  }
 
-    final List<SearchResultItem> candidates = merged.values.toList(
-      growable: false,
-    );
-    if (candidates.isEmpty) {
-      return candidates;
-    }
-
+  Future<List<SearchResultItem>> _rerank({
+    required AiProviderConfig config,
+    required String model,
+    required String query,
+    required List<SearchResultItem> candidates,
+  }) async {
     final String rerankPrompt = _buildRerankPrompt(query, candidates);
     try {
       final String rerankText = await client.generateText(
@@ -131,3 +238,17 @@ class AiSearchService {
     return buffer.toString();
   }
 }
+
+class _SearchRound {
+  const _SearchRound({
+    required this.ftsQueries,
+    required this.topK,
+    required this.types,
+  });
+
+  final List<String> ftsQueries;
+  final int topK;
+  final List<String> types;
+}
+
+const Set<String> _allowedEntityTypes = <String>{'todo', 'note', 'bookmark'};

@@ -116,12 +116,24 @@ abstract final class AppStrings {
   static const String localSearchHint = '输入关键词搜索';
   static const String localSearch = '本地搜索';
   static const String aiDeepSearch = 'AI 深度搜索';
+  static const String aiSearch = 'AI 搜索';
+  static const String searchModeDeep = '深度';
+  static const String searchModeNormal = '普通';
+  static const String searchCostHint = '深度模式会额外消耗模型调用';
   static const String searchNoResult = '未找到结果';
   static const String searchLocalDonePrefix = '本地搜索完成：';
   static const String searchLocalFailPrefix = '本地搜索失败：';
   static const String searchAiDonePrefix = 'AI 深度搜索完成：';
   static const String searchAiFailPrefix = 'AI 深度搜索失败：';
+  static const String searchFallbackPrefix = 'AI 规划失败，已自动降级本地搜索：';
   static const String searchHitReasonPrefix = '命中理由：';
+  static const String searchCopyReason = '复制理由';
+  static const String searchCopiedReason = '命中理由已复制';
+  static const String searchStageTitle = 'AI 阶段';
+  static const String searchStagePlanning = '正在规划';
+  static const String searchStageRetrieving = '正在检索';
+  static const String searchStageReranking = '正在重排';
+  static const String searchFilterTitle = '筛选类型';
 
   static const String aiProviderTitle = 'AI Provider 设置';
   static const String baseUrlLabel = 'Base URL';
