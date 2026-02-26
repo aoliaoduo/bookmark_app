@@ -4,18 +4,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_shell.dart';
 import '../core/db/db_provider.dart';
 import '../core/i18n/app_strings.dart';
+import '../core/theme/theme_builder.dart';
+import '../core/theme/theme_models.dart';
+import '../core/theme/theme_providers.dart';
+import '../core/theme/theme_registry.dart';
 
-class App extends StatelessWidget {
+class App extends ConsumerWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selection = switch (ref.watch(themeSelectionProvider)) {
+      AsyncData<ThemeSelection>(:final value) => value,
+      _ => ThemeSelection.defaults,
+    };
+    final preset = ThemeRegistry.byId(selection.presetId);
     return MaterialApp(
       title: AppStrings.appTitle,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1976D2)),
-        useMaterial3: true,
-      ),
+      themeMode: selection.mode.toThemeMode(),
+      theme: buildThemeData(tokens: preset, brightness: Brightness.light),
+      darkTheme: buildThemeData(tokens: preset, brightness: Brightness.dark),
       home: const AppBootstrap(),
     );
   }

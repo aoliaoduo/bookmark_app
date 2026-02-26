@@ -23,6 +23,7 @@ abstract final class AppStrings {
   static const String submitSuccess = '已执行动作并落库';
   static const String inboxNeedInput = '请输入内容';
   static const String inboxNeedModel = '请先在 AI Provider 设置中选择模型';
+
   static const String focusModeCountdown = '倒计时';
   static const String focusModeCountup = '正计时';
   static const String focusDurationLabel = '专注时长';
@@ -70,10 +71,16 @@ abstract final class AppStrings {
   static const String bookmarkRefreshSelected = '刷新所选';
   static const String bookmarkCancelQueue = '取消后续';
   static const String bookmarkRefreshOne = '刷新标题';
+
   static const String localSearchHint = '输入关键词搜索';
   static const String localSearch = '本地搜索';
   static const String aiDeepSearch = 'AI 深度搜索';
   static const String searchNoResult = '未找到结果';
+  static const String searchLocalDonePrefix = '本地搜索完成：';
+  static const String searchLocalFailPrefix = '本地搜索失败：';
+  static const String searchAiDonePrefix = 'AI 深度搜索完成：';
+  static const String searchAiFailPrefix = 'AI 深度搜索失败：';
+  static const String searchHitReasonPrefix = '命中理由：';
 
   static const String aiProviderTitle = 'AI Provider 设置';
   static const String baseUrlLabel = 'Base URL';
@@ -102,13 +109,14 @@ abstract final class AppStrings {
   static const String webdavUrlLabel = 'WebDAV URL';
   static const String webdavUserLabel = '账号';
   static const String webdavPasswordLabel = '应用密码';
-  static const String webdavPaidPlan = '付费账户（30分钟1500次）';
+  static const String webdavPaidPlan = '付费账户（30 分钟 1500 次）';
   static const String syncSaveConfig = '保存配置';
   static const String syncTestConnection = '测试连接';
   static const String syncManualNow = '手动同步';
   static const String syncStatusTitle = '同步状态';
   static const String syncLogTitle = '最近日志';
   static const String syncThrottleHint = '前台同步节流：至少间隔 120 秒';
+
   static const String backupSectionTitle = '云备份/恢复';
   static const String backupReminderHm = '提醒时间(HH:mm)';
   static const String backupRetention = '保留份数';
@@ -116,4 +124,19 @@ abstract final class AppStrings {
   static const String backupRunNow = '立即云备份';
   static const String backupRefreshList = '刷新云端备份列表';
   static const String backupRestore = '恢复';
+
+  static const String themeSectionTitle = '主题与外观';
+  static const String openThemeSettings = '主题设置';
+  static const String themePageTitle = '主题设置';
+  static const String themeModeTitle = '显示模式';
+  static const String themeModeSystem = '跟随系统';
+  static const String themeModeLight = '浅色';
+  static const String themeModeDark = '深色';
+  static const String themePresetTitle = '主题预设';
+  static const String themePresetMaterial = 'Material';
+  static const String themePresetIos = 'iOS';
+  static const String themePresetClaude = 'Claude';
+  static const String themeSaveSuccess = '主题已更新';
+
+  static const String notifyOpenSettings = '通知渠道设置';
 }
