@@ -3,12 +3,20 @@ abstract final class AppStrings {
 
   static const String navTitle = '导航';
   static const String navSubtitle = '一级入口固定 3 个';
+  static const String navMainSection = '主入口';
+  static const String navToolsSection = '工具';
+  static const String navSystemSection = '系统';
   static const String navStatusTitle = '系统状态';
   static const String navRefresh = '刷新';
   static const String inbox = '收件箱';
   static const String library = '资料库';
   static const String focus = '专注';
   static const String search = '搜索';
+  static const String tags = '标签';
+  static const String emptyTags = '暂无标签';
+  static const String tagsComingSoon = '标签结果页将在后续提交完善';
+  static const String settings = '设置';
+  static const String maintenance = '维护';
   static const String syncAndBackup = '同步/备份';
   static const String statusConfigured = '已配置';
   static const String statusNotConfigured = '未配置';
@@ -201,6 +209,15 @@ abstract final class AppStrings {
 
   static const String notifyOpenSettings = '通知渠道设置';
   static const String openMaintenanceTools = '维护工具';
+  static const String settingsPageTitle = '设置';
+  static const String settingsGroupAi = 'AI 与模型';
+  static const String settingsGroupSync = '同步';
+  static const String settingsGroupBackup = '备份与恢复';
+  static const String settingsGroupNotify = '通知与提醒';
+  static const String settingsGroupAppearance = '外观';
+  static const String settingsGroupMaintenance = '维护';
+  static const String settingsGroupAbout = '关于与诊断';
+  static const String settingsAboutText = '版本：1.0.0+1\n当前为本地优先版本。';
   static const String maintenancePageTitle = '维护工具';
   static const String maintenanceDeletedDaysLabel = '软删除保留天数';
   static const String maintenancePurgeDeleted = '清理软删除数据';

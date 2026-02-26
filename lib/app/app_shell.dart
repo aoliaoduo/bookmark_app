@@ -14,7 +14,9 @@ import '../features/focus/focus_page.dart';
 import '../features/inbox/inbox_page.dart';
 import '../features/library/library_page.dart';
 import '../features/search/search_page.dart';
-import '../features/settings/sync_page.dart';
+import '../features/settings/maintenance_page.dart';
+import '../features/settings/settings_page.dart';
+import '../features/tags/tags_page.dart';
 import 'router.dart';
 
 class DrawerStatusSnapshot {
@@ -185,6 +187,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
               _buildStatusSection(statusAsync),
               const Divider(height: 12),
+              _sectionLabel(AppStrings.navMainSection),
               _drawerItem(
                 context: context,
                 entry: PrimaryEntry.inbox,
@@ -203,6 +206,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 icon: Icons.timer_outlined,
                 label: AppStrings.focus,
               ),
+              const Divider(height: 12),
+              _sectionLabel(AppStrings.navToolsSection),
               ListTile(
                 leading: const Icon(Icons.search),
                 title: const Text(AppStrings.search),
@@ -214,12 +219,38 @@ class _AppShellState extends ConsumerState<AppShell> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.sync),
-                title: const Text(AppStrings.syncAndBackup),
+                leading: const Icon(Icons.sell_outlined),
+                title: const Text(AppStrings.tags),
                 onTap: () {
                   Navigator.of(context).pop();
                   Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const SyncPage()),
+                    MaterialPageRoute<void>(builder: (_) => const TagsPage()),
+                  );
+                },
+              ),
+              const Divider(height: 12),
+              _sectionLabel(AppStrings.navSystemSection),
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text(AppStrings.settings),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsPage(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.build_outlined),
+                title: const Text(AppStrings.maintenance),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const MaintenancePage(),
+                    ),
                   );
                 },
               ),
@@ -292,6 +323,20 @@ class _AppShellState extends ConsumerState<AppShell> {
         });
         Navigator.of(context).pop();
       },
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.black54,
+        ),
+      ),
     );
   }
 
