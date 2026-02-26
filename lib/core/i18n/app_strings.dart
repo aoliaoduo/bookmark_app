@@ -235,7 +235,25 @@ abstract final class AppStrings {
   static const String settingsGroupAppearance = '外观';
   static const String settingsGroupMaintenance = '维护';
   static const String settingsGroupAbout = '关于与诊断';
-  static const String settingsAboutText = '版本：1.0.0+1\n当前为本地优先版本。';
+  static const String settingsAboutDiagnostics = '关于与诊断';
+  static const String settingsAboutText = '版本：0.1.0-beta.1+1\n当前为本地优先版本。';
+  static const String diagnosticsPageTitle = '关于与诊断';
+  static const String diagnosticsIncludeSensitiveTitle = '包含敏感信息';
+  static const String diagnosticsIncludeSensitiveDesc =
+      '默认脱敏导出；开启后会包含 API Key 等敏感配置。';
+  static const String diagnosticsExportZip = '导出诊断包(zip)';
+  static const String diagnosticsExporting = '正在导出...';
+  static const String diagnosticsExportDonePrefix = '导出完成：';
+  static const String diagnosticsExportFailedPrefix = '导出失败：';
+  static const String diagnosticsExportPathPrefix = '文件路径：';
+  static const String diagnosticsCopySummary = '复制诊断摘要';
+  static const String diagnosticsSummaryCopied = '诊断摘要已复制';
+  static const String diagnosticsSummaryTitle = '诊断摘要';
+  static const String diagnosticsRefreshStatus = '刷新状态';
+  static const String diagnosticsRefreshed = '状态已刷新';
+  static const String diagnosticsSensitiveConfirmTitle = '确认导出敏感信息';
+  static const String diagnosticsSensitiveConfirmBody =
+      '导出包将包含明文凭据，仅用于你信任的反馈渠道。是否继续？';
   static const String maintenancePageTitle = '维护工具';
   static const String maintenanceDeletedDaysLabel = '软删除保留天数';
   static const String maintenancePurgeDeleted = '清理软删除数据';

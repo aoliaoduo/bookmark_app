@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/i18n/app_strings.dart';
+import 'about_diagnostics_page.dart';
 import 'ai_provider_page.dart';
 import 'maintenance_page.dart';
 import 'notification_channels_page.dart';
@@ -60,10 +61,15 @@ class SettingsPage extends StatelessWidget {
             pageBuilder: (_) => const MaintenancePage(),
           ),
           _sectionTitle(context, AppStrings.settingsGroupAbout),
-          ListTile(
+          _entry(
+            context,
+            icon: Icons.health_and_safety_outlined,
+            title: AppStrings.settingsAboutDiagnostics,
+            pageBuilder: (_) => const AboutDiagnosticsPage(),
+          ),
+          const ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text(AppStrings.settingsGroupAbout),
-            subtitle: const Text(AppStrings.settingsAboutText),
+            title: Text(AppStrings.settingsAboutText),
           ),
         ],
       ),
