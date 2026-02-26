@@ -442,11 +442,11 @@ class _SyncPageState extends ConsumerState<SyncPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
+              child: const Text(AppStrings.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('继续'),
+              child: const Text(AppStrings.confirm),
             ),
           ],
         );

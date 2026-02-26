@@ -23,16 +23,16 @@ class RouterSchemaValidator {
 
   RouterValidationResult validate(Object? input) {
     if (input is! Map<String, Object?>) {
-      return _fail('root must be a JSON object');
+      return _fail('根节点必须是 JSON 对象');
     }
 
     final Set<String> keys = input.keys.toSet();
     const Set<String> required = <String>{'action', 'confidence', 'payload'};
     if (!keys.containsAll(required)) {
-      return _fail('missing required fields: action/confidence/payload');
+      return _fail('缺少必要字段：action/confidence/payload');
     }
     if (keys.length != 3) {
-      return _fail('only action/confidence/payload are allowed');
+      return _fail('只允许字段：action/confidence/payload');
     }
 
     final String? action = input['action'] as String?;
@@ -40,13 +40,13 @@ class RouterSchemaValidator {
     final Object? payload = input['payload'];
 
     if (action == null || !_actions.contains(action)) {
-      return _fail('action is invalid');
+      return _fail('action 不合法');
     }
     if (confidence == null || confidence < 0 || confidence > 1) {
-      return _fail('confidence is invalid');
+      return _fail('confidence 不合法');
     }
     if (payload is! Map<String, Object?>) {
-      return _fail('payload must be an object');
+      return _fail('payload 必须是对象');
     }
 
     return switch (action) {
@@ -57,7 +57,7 @@ class RouterSchemaValidator {
       'refresh_bookmark_title' => _validateRefreshBookmarkTitle(payload),
       'start_focus_timer' => _validateStartFocusTimer(payload),
       'maintenance' => _validateMaintenance(payload),
-      _ => _fail('action is not supported'),
+      _ => _fail('action 暂不支持'),
     };
   }
 
@@ -69,7 +69,7 @@ class RouterSchemaValidator {
       'remind_at',
     };
     if (!_onlyAllowed(payload, allowed)) {
-      return _fail('create_todo payload has invalid fields');
+      return _fail('create_todo payload 包含非法字段');
     }
 
     final String? title = payload['title'] as String?;
@@ -77,18 +77,18 @@ class RouterSchemaValidator {
     final Object? tags = payload['tags'];
 
     if (!_stringLen(title, 1, 200)) {
-      return _fail('create_todo.title is invalid');
+      return _fail('create_todo.title 不合法');
     }
     if (!const <String>{'high', 'medium', 'low'}.contains(priority)) {
-      return _fail('create_todo.priority is invalid');
+      return _fail('create_todo.priority 不合法');
     }
     if (!_tags(tags, 20)) {
-      return _fail('create_todo.tags is invalid');
+      return _fail('create_todo.tags 不合法');
     }
 
     final Object? remindAt = payload['remind_at'];
     if (remindAt != null && !_remindAt(remindAt)) {
-      return _fail('create_todo.remind_at must be epoch_ms number');
+      return _fail('create_todo.remind_at 必须为 epoch_ms 数值');
     }
 
     return RouterValidationResult.ok;
@@ -97,7 +97,7 @@ class RouterSchemaValidator {
   RouterValidationResult _validateCreateNote(Map<String, Object?> payload) {
     const Set<String> allowed = <String>{'title', 'tags', 'organized_md'};
     if (!_onlyAllowed(payload, allowed)) {
-      return _fail('create_note payload has invalid fields');
+      return _fail('create_note payload 包含非法字段');
     }
 
     final String? title = payload['title'] as String?;
@@ -105,13 +105,13 @@ class RouterSchemaValidator {
     final String? organizedMd = payload['organized_md'] as String?;
 
     if (!_stringLen(title, 1, 200)) {
-      return _fail('create_note.title is invalid');
+      return _fail('create_note.title 不合法');
     }
     if (!_tags(tags, 30)) {
-      return _fail('create_note.tags is invalid');
+      return _fail('create_note.tags 不合法');
     }
     if (!_stringLen(organizedMd, 1, 1000000)) {
-      return _fail('create_note.organized_md is invalid');
+      return _fail('create_note.organized_md 不合法');
     }
 
     return RouterValidationResult.ok;
@@ -119,11 +119,11 @@ class RouterSchemaValidator {
 
   RouterValidationResult _validateCreateBookmark(Map<String, Object?> payload) {
     if (!_onlyAllowed(payload, const <String>{'url'})) {
-      return _fail('create_bookmark payload has invalid fields');
+      return _fail('create_bookmark payload 包含非法字段');
     }
     final String? url = payload['url'] as String?;
     if (!_stringLen(url, 8, 2000) || !url!.startsWith('https://')) {
-      return _fail('create_bookmark.url must be full https url');
+      return _fail('create_bookmark.url 必须为完整 https URL');
     }
     return RouterValidationResult.ok;
   }
@@ -131,23 +131,23 @@ class RouterSchemaValidator {
   RouterValidationResult _validateSearch(Map<String, Object?> payload) {
     const Set<String> allowed = <String>{'query', 'mode', 'filters'};
     if (!_onlyAllowed(payload, allowed)) {
-      return _fail('search payload has invalid fields');
+      return _fail('search payload 包含非法字段');
     }
 
     final String? query = payload['query'] as String?;
     if (!_stringLen(query, 1, 500)) {
-      return _fail('search.query is invalid');
+      return _fail('search.query 不合法');
     }
 
     final String? mode = payload['mode'] as String?;
     if (mode != null && !const <String>{'normal', 'deep'}.contains(mode)) {
-      return _fail('search.mode is invalid');
+      return _fail('search.mode 不合法');
     }
 
     final Object? filters = payload['filters'];
     if (filters != null) {
       if (filters is! Map<String, Object?>) {
-        return _fail('search.filters is invalid');
+        return _fail('search.filters 不合法');
       }
       const Set<String> filterAllowed = <String>{
         'types',
@@ -156,7 +156,7 @@ class RouterSchemaValidator {
         'todo_priority',
       };
       if (!_onlyAllowed(filters, filterAllowed)) {
-        return _fail('search.filters has invalid fields');
+        return _fail('search.filters 包含非法字段');
       }
     }
 
@@ -167,11 +167,11 @@ class RouterSchemaValidator {
     Map<String, Object?> payload,
   ) {
     if (!_onlyAllowed(payload, const <String>{'bookmark_id'})) {
-      return _fail('refresh_bookmark_title payload has invalid fields');
+      return _fail('refresh_bookmark_title payload 包含非法字段');
     }
     final String? id = payload['bookmark_id'] as String?;
     if (!_stringLen(id, 8, 80)) {
-      return _fail('refresh_bookmark_title.bookmark_id is invalid');
+      return _fail('refresh_bookmark_title.bookmark_id 不合法');
     }
     return RouterValidationResult.ok;
   }
@@ -184,7 +184,7 @@ class RouterSchemaValidator {
       'focus_minutes',
       'ratio',
     })) {
-      return _fail('start_focus_timer payload has invalid fields');
+      return _fail('start_focus_timer payload 包含非法字段');
     }
     final String? mode = payload['mode'] as String?;
     final int? focusMinutes = payload['focus_minutes'] as int?;
@@ -192,13 +192,13 @@ class RouterSchemaValidator {
 
     if (mode != null &&
         !const <String>{'countdown', 'countup'}.contains(mode)) {
-      return _fail('start_focus_timer.mode is invalid');
+      return _fail('start_focus_timer.mode 不合法');
     }
     if (focusMinutes != null && (focusMinutes < 1 || focusMinutes > 300)) {
-      return _fail('start_focus_timer.focus_minutes is invalid');
+      return _fail('start_focus_timer.focus_minutes 不合法');
     }
     if (ratio != null && ratio != '5:1') {
-      return _fail('start_focus_timer.ratio is invalid');
+      return _fail('start_focus_timer.ratio 不合法');
     }
 
     return RouterValidationResult.ok;
@@ -206,7 +206,7 @@ class RouterSchemaValidator {
 
   RouterValidationResult _validateMaintenance(Map<String, Object?> payload) {
     if (!_onlyAllowed(payload, const <String>{'task'})) {
-      return _fail('maintenance payload has invalid fields');
+      return _fail('maintenance payload 包含非法字段');
     }
     final String? task = payload['task'] as String?;
     if (!const <String>{
@@ -216,7 +216,7 @@ class RouterSchemaValidator {
       'purge_orphan_tags',
       'purge_note_versions_keep_latest',
     }.contains(task)) {
-      return _fail('maintenance.task is invalid');
+      return _fail('maintenance.task 不合法');
     }
 
     return RouterValidationResult.ok;

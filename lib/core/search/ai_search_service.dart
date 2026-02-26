@@ -56,7 +56,7 @@ class AiSearchService {
           limit: topK,
           types: types,
         );
-        for (final hit in hits) {
+        for (final SearchResultItem hit in hits) {
           merged['${hit.entityType}:${hit.entityId}'] = hit;
           if (merged.length >= 50) {
             break;
@@ -88,7 +88,7 @@ class AiSearchService {
       }
 
       final Map<String, SearchResultItem> map = {
-        for (final item in candidates)
+        for (final SearchResultItem item in candidates)
           '${item.entityType}:${item.entityId}': item,
       };
 
@@ -103,8 +103,8 @@ class AiSearchService {
         if (type == null || id == null) {
           continue;
         }
-        final key = '$type:$id';
-        final hit = map[key];
+        final String key = '$type:$id';
+        final SearchResultItem? hit = map[key];
         if (hit != null) {
           ranked.add(hit.copyWith(reason: reason));
           map.remove(key);
@@ -122,7 +122,7 @@ class AiSearchService {
     final StringBuffer buffer = StringBuffer();
     buffer.writeln('用户查询: $query');
     buffer.writeln('候选:');
-    for (final item in candidates) {
+    for (final SearchResultItem item in candidates) {
       buffer.writeln(
         '- ${item.entityType} | ${item.entityId} | ${item.title} | ${item.snippet}',
       );

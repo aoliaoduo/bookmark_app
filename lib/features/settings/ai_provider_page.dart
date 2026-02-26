@@ -163,8 +163,8 @@ class _AiProviderPageState extends ConsumerState<AiProviderPage> {
     final String subtitle = result == null
         ? '未测试'
         : result.success
-        ? 'ok · ${result.elapsedMs}ms'
-        : 'fail · ${result.elapsedMs}ms · ${result.error}';
+        ? '成功 · ${result.elapsedMs}ms'
+        : '失败 · ${result.elapsedMs}ms · ${result.error}';
 
     return ListTile(
       dense: true,

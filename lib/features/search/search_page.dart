@@ -107,7 +107,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               title: Text(item.title),
                               subtitle: Text(
                                 item.reason.isNotEmpty
-                                    ? '${item.snippet}\n命中理由：${item.reason}'
+                                    ? '${item.snippet}\n${AppStrings.searchHitReasonPrefix}${item.reason}'
                                     : item.snippet,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
@@ -148,14 +148,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       }
       setState(() {
         _results = items;
-        _status = '本地搜索完成：${items.length} 条';
+        _status = '${AppStrings.searchLocalDonePrefix}${items.length} 条';
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _status = '本地搜索失败：$error';
+        _status = '${AppStrings.searchLocalFailPrefix}$error';
       });
     } finally {
       if (mounted) {
@@ -197,14 +197,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       setState(() {
         _results = items;
-        _status = 'AI 深度搜索完成：${items.length} 条';
+        _status = '${AppStrings.searchAiDonePrefix}${items.length} 条';
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _status = 'AI 深度搜索失败：$error';
+        _status = '${AppStrings.searchAiFailPrefix}$error';
       });
     } finally {
       if (mounted) {

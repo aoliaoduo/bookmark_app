@@ -35,7 +35,6 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
   final BookmarkTitleFetcher _bookmarkFetcher = BookmarkTitleFetcher();
   final Set<String> _todoUpdatingIds = <String>{};
   final Set<String> _selectedBookmarkIds = <String>{};
-  List<BookmarkListItem> _bookmarkSnapshot = const <BookmarkListItem>[];
 
   late final AnimationController _fadeController;
 
@@ -173,11 +172,6 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                     pageLoader: (int page, int pageSize) => repository
                         .listBookmarks(page: page, pageSize: pageSize),
                     emptyText: AppStrings.emptyBookmarks,
-                    onItemsSnapshot: (List<BookmarkListItem> items) {
-                      setState(() {
-                        _bookmarkSnapshot = items;
-                      });
-                    },
                     itemBuilder: (BuildContext context, BookmarkListItem item) {
                       return _BookmarkTile(
                         item: item,
@@ -289,9 +283,6 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
   }
 
   Future<void> _selectAllBookmarks(LibraryRepository repository) async {
-    if (_bookmarkSnapshot.isEmpty) {
-      return;
-    }
     try {
       final List<String> ids = await repository.listAllBookmarkIds();
       if (!mounted) {
@@ -484,7 +475,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                               config: cfg,
                               model: cfg.selectedModel,
                               systemPrompt:
-                                  '${AiPrompts.routerSystemPrompt}\\n你现在只做笔记整理，输出 Markdown 正文。',
+                                  '${AiPrompts.routerSystemPrompt}\n'
+                                  '你现在只做笔记整理，请输出 Markdown 正文，不要输出代码围栏。',
                               userPrompt: detail.rawText,
                               maxTokens: 1200,
                             );

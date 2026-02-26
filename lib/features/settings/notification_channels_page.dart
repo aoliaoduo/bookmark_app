@@ -104,7 +104,7 @@ class _NotificationChannelsPageState
           const SizedBox(height: 8),
           TextField(
             controller: _feishuSecretController,
-            decoration: const InputDecoration(labelText: '签名 Secret(可选)'),
+            decoration: const InputDecoration(labelText: '签名 Secret（可选）'),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -164,14 +164,14 @@ class _NotificationChannelsPageState
           ),
           TextField(
             controller: _smtpUserController,
-            decoration: const InputDecoration(labelText: 'Username(可选)'),
+            decoration: const InputDecoration(labelText: 'Username（可选）'),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _smtpPassController,
             obscureText: _obscureSmtpPass,
             decoration: InputDecoration(
-              labelText: 'Password(可选)',
+              labelText: 'Password（可选）',
               suffixIcon: IconButton(
                 onPressed: () {
                   setState(() {
@@ -192,7 +192,7 @@ class _NotificationChannelsPageState
           const SizedBox(height: 8),
           TextField(
             controller: _smtpToController,
-            decoration: const InputDecoration(labelText: 'To (逗号分隔)'),
+            decoration: const InputDecoration(labelText: 'To（逗号分隔）'),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -280,7 +280,7 @@ class _NotificationChannelsPageState
       await repository.saveSmtp(smtp);
       _setStatus('通知渠道配置已保存');
     } catch (error) {
-      _setStatus('保存失败: $error');
+      _setStatus('保存失败：$error');
     } finally {
       if (mounted) {
         setState(() {
@@ -299,7 +299,7 @@ class _NotificationChannelsPageState
       await queueService.sendFeishuTest();
       _setStatus('飞书测试发送成功');
     } catch (error) {
-      _setStatus('飞书测试发送失败: $error');
+      _setStatus('飞书测试发送失败：$error');
     } finally {
       if (mounted) {
         setState(() {
@@ -318,7 +318,7 @@ class _NotificationChannelsPageState
       await queueService.sendSmtpTest();
       _setStatus('SMTP 测试发送成功');
     } catch (error) {
-      _setStatus('SMTP 测试发送失败: $error');
+      _setStatus('SMTP 测试发送失败：$error');
     } finally {
       if (mounted) {
         setState(() {
@@ -355,7 +355,7 @@ class _NotificationChannelsPageState
       });
       _setStatus('队列已执行一次');
     } catch (error) {
-      _setStatus('执行失败: $error');
+      _setStatus('执行失败：$error');
     } finally {
       if (mounted) {
         setState(() {
