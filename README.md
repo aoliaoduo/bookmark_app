@@ -1,41 +1,46 @@
-﻿# AI-First Local Productivity App (M1)
+# AIOS (Windows Beta)
 
-基于 `PRD_v1.1_AI_friendly.md` 的 M1 本地可运行版本（Windows 优先）。
+AIOS 是一个本地优先的个人效率应用，当前处于 Windows Beta 阶段。
 
-## M1 已实现
-- 本地 SQLite 真源（`sqflite_common_ffi`）
-  - 已建表：`kv / inbox_drafts / tags / entity_tags / todos / notes / note_versions / bookmarks / focus_state / search_fts`
-  - 启动自检 FTS5（写入临时记录 -> `MATCH` 查询 -> 日志 `FTS5 OK` -> 清理）
-- 导航与页面结构
-  - Drawer 三入口：`收件箱 / 资料库 / 专注`
-  - 资料库顶部切换：`待办 / 笔记 / 链接`（无额外一级 Tab）
-- 资料库真实分页列表
-  - `pageSize=50`，触底加载下一页
-  - Todo 排序：`priority DESC, created_at DESC`
-  - Note 排序：`updated_at DESC`
-  - 链接排序：`updated_at DESC`
-- Debug（仅 `kDebugMode` 显示）
-  - 一键生成 1000 测试数据（700/200/100）
-  - 一键清空测试数据（不清理 `kv`，保留 `device_id/lamport`）
-- 轻量动画
-  - 资料库切换淡入
-  - 列表新增项 Fade + Size
-  - 分页底部 loading row（`加载中...`）
-- 测试
-  - DB schema/FTS
-  - Repository 分页
-  - 触底分页 widget test
-  - App shell Drawer 基础测试
+## 当前版本
+- `0.1.0-beta.1`
 
-## M1 未实现（按 PRD 分期）
-- AI Router 与统一输入执行链路
-- AI Provider（`base_url/api_key/models`）与批测
-- WebDAV 增量同步 / 云备份与恢复
-- 本地稳通知完整实现（含 Android AlarmManager）
-- 飞书/SMTP 外发通知
-- 搜索 deep 模式（多轮计划+重排）
+## 功能范围（Beta）
+- 收件箱：自然语言输入，AI 路由预览与确认落库
+- 资料库：待办/笔记/链接三段视图、详情编辑、标签结果页
+- 搜索：本地搜索 + AI 深度搜索（失败自动降级本地）
+- 专注：countdown/countup、状态持久化、Windows 通知
+- 同步/备份/通知渠道：均可在设置中配置与手动验证
 
-## 运行方式（Windows）
+## 安装（Windows）
+### Portable ZIP
+1. 下载 `AIOS-<version>-portable.zip`
+2. 解压到任意目录（建议非系统目录）
+3. 双击 `AIOS.exe` 启动
+
+### MSIX（Beta）
+1. 下载 `AIOS-<version>.msix`
+2. 按 `docs/RELEASE.md` 先导入测试证书
+3. 双击 `.msix` 安装并启动
+
+## 升级
+### Portable
+1. 退出旧版本
+2. 解压新版本到新目录（或覆盖旧目录）
+3. 启动新版本
+
+### MSIX
+1. 直接安装更高版本 `.msix`
+2. 系统自动执行应用升级
+
+## 卸载
+### Portable
+- 删除解压目录即可
+
+### MSIX
+- Windows 设置 -> 应用 -> 已安装应用 -> AIOS -> 卸载
+
+## 开发运行
 ```powershell
 cd C:\Users\aolia\Desktop\code
 flutter pub get
@@ -44,19 +49,17 @@ flutter test
 flutter run -d windows
 ```
 
-## M1 手测路径
-1. 启动应用，确认日志出现数据库初始化与 `FTS5 OK`。
-2. 打开 Drawer，确认只有 3 个一级入口：收件箱 / 资料库 / 专注。
-3. 进入资料库，顶部切换 `待办/笔记/链接`，观察中文空态文案。
-4. 打开资料库右上角调试菜单（Debug 下可见）：
-   - 点击“生成测试数据(1000)”
-   - 滚动列表到底部，确认触底分页与“加载中...”行显示/消失正常。
-5. 点击“清空测试数据”，确认列表回到空态。
+## 已知问题（Beta）
+- 切换不同网络环境时，AI Provider/同步连接可能需要手动重试
+- MSIX Beta 使用自签证书，首次安装需额外信任证书
+- 某些第三方 Provider 返回非标准 JSON 时，深度搜索会自动降级到本地搜索
 
-## 性能验收建议（M1）
-- 在 Windows Debug 模式下先执行“生成测试数据(1000)”。
-- 在 Todo 列表连续快速滚动并反复触底分页。
-- 观察是否有明显卡顿、掉帧或加载状态异常。
+## 反馈方式
+1. 打开应用：`设置 -> 关于与诊断`
+2. 点击“一键导出诊断包”（默认脱敏）
+3. 附上诊断包与复现步骤反馈
 
-## 已知限制（M1）
-- `hasMore = items.length == pageSize` 为简化策略：若最后一页恰好等于 `pageSize`，会多触发一次空加载；UI 可正确收敛。
+## 发布文档
+- [RELEASE.md](docs/RELEASE.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [REGRESSION_CHECKLIST_BETA.md](docs/REGRESSION_CHECKLIST_BETA.md)（里程碑后续提交）
