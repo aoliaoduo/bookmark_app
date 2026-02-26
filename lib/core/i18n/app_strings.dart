@@ -22,7 +22,21 @@ abstract final class AppStrings {
   static const String submitSuccess = '已执行动作并落库';
   static const String inboxNeedInput = '请输入内容';
   static const String inboxNeedModel = '请先在 AI Provider 设置中选择模型';
-  static const String focusPlaceholder = '专注模块占位（M4 实现）';
+  static const String focusModeCountdown = '倒计时';
+  static const String focusModeCountup = '正计时';
+  static const String focusDurationLabel = '专注时长';
+  static const String focusMinuteUnit = '分钟';
+  static const String focusPhaseIdle = '空闲';
+  static const String focusPhaseFocus = '专注中';
+  static const String focusPhaseBreak = '休息中';
+  static const String focusStart = '开始';
+  static const String focusPause = '暂停';
+  static const String focusResume = '继续';
+  static const String focusStop = '结束';
+  static const String focusSkipBreak = '跳过休息';
+  static const String focusNotificationSelfCheck = '通知自检（10秒）';
+  static const String focusSelfCheckQueued = '已安排 10 秒后提醒';
+  static const String focusErrorPrefix = '专注状态错误：';
 
   static const String todoTab = 'Todo';
   static const String noteTab = 'Note';
