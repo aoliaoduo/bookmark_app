@@ -71,12 +71,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Row(
               children: [
                 FilledButton(
-                  onPressed: _searching ? null : _runLocalSearch,
+                  onPressed: _runLocalSearch,
                   child: const Text(AppStrings.localSearch),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
-                  onPressed: _searching ? null : _runAiDeepSearch,
+                  onPressed: _runAiDeepSearch,
                   child: const Text(AppStrings.aiDeepSearch),
                 ),
               ],
@@ -124,6 +124,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Future<void> _runLocalSearch() async {
+    if (_searching) {
+      return;
+    }
+
     final String query = _controller.text.trim();
     if (query.isEmpty) {
       return;
@@ -134,21 +138,39 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       _status = '';
     });
 
-    final List<SearchResultItem> items = await ref
-        .read(localSearchServiceProvider)
-        .search(query: query);
+    try {
+      final List<SearchResultItem> items = await ref
+          .read(localSearchServiceProvider)
+          .search(query: query);
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _results = items;
+        _status = '本地搜索完成：${items.length} 条';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _status = '本地搜索失败：$error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _searching = false;
+        });
+      }
     }
-    setState(() {
-      _results = items;
-      _searching = false;
-      _status = '本地搜索完成：${items.length} 条';
-    });
   }
 
   Future<void> _runAiDeepSearch() async {
+    if (_searching) {
+      return;
+    }
+
     final String query = _controller.text.trim();
     if (query.isEmpty) {
       return;

@@ -261,6 +261,18 @@ class LibraryRepository {
     );
   }
 
+  Future<List<String>> listAllBookmarkIds() async {
+    final List<Map<String, Object?>> rows = await database.db.rawQuery('''
+      SELECT id
+      FROM bookmarks
+      WHERE deleted = 0
+      ORDER BY updated_at DESC
+      ''');
+    return rows
+        .map((Map<String, Object?> row) => row['id']! as String)
+        .toList(growable: false);
+  }
+
   Future<void> setTodoStatus({
     required String todoId,
     required bool done,

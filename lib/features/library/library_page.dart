@@ -33,6 +33,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
       GlobalKey<LibraryTabViewState<BookmarkListItem>>();
 
   final BookmarkTitleFetcher _bookmarkFetcher = BookmarkTitleFetcher();
+  final Set<String> _todoUpdatingIds = <String>{};
   final Set<String> _selectedBookmarkIds = <String>{};
   List<BookmarkListItem> _bookmarkSnapshot = const <BookmarkListItem>[];
 
@@ -149,13 +150,9 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                     itemBuilder: (BuildContext context, TodoListItem item) {
                       return _TodoTile(
                         item: item,
-                        onToggleDone: (bool done) async {
-                          await repository.setTodoStatus(
-                            todoId: item.id,
-                            done: done,
-                          );
-                          await _todoKey.currentState?.reload();
-                        },
+                        enabled: !_todoUpdatingIds.contains(item.id),
+                        onToggleDone: (bool done) =>
+                            _toggleTodoStatus(repository, item, done),
                       );
                     },
                   ),
@@ -179,10 +176,6 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
                     onItemsSnapshot: (List<BookmarkListItem> items) {
                       setState(() {
                         _bookmarkSnapshot = items;
-                        _selectedBookmarkIds.removeWhere(
-                          (String id) =>
-                              !items.any((BookmarkListItem e) => e.id == id),
-                        );
                       });
                     },
                     itemBuilder: (BuildContext context, BookmarkListItem item) {
@@ -241,15 +234,9 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
             ),
             if (_bookmarkSelectionMode)
               OutlinedButton(
-                onPressed: _bookmarkRefreshing || _bookmarkSnapshot.isEmpty
+                onPressed: _bookmarkRefreshing
                     ? null
-                    : () {
-                        setState(() {
-                          _selectedBookmarkIds
-                            ..clear()
-                            ..addAll(_bookmarkSnapshot.map((e) => e.id));
-                        });
-                      },
+                    : () => _selectAllBookmarks(repository),
                 child: const Text(AppStrings.bookmarkSelectAll),
               ),
             if (_bookmarkSelectionMode)
@@ -298,6 +285,30 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
       messenger.showSnackBar(const SnackBar(content: Text('标题刷新成功')));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('标题刷新失败：$error')));
+    }
+  }
+
+  Future<void> _selectAllBookmarks(LibraryRepository repository) async {
+    if (_bookmarkSnapshot.isEmpty) {
+      return;
+    }
+    try {
+      final List<String> ids = await repository.listAllBookmarkIds();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedBookmarkIds
+          ..clear()
+          ..addAll(ids);
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('全选失败：$error')));
     }
   }
 
@@ -367,6 +378,45 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
     await repository.clearLibraryData();
     await _reloadAllTabs();
     messenger.showSnackBar(const SnackBar(content: Text(AppStrings.clearDone)));
+  }
+
+  Future<void> _toggleTodoStatus(
+    LibraryRepository repository,
+    TodoListItem item,
+    bool done,
+  ) async {
+    if (_todoUpdatingIds.contains(item.id)) {
+      return;
+    }
+    setState(() {
+      _todoUpdatingIds.add(item.id);
+    });
+
+    try {
+      await repository.setTodoStatus(todoId: item.id, done: done);
+      _todoKey.currentState?.patchItem(
+        match: (TodoListItem current) => current.id == item.id,
+        update: (TodoListItem current) => TodoListItem(
+          id: current.id,
+          title: current.title,
+          priority: current.priority,
+          status: done ? TodoStatusCode.done : TodoStatusCode.open,
+          tagCount: current.tagCount,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('更新待办状态失败：$error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _todoUpdatingIds.remove(item.id);
+        });
+      }
+    }
   }
 
   Future<void> _reloadAllTabs() async {
@@ -481,10 +531,15 @@ class _LibraryPageState extends ConsumerState<LibraryPage>
 }
 
 class _TodoTile extends StatelessWidget {
-  const _TodoTile({required this.item, required this.onToggleDone});
+  const _TodoTile({
+    required this.item,
+    required this.onToggleDone,
+    this.enabled = true,
+  });
 
   final TodoListItem item;
   final ValueChanged<bool> onToggleDone;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -506,7 +561,9 @@ class _TodoTile extends StatelessWidget {
       dense: true,
       leading: Checkbox(
         value: done,
-        onChanged: (bool? value) => onToggleDone(value ?? false),
+        onChanged: enabled
+            ? (bool? value) => onToggleDone(value ?? false)
+            : null,
       ),
       title: Text(
         item.title,

@@ -120,6 +120,21 @@ class LibraryTabViewState<T> extends State<LibraryTabView<T>>
     await _loadNextPage();
   }
 
+  void patchItem({
+    required bool Function(T item) match,
+    required T Function(T item) update,
+  }) {
+    final int index = _items.indexWhere(match);
+    if (index < 0) {
+      return;
+    }
+
+    setState(() {
+      _items[index] = update(_items[index]);
+    });
+    widget.onItemsSnapshot?.call(List<T>.unmodifiable(_items));
+  }
+
   void _onScroll() {
     if (!_hasMore || _isLoading) {
       return;
